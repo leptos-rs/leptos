@@ -55,7 +55,7 @@ pub fn Counters() -> impl IntoView {
             </p>
             <ul>
                 <For
-                    each=move || counters.get()
+                    each=counters
                     key=|counter| counter.0
                     children=move |(id, value)| {
                         view! { <Counter id value/> }

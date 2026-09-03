@@ -1,6 +1,6 @@
 use super::{
-    guards::{Mapped, MappedMutArc},
     ArcRwSignal, RwSignal,
+    guards::{Mapped, MappedMutArc},
 };
 use crate::{
     owner::{StoredValue, SyncStorage},

@@ -4,10 +4,10 @@ use crate::{
     no_attrs,
     prelude::{AddAnyAttr, Mountable},
     renderer::{
-        dom::{Element, Node},
         CastFrom, Rndr,
+        dom::{Element, Node},
     },
-    view::{Position, PositionState, Render, RenderHtml},
+    view::{Position, PositionState, Render, RenderFlags, RenderHtml},
 };
 use attribute::any_attribute::AnyAttribute;
 use std::borrow::Cow;
@@ -83,8 +83,7 @@ impl RenderHtml for Doctype {
         self,
         buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str("<!DOCTYPE ");
@@ -194,8 +193,7 @@ impl RenderHtml for InertElement {
         self,
         buf: &mut String,
         position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str(&self.html);

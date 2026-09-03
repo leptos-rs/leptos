@@ -1,6 +1,6 @@
 [package]
 name = "leptos_macro"
-version = "0.8.17"
+version = "0.9.0-beta"
 authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
@@ -33,6 +33,11 @@ uuid = { features = ["v4"], workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
+# `span-locations` lets the diagnostics locality tests map a recorded span back
+# to its line/column in the source string.
+proc-macro2 = { workspace = true, default-features = true, features = [
+  "span-locations",
+] }
 log = { workspace = true, default-features = true }
 typed-builder = { workspace = true, default-features = true }
 trybuild = { workspace = true, default-features = true }

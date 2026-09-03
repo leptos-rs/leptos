@@ -64,7 +64,7 @@ impl<T> Eq for ArcStoredValue<T> {}
 
 impl<T> Hash for ArcStoredValue<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::ptr::hash(&Arc::as_ptr(&self.value), state);
+        std::ptr::hash(Arc::as_ptr(&self.value), state);
     }
 }
 

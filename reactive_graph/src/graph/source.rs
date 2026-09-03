@@ -1,4 +1,4 @@
-use super::{node::ReactiveNode, AnySubscriber};
+use super::{AnySubscriber, node::ReactiveNode};
 use crate::traits::{DefinedAt, IsDisposed};
 use core::{fmt::Debug, hash::Hash};
 use std::{panic::Location, sync::Weak};

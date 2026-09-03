@@ -1,0 +1,5 @@
+error: `path!` expects a string literal, e.g. `path!("/users/:id")`
+ --> tests/ui/non_literal_token.rs:6:19
+  |
+6 |     let _ = path!(ROUTE);
+  |                   ^^^^^

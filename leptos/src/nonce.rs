@@ -169,11 +169,10 @@ impl Nonce {
     /// Generates a new nonce from 16 bytes (128 bits) of random data.
     pub fn new() -> Self {
         use base64::{
-            alphabet,
+            Engine as _, alphabet,
             engine::{self, general_purpose},
-            Engine as _,
         };
-        use rand::{rng, RngCore as _};
+        use rand::{Rng as _, rng};
         const NONCE_ENGINE: engine::GeneralPurpose =
             engine::GeneralPurpose::new(
                 &alphabet::URL_SAFE,

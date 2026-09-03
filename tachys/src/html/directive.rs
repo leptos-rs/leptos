@@ -1,10 +1,10 @@
 use super::attribute::{
-    maybe_next_attr_erasure_macros::next_attr_output_type, Attribute,
-    NextAttribute,
+    Attribute, NextAttribute,
+    maybe_next_attr_erasure_macros::next_attr_output_type,
 };
 use crate::{
     html::attribute::{
-        maybe_next_attr_erasure_macros::next_attr_combine, NamedAttributeKey,
+        NamedAttributeKey, maybe_next_attr_erasure_macros::next_attr_combine,
     },
     prelude::AddAnyAttr,
     view::{Position, ToTemplate},

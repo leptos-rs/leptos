@@ -21,3 +21,33 @@ pub async fn click_button(client: &Client, id: &str) -> Result<()> {
     btn.click().await?;
     Ok(())
 }
+
+/// Simulates a network failure for lazily loaded WASM chunks by shimming
+/// `window.fetch` to reject requests for `.wasm` files while blocking is
+/// enabled. The main bundle is unaffected: it has already been loaded by the
+/// time this runs, and everything that isn't a `.wasm` request passes through.
+pub async fn set_wasm_chunks_blocked(client: &Client, blocked: bool) -> Result<()> {
+    client
+        .execute(
+            r#"
+            const [blocked] = arguments;
+            if (!window.__realFetch) {
+                window.__realFetch = window.fetch;
+                window.fetch = function (input, init) {
+                    const url =
+                        typeof input === "string" ? input : input.url || String(input);
+                    if (window.__blockWasmChunks && url.split("?")[0].endsWith(".wasm")) {
+                        return Promise.reject(
+                            new TypeError("simulated network failure: " + url)
+                        );
+                    }
+                    return window.__realFetch.apply(this, arguments);
+                };
+            }
+            window.__blockWasmChunks = blocked;
+            "#,
+            vec![serde_json::Value::Bool(blocked)],
+        )
+        .await?;
+    Ok(())
+}

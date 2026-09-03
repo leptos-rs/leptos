@@ -1,7 +1,7 @@
 #![allow(clippy::type_complexity)]
 use crate::{
-    matching::any_choose_view::AnyChooseView, ChooseView, MatchInterface,
-    MatchParams, RouteMatchId,
+    ChooseView, MatchInterface, MatchParams, RouteMatchId,
+    matching::any_choose_view::AnyChooseView,
 };
 use std::{borrow::Cow, fmt::Debug};
 use tachys::erased::ErasedLocal;

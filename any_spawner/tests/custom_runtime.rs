@@ -11,8 +11,8 @@ fn can_create_custom_executor() {
     use std::{
         cell::RefCell,
         sync::{
-            atomic::{AtomicUsize, Ordering},
             Arc,
+            atomic::{AtomicUsize, Ordering},
         },
     };
 

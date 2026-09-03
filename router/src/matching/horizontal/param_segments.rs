@@ -8,7 +8,7 @@ use std::borrow::Cow;
 /// ```rust
 /// # (|| -> Option<()> { // Option does not impl Terminate, so no main
 /// use leptos::prelude::*;
-/// use leptos_router::{path, ParamSegment, PossibleRouteMatch};
+/// use leptos_router::{ParamSegment, PossibleRouteMatch, path};
 ///
 /// let path = &"/hello";
 ///
@@ -40,36 +40,29 @@ impl PossibleRouteMatch for ParamSegment {
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched_len = 0;
-        let mut param_offset = 0;
-        let mut param_len = 0;
-        let mut test = path.chars();
-
-        // match an initial /
-        if let Some('/') = test.next() {
-            matched_len += 1;
-            param_offset = 1;
+        let bytes = path.as_bytes();
+        let has_leading_slash = bytes.first() == Some(&b'/');
+        if !has_leading_slash && !path.is_empty() {
+            return None;
         }
-        for char in test {
-            // when we get a closing /, stop matching
-            if char == '/' {
-                break;
-            }
-            // otherwise, push into the matched param
-            else {
-                matched_len += char.len_utf8();
-                param_len += char.len_utf8();
-            }
-        }
+        let offset = usize::from(has_leading_slash);
+        // the param ends at the next `/`; `/` is ASCII, so scanning bytes is
+        // equivalent to scanning chars without the UTF-8 decoding
+        let param_len = bytes[offset..]
+            .iter()
+            .position(|&byte| byte == b'/')
+            .unwrap_or(bytes.len() - offset);
+        let matched_len = offset + param_len;
 
-        if matched_len == 0 || (matched_len == 1 && path.starts_with('/')) {
+        if matched_len == 0 || (matched_len == 1 && has_leading_slash) {
             return None;
         }
 
+        debug_assert!(path.is_char_boundary(matched_len));
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = vec![(
             Cow::Borrowed(self.0),
-            path[param_offset..param_len + param_offset].to_string(),
+            path[offset..param_len + offset].to_string(),
         )];
         Some(PartialPathMatch::new(remaining, param_value, matched))
     }
@@ -87,7 +80,7 @@ impl PossibleRouteMatch for ParamSegment {
 /// # (|| -> Option<()> { // Option does not impl Terminate, so no main
 /// use leptos::prelude::*;
 /// use leptos_router::{
-///     path, ParamSegment, PossibleRouteMatch, StaticSegment, WildcardSegment,
+///     ParamSegment, PossibleRouteMatch, StaticSegment, WildcardSegment, path,
 /// };
 ///
 /// let path = &"/echo/send/sync/and/static";
@@ -130,25 +123,22 @@ impl PossibleRouteMatch for WildcardSegment {
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched_len = 0;
-        let mut param_offset = 0;
-        let mut param_len = 0;
-        let mut test = path.chars();
-
-        // match an initial /
-        if let Some('/') = test.next() {
-            matched_len += 1;
-            param_offset += 1;
+        let bytes = path.as_bytes();
+        let has_leading_slash = bytes.first() == Some(&b'/');
+        if !has_leading_slash && !path.is_empty() {
+            return None;
         }
-        for char in test {
-            matched_len += char.len_utf8();
-            param_len += char.len_utf8();
-        }
+        let offset = usize::from(has_leading_slash);
+        // the wildcard consumes the entire remaining path, so no scan is
+        // needed at all
+        let param_len = bytes.len() - offset;
+        let matched_len = offset + param_len;
 
+        debug_assert!(path.is_char_boundary(matched_len));
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = iter::once((
             Cow::Borrowed(self.0),
-            path[param_offset..param_len + param_offset].to_string(),
+            path[offset..param_len + offset].to_string(),
         ));
         Some(PartialPathMatch::new(
             remaining,
@@ -171,39 +161,32 @@ impl PossibleRouteMatch for OptionalParamSegment {
     }
 
     fn test<'a>(&self, path: &'a str) -> Option<PartialPathMatch<'a>> {
-        let mut matched_len = 0;
-        let mut param_offset = 0;
-        let mut param_len = 0;
-        let mut test = path.chars();
-
-        // match an initial /
-        if let Some('/') = test.next() {
-            matched_len += 1;
-            param_offset = 1;
+        let bytes = path.as_bytes();
+        let has_leading_slash = bytes.first() == Some(&b'/');
+        if !has_leading_slash && !path.is_empty() {
+            return Some(PartialPathMatch::new(path, Vec::new(), ""));
         }
-        for char in test {
-            // when we get a closing /, stop matching
-            if char == '/' {
-                break;
-            }
-            // otherwise, push into the matched param
-            else {
-                matched_len += char.len_utf8();
-                param_len += char.len_utf8();
-            }
-        }
+        let offset = usize::from(has_leading_slash);
+        // the param ends at the next `/`; `/` is ASCII, so scanning bytes is
+        // equivalent to scanning chars without the UTF-8 decoding
+        let param_len = bytes[offset..]
+            .iter()
+            .position(|&byte| byte == b'/')
+            .unwrap_or(bytes.len() - offset);
+        let matched_len = offset + param_len;
 
-        let matched_len = if matched_len == 1 && path.starts_with('/') {
+        let matched_len = if matched_len == 1 && has_leading_slash {
             0
         } else {
             matched_len
         };
+        debug_assert!(path.is_char_boundary(matched_len));
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = (matched_len > 0)
             .then(|| {
                 (
                     Cow::Borrowed(self.0),
-                    path[param_offset..param_len + param_offset].to_string(),
+                    path[offset..param_len + offset].to_string(),
                 )
             })
             .into_iter()
@@ -255,6 +238,89 @@ mod tests {
         let params = matched.params();
         assert_eq!(params[0], ("a".into(), "foo".into()));
         assert_eq!(params[1], ("b".into(), "bar".into()));
+    }
+
+    #[test]
+    fn multi_byte_param_match() {
+        let path = "/日本語/x";
+        let def = ParamSegment("a");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/日本語");
+        assert_eq!(matched.remaining(), "/x");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "日本語".into()));
+    }
+
+    #[test]
+    fn multi_byte_wildcard_match() {
+        let path = "/日本語/x";
+        let def = WildcardSegment("rest");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/日本語/x");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("rest".into(), "日本語/x".into()));
+    }
+
+    #[test]
+    fn multi_byte_optional_param_match() {
+        let path = "/héllo";
+        let def = OptionalParamSegment("a");
+        let matched = def.test(path).expect("couldn't match route");
+        assert_eq!(matched.matched(), "/héllo");
+        assert_eq!(matched.remaining(), "");
+        let params = matched.params();
+        assert_eq!(params[0], ("a".into(), "héllo".into()));
+    }
+
+    #[test]
+    fn non_slash_multi_byte_param_does_not_match() {
+        let def = ParamSegment("a");
+        for path in ["éx", "日本語"] {
+            assert!(def.test(path).is_none());
+        }
+    }
+
+    #[test]
+    fn non_slash_multi_byte_wildcard_does_not_match() {
+        let def = WildcardSegment("rest");
+        for path in ["éx", "日本語"] {
+            assert!(def.test(path).is_none());
+        }
+    }
+
+    #[test]
+    fn non_slash_multi_byte_optional_param_matches_nothing() {
+        let def = OptionalParamSegment("a");
+        for path in ["éx", "日本語"] {
+            let matched = def.test(path).expect("couldn't match route");
+            assert_eq!(matched.matched(), "");
+            assert_eq!(matched.remaining(), path);
+            assert!(matched.params().is_empty());
+        }
+    }
+
+    #[test]
+    fn non_slash_ascii_param_segments_do_not_match() {
+        assert!(ParamSegment("a").test("abc").is_none());
+        assert!(WildcardSegment("rest").test("abc").is_none());
+    }
+
+    #[test]
+    fn leading_slash_multi_byte_segments_match_fully() {
+        let path = "/é";
+        for matched in [
+            ParamSegment("a").test(path).expect("couldn't match route"),
+            WildcardSegment("rest")
+                .test(path)
+                .expect("couldn't match route"),
+            OptionalParamSegment("a")
+                .test(path)
+                .expect("couldn't match route"),
+        ] {
+            assert_eq!(matched.matched(), path);
+            assert_eq!(matched.remaining(), "");
+        }
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use crate::{
     html::attribute::{
-        maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
-        NamedAttributeKey,
+        Attribute, NamedAttributeKey,
+        maybe_next_attr_erasure_macros::next_attr_combine,
     },
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
@@ -69,7 +69,6 @@ impl<E, T> Targeted<E, T> {
     pub fn target(&self) -> T
     where
         T: CastFrom<crate::renderer::types::Element>,
-
         crate::renderer::types::Event: From<E>,
         E: Clone,
     {
@@ -129,7 +128,6 @@ where
         + 'static,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-
     E::EventType: From<crate::renderer::types::Event>,
 {
     on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
@@ -268,7 +266,6 @@ where
     F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-
     E::EventType: From<crate::renderer::types::Event>,
 {
     const MIN_LENGTH: usize = 0;
@@ -322,10 +319,10 @@ where
     #[inline(always)]
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev_cleanup) = state;
-        if let Some(prev) = prev_cleanup.take() {
-            if let Some(remove) = prev.into_inner() {
-                remove();
-            }
+        if let Some(prev) = prev_cleanup.take()
+            && let Some(remove) = prev.into_inner()
+        {
+            remove();
         }
         *prev_cleanup = Some(if E::CAPTURE {
             self.attach_capture(el)
@@ -368,7 +365,6 @@ where
     F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-
     E::EventType: From<crate::renderer::types::Event>,
 {
     next_attr_output_type!(Self, NewAttr);
@@ -608,7 +604,7 @@ generate_event_types! {
   animation start: AnimationEvent,
   aux click: MouseEvent,
   before input: InputEvent,
-  before toggle: Event, // web_sys does not include `ToggleEvent`
+  before toggle: ToggleEvent,
   #[does_not_bubble]
   blur: FocusEvent,
   #[does_not_bubble]
@@ -719,7 +715,7 @@ generate_event_types! {
   #[does_not_bubble]
   time update: Event,
   #[does_not_bubble]
-  toggle: Event,
+  toggle: ToggleEvent,
   touch cancel: TouchEvent,
   touch end: TouchEvent,
   touch move: TouchEvent,
@@ -771,7 +767,7 @@ generate_event_types! {
 // Export `web_sys` event types
 use super::{
     attribute::{
-        maybe_next_attr_erasure_macros::next_attr_output_type, NextAttribute,
+        NextAttribute, maybe_next_attr_erasure_macros::next_attr_output_type,
     },
     element::HasElementType,
 };

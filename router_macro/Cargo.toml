@@ -1,6 +1,6 @@
 [package]
 name = "leptos_router_macro"
-version = "0.8.6"
+version = "0.9.0-beta"
 authors = ["Greg Johnston", "Ben Wishovich"]
 license = "MIT"
 readme = "../README.md"
@@ -22,6 +22,7 @@ syn = { features = ["full"], workspace = true, default-features = true }
 leptos = { path = "../leptos" }
 leptos_router = { path = "../router" }
 leptos_macro = { path = "../leptos_macro" }
+trybuild = { workspace = true, default-features = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

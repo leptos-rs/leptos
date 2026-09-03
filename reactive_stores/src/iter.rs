@@ -1,13 +1,13 @@
 use crate::{
+    KeyMap, StoreFieldTrigger,
     len::Len,
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
-    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::{
-        guards::{MappedMutArc, WriteGuard},
         ArcTrigger,
+        guards::{MappedMutArc, WriteGuard},
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
@@ -65,13 +65,13 @@ impl<Inner, Prev> AtIndex<Inner, Prev> {
 impl<Inner, Prev> StoreField for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Value = Prev>,
-    Prev: IndexMut<usize> + 'static,
+    Prev: IndexMut<usize> + Len + 'static,
     Prev::Output: Sized,
 {
     type Value = Prev::Output;
     type Reader = MappedMutArc<Inner::Reader, Prev::Output>;
     type Writer =
-        MappedMutArc<WriteGuard<ArcTrigger, Inner::Writer>, Prev::Output>;
+        MappedMutArc<WriteGuard<Vec<ArcTrigger>, Inner::Writer>, Prev::Output>;
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
         self.inner
@@ -98,6 +98,13 @@ where
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
         let index = self.index;
+        // The reader holds the inner lock for its whole lifetime, so the
+        // length cannot change before the (lazy) projection runs on deref.
+        // Bail out with `None` if the index is out of bounds, instead of
+        // handing back a guard that panics when first dereferenced.
+        if index >= inner.len() {
+            return None;
+        }
         Some(MappedMutArc::new(
             inner,
             move |n| &n[index],
@@ -106,9 +113,16 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        let inner = WriteGuard::new(trigger.children, self.inner.writer()?);
+        let mut parent = self.inner.writer()?;
+        parent.untrack();
+        let triggers = self.triggers_for_current_path();
+        let inner = WriteGuard::new(triggers, parent);
         let index = self.index;
+        // See `reader`: the write guard holds the inner lock, so a single
+        // bounds check here is sufficient to keep the projection panic-free.
+        if index >= inner.len() {
+            return None;
+        }
         Some(MappedMutArc::new(
             inner,
             move |n| &n[index],
@@ -167,7 +181,7 @@ where
 impl<Inner, Prev> Notify for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Value = Prev>,
-    Prev: IndexMut<usize> + 'static,
+    Prev: IndexMut<usize> + Len + 'static,
     Prev::Output: Sized,
 {
     fn notify(&self) {
@@ -179,7 +193,7 @@ where
 impl<Inner, Prev> Track for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Value = Prev> + Send + Sync + Clone + 'static,
-    Prev: IndexMut<usize> + 'static,
+    Prev: IndexMut<usize> + Len + 'static,
     Prev::Output: Sized + 'static,
 {
     fn track(&self) {
@@ -190,7 +204,7 @@ where
 impl<Inner, Prev> ReadUntracked for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Value = Prev>,
-    Prev: IndexMut<usize> + 'static,
+    Prev: IndexMut<usize> + Len + 'static,
     Prev::Output: Sized,
 {
     type Value = <Self as StoreField>::Reader;
@@ -203,7 +217,7 @@ where
 impl<Inner, Prev> Write for AtIndex<Inner, Prev>
 where
     Inner: StoreField<Value = Prev>,
-    Prev: IndexMut<usize> + 'static,
+    Prev: IndexMut<usize> + Len + 'static,
     Prev::Output: Sized + 'static,
 {
     type Value = Prev::Output;
@@ -306,5 +320,54 @@ where
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{self as reactive_stores, AtIndex, Store};
+    use reactive_graph::{
+        owner::Owner,
+        traits::{ReadUntracked, Write},
+    };
+
+    #[derive(Default, reactive_stores_macro::Store)]
+    struct State {
+        items: Vec<i32>,
+    }
+
+    #[test]
+    fn out_of_bounds_index_reads_as_none_without_panicking() {
+        let owner = Owner::new();
+        owner.set();
+
+        let store = Store::new(State {
+            items: vec![1, 2, 3],
+        });
+
+        // an index that has never been valid
+        let at = AtIndex::new(store.items(), 5);
+        let guard = at.try_read_untracked();
+        assert!(guard.is_none());
+        // forcing the (lazy) projection must not panic
+        assert!(guard.map(|g| *g).is_none());
+
+        // an index that was valid at construction but is shrunk away before read
+        let at = AtIndex::new(store.items(), 2);
+        store.items().write().clear();
+        assert!(at.try_read_untracked().is_none());
+    }
+
+    #[test]
+    fn in_bounds_index_still_reads() {
+        let owner = Owner::new();
+        owner.set();
+
+        let store = Store::new(State {
+            items: vec![10, 20, 30],
+        });
+        let at = AtIndex::new(store.items(), 1);
+        let guard = at.try_read_untracked().expect("index 1 is in bounds");
+        assert_eq!(*guard, 20);
     }
 }

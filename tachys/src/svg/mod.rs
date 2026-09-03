@@ -1,15 +1,15 @@
 use crate::{
     html::{
-        attribute::{any_attribute::AnyAttribute, Attribute},
+        attribute::{Attribute, any_attribute::AnyAttribute},
         element::{ElementType, ElementWithChildren, HtmlElement},
     },
     hydration::Cursor,
     prelude::{AddAnyAttr, Mountable},
     renderer::{
-        dom::{Element, Node},
         CastFrom, Rndr,
+        dom::{Element, Node},
     },
-    view::{Position, PositionState, Render, RenderHtml},
+    view::{Position, PositionState, Render, RenderFlags, RenderHtml},
 };
 use std::{borrow::Cow, fmt::Debug};
 
@@ -283,8 +283,7 @@ impl RenderHtml for InertElement {
         self,
         buf: &mut String,
         position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         buf.push_str(&self.html);

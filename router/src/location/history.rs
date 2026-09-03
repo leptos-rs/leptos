@@ -1,8 +1,8 @@
-use super::{handle_anchor_click, LocationChange, LocationProvider, Url};
+use super::{LocationChange, LocationProvider, Url, handle_anchor_click};
 use crate::{hooks::use_navigate, params::ParamsMap};
 use core::fmt;
 use futures::channel::oneshot;
-use js_sys::{try_iter, Array, JsString};
+use js_sys::{Array, JsString, try_iter};
 use leptos::{ev, prelude::*};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
@@ -34,17 +34,17 @@ impl fmt::Debug for BrowserUrl {
 
 impl BrowserUrl {
     fn scroll_to_el(loc_scroll: bool) {
-        if let Ok(hash) = window().location().hash() {
-            if !hash.is_empty() {
-                let hash = js_sys::decode_uri(&hash[1..])
-                    .ok()
-                    .and_then(|decoded| decoded.as_string())
-                    .unwrap_or(hash);
-                let el = document().get_element_by_id(&hash);
-                if let Some(el) = el {
-                    el.scroll_into_view();
-                    return;
-                }
+        if let Ok(hash) = window().location().hash()
+            && !hash.is_empty()
+        {
+            let hash = js_sys::decode_uri(&hash[1..])
+                .ok()
+                .and_then(|decoded| decoded.as_string())
+                .unwrap_or(hash);
+            let el = document().get_element_by_id(&hash);
+            if let Some(el) = el {
+                el.scroll_into_view();
+                return;
             }
         }
 
@@ -259,7 +259,7 @@ impl LocationProvider for BrowserUrl {
         if url.origin() == current_origin {
             let navigate = navigate.clone();
             // delay by a tick here, so that the Action updates *before* the redirect
-            request_animation_frame(move || {
+            _ = request_animation_frame(move || {
                 navigate(&url.href(), Default::default());
             });
             // Use set_href() if the conditions for client-side navigation were not satisfied
@@ -276,19 +276,19 @@ impl LocationProvider for BrowserUrl {
 fn search_params_from_web_url(
     params: &web_sys::UrlSearchParams,
 ) -> Result<ParamsMap, JsValue> {
-    try_iter(params)?
-        .into_iter()
-        .flatten()
-        .map(|pair| {
-            pair.and_then(|pair| {
-                let row = pair.dyn_into::<Array>()?;
-                Ok((
-                    String::from(row.get(0).dyn_into::<JsString>()?),
-                    String::from(row.get(1).dyn_into::<JsString>()?),
-                ))
-            })
-        })
-        .collect()
+    // `URLSearchParams` already percent-decodes its entries, so insert them
+    // as-is. Routing them through `ParamsMap::insert`/`FromIterator` would
+    // decode a second time and corrupt any literal `%xx` sequence, which would
+    // also diverge from the server-side `RequestUrl` parse and break hydration.
+    let mut map = ParamsMap::new();
+    for pair in try_iter(params)?.into_iter().flatten() {
+        let pair = pair?;
+        let row = pair.dyn_into::<Array>()?;
+        let key = String::from(row.get(0).dyn_into::<JsString>()?);
+        let value = String::from(row.get(1).dyn_into::<JsString>()?);
+        map.insert_decoded(key, value);
+    }
+    Ok(map)
 }
 
 /// Resolves a redirect location to an (absolute) URL.

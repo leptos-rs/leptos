@@ -124,7 +124,6 @@ macro_rules! property_reactive {
     };
 }
 
-#[cfg(not(all(feature = "nightly", rustc_nightly)))]
 mod stable {
     use crate::html::property::IntoProperty;
     #[allow(deprecated)]
@@ -212,7 +211,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     property_reactive!(
@@ -223,7 +222,7 @@ mod reactive_stores {
         Prev: Send + Sync + 'static,
         Inner: Send + Sync + Clone + 'static,
         K: Send + Sync + std::fmt::Debug + Clone + 'static,
-        for<'a> &'a V: IntoIterator,
+        V: reactive_stores::KeyedIterable,
     );
 
     property_reactive!(

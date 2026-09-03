@@ -2,17 +2,17 @@ use crate::{
     dom::{event_target_checked, event_target_value},
     html::{
         attribute::{
+            Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
+            NextAttribute,
             maybe_next_attr_erasure_macros::{
                 next_attr_combine, next_attr_output_type,
             },
-            Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
-            NextAttribute,
         },
         event::{change, input, on},
-        property::{prop, IntoProperty},
+        property::{IntoProperty, prop},
     },
     prelude::AddAnyAttr,
-    renderer::{types::Element, RemoveEventHandler},
+    renderer::{RemoveEventHandler, types::Element},
     view::{Position, ToTemplate},
 };
 use reactive_graph::{
@@ -257,10 +257,10 @@ where
         let signal = self.read_signal(el);
         prop(self.key(), signal).rebuild(attr_state);
 
-        if let Some(prev) = prev_cleanup.take() {
-            if let Some(remove) = prev.into_inner() {
-                remove();
-            }
+        if let Some(prev) = prev_cleanup.take()
+            && let Some(remove) = prev.into_inner()
+        {
+            remove();
         }
         *prev_cleanup = Some(self.attach(el));
     }
@@ -395,8 +395,8 @@ where
 #[cfg(feature = "reactive_stores")]
 impl<Inner, Prev, K, T> IntoSplitSignal for KeyedSubfield<Inner, Prev, K, T>
 where
+    T: reactive_stores::KeyedIterable,
     Self: Get<Value = T> + Set<Value = T> + Clone,
-    for<'a> &'a T: IntoIterator,
 {
     type Value = T;
     type Read = Self;
@@ -410,8 +410,8 @@ where
 #[cfg(feature = "reactive_stores")]
 impl<Inner, Prev, K, T> IntoSplitSignal for AtKeyed<Inner, Prev, K, T>
 where
+    T: reactive_stores::KeyedIterable,
     Self: Get<Value = T> + Set<Value = T> + Clone,
-    for<'a> &'a T: IntoIterator,
 {
     type Value = T;
     type Read = Self;

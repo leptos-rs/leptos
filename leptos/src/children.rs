@@ -4,9 +4,9 @@ use std::{
     sync::Arc,
 };
 use tachys::view::{
+    RenderHtml,
     any_view::{AnyView, IntoAny},
     fragment::{Fragment, IntoFragment},
-    RenderHtml,
 };
 
 /// The most common type for the `children` property on components,

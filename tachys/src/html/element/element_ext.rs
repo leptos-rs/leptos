@@ -2,7 +2,7 @@ use crate::{
     html::{
         attribute::Attribute,
         class::IntoClass,
-        event::{on, EventDescriptor},
+        event::{EventDescriptor, on},
         style::IntoStyle,
     },
     renderer::RemoveEventHandler,

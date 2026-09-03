@@ -1,0 +1,5 @@
+error: Invalid static segment: any*
+ --> tests/ui/invalid_wildcard.rs:4:19
+  |
+4 |     let _ = path!("/home/any*");
+  |                   ^^^^^^^^^^^^

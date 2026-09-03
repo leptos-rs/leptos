@@ -1,5 +1,5 @@
 use axum::extract::FromRef;
-use leptos::LeptosOptions;
+use leptos::prelude::LeptosOptions;
 use sqlx::SqlitePool;
 
 /// This takes advantage of Axum's SubStates feature by deriving FromRef. This is the only way to have more than one

@@ -136,9 +136,13 @@ where
 
     fn try_with<U>(node: NodeId, fun: impl FnOnce(&T) -> U) -> Option<U> {
         Arena::with(|arena| {
-            let m = arena.get(node);
-            m.and_then(|n| n.downcast_ref::<SendWrapper<T>>())
-                .map(|inner| fun(inner))
+            let n = arena.get(node)?.downcast_ref::<SendWrapper<T>>()?;
+            // Accessing the value from another thread would panic in the
+            // `SendWrapper` deref; the trait contract is to return `None`.
+            if !n.valid() {
+                return None;
+            }
+            Some(fun(n))
         })
     }
 
@@ -147,27 +151,42 @@ where
         fun: impl FnOnce(&mut T) -> U,
     ) -> Option<U> {
         Arena::with_mut(|arena| {
-            let m = arena.get_mut(node);
-            m.and_then(|n| n.downcast_mut::<SendWrapper<T>>())
-                .map(|inner| fun(&mut *inner))
+            let n = arena.get_mut(node)?.downcast_mut::<SendWrapper<T>>()?;
+            if !n.valid() {
+                return None;
+            }
+            Some(fun(&mut *n))
         })
     }
 
     fn try_set(node: NodeId, value: T) -> Option<T> {
         Arena::with_mut(|arena| {
-            let m = arena.get_mut(node);
-            match m.and_then(|n| n.downcast_mut::<SendWrapper<T>>()) {
-                Some(inner) => {
+            match arena
+                .get_mut(node)
+                .and_then(|n| n.downcast_mut::<SendWrapper<T>>())
+            {
+                // Replacing the value drops the old `SendWrapper`, which would
+                // panic off-thread; only do so when accessed from its thread.
+                Some(inner) if inner.valid() => {
                     *inner = SendWrapper::new(value);
                     None
                 }
-                None => Some(value),
+                _ => Some(value),
             }
         })
     }
 
     fn take(node: NodeId) -> Option<T> {
         Arena::with_mut(|arena| {
+            // Check thread validity before removing: taking the value off its
+            // owning thread would panic, so leave the entry in place instead.
+            let valid = arena
+                .get(node)
+                .and_then(|n| n.downcast_ref::<SendWrapper<T>>())
+                .map(|inner| inner.valid());
+            if valid != Some(true) {
+                return None;
+            }
             let m = arena.remove(node)?;
             match m.downcast::<SendWrapper<T>>() {
                 Ok(inner) => Some(inner.take()),

@@ -83,9 +83,8 @@
 //!
 //! # Feature Flags
 //!
-//! - **`nightly`**: On `nightly` Rust, enables the function-call syntax for signal getters and setters.
-//!   Also enables some experimental optimizations that improve the handling of static strings and
-//!   the performance of the `template! {}` macro.
+//! - **`nightly`**: On `nightly` Rust, enables some experimental optimizations that improve the
+//!   handling of static strings and the performance of the `template! {}` macro.
 //! - **`csr`** Client-side rendering: Generate DOM nodes in the browser.
 //! - **`ssr`** Server-side rendering: Generate an HTML string (typically on the server).
 //! - **`islands`** Activates “islands mode,” in which components are not made interactive on the
@@ -187,7 +186,7 @@ pub mod prelude {
             error::{FromServerFnError, ServerFnError, ServerFnErrorErr},
         };
         pub use tachys::{
-            reactive_graph::{bind::BindAttribute, node_ref::*, Suspend},
+            reactive_graph::{Suspend, bind::BindAttribute, node_ref::*},
             view::{fragment::Fragment, template::ViewTemplate},
         };
     }
@@ -216,6 +215,9 @@ pub mod error {
     pub use crate::error_boundary::*;
     pub use throw_error::*;
 }
+
+mod lazy_view_error;
+pub use lazy_view_error::LazyViewError;
 
 /// Control-flow components like `<Show>`, `<For>`, and `<Await>`.
 pub mod control_flow {
@@ -406,10 +408,10 @@ pub fn prefetch_lazy_fn_on_server(id: &'static str) {
     use crate::context::use_context;
     use reactive_graph::traits::WriteValue;
 
-    if let Some(prefetches) = use_context::<PrefetchLazyFn>() {
-        if let Some(mut set) = prefetches.0.try_write_value() {
-            set.insert(id);
-        }
+    if let Some(prefetches) = use_context::<PrefetchLazyFn>()
+        && let Some(mut set) = prefetches.0.try_write_value()
+    {
+        set.insert(id);
     }
 }
 

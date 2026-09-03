@@ -1,12 +1,12 @@
 use super::{
-    maybe_next_attr_erasure_macros::next_attr_output_type, NextAttribute,
+    NextAttribute, maybe_next_attr_erasure_macros::next_attr_output_type,
 };
 use crate::{
     html::attribute::{
-        maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
-        AttributeValue, NamedAttributeKey,
+        Attribute, AttributeValue, NamedAttributeKey,
+        maybe_next_attr_erasure_macros::next_attr_combine,
     },
-    view::{add_attr::AddAnyAttr, Position, ToTemplate},
+    view::{Position, ToTemplate, add_attr::AddAnyAttr},
 };
 use std::{borrow::Cow, sync::Arc};
 
@@ -188,7 +188,6 @@ pub trait CustomAttribute<K, V>
 where
     K: CustomAttributeKey,
     V: AttributeValue,
-
     Self: Sized + AddAnyAttr,
 {
     /// Adds an HTML attribute by key and value.

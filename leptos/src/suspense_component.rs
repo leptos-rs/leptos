@@ -1,36 +1,37 @@
 use crate::{
+    IntoView,
     children::{TypedChildren, ViewFnOnce},
     error::ErrorBoundarySuspendedChildren,
-    IntoView,
 };
-use futures::{channel::oneshot, select, FutureExt};
+use futures::{FutureExt, channel::oneshot, future::poll_fn, select};
 use hydration_context::SerializedDataId;
 use leptos_macro::component;
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
-        suspense::{LocalResourceNotifier, SuspenseContext},
         ArcMemo, ScopedFuture,
+        suspense::{LocalResourceNotifier, SuspenseContext},
     },
     effect::RenderEffect,
-    owner::{provide_context, use_context, ArcStoredValue, Owner},
+    owner::{ArcStoredValue, Owner, provide_context, use_context},
     signal::ArcRwSignal,
-    traits::{
-        Dispose, Get, ReadUntracked, Track, With, WithUntracked, WriteValue,
-    },
+    traits::{Get, Track, With, WithUntracked, WriteValue},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    task::Poll,
+};
 use tachys::{
     either::Either,
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     reactive_graph::{OwnedView, OwnedViewState},
     ssr::StreamBuilder,
     view::{
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
         add_attr::AddAnyAttr,
         either::{EitherKeepAlive, EitherKeepAliveState},
-        Mountable, Position, PositionState, Render, RenderHtml,
     },
 };
 use throw_error::ErrorHookFuture;
@@ -99,6 +100,13 @@ pub fn Suspense<Chil>(
     /// Children will be rendered once initially to catch any resource reads, then hidden until all
     /// data have loaded.
     children: TypedChildren<Chil>,
+    /// If `true`, disables the SSR "double-check" pass that re-walks the
+    /// children after initial resources resolve in order to discover
+    /// conditional/nested resource reads. Enable this when the children body
+    /// has no conditional resource reads but does have side effects that
+    /// should not fire more than once per render.
+    #[prop(optional)]
+    strict: bool,
 ) -> impl IntoView
 where
     Chil: IntoView + Send + 'static,
@@ -118,9 +126,7 @@ where
         let fallback = fallback.run();
         let children = children.into_inner()();
         let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
-        provide_context(SuspenseContext {
-            tasks: tasks.clone(),
-        });
+        provide_context(SuspenseContext::new(tasks.clone()));
         let none_pending = ArcMemo::new({
             let tasks = tasks.clone();
             move |prev: Option<&bool>| {
@@ -142,6 +148,7 @@ where
             children,
             error_boundary_parent,
             has_tasks,
+            strict,
         })
     })
 }
@@ -165,6 +172,10 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     pub children: Chil,
     pub error_boundary_parent: Option<ErrorBoundarySuspendedChildren>,
     pub has_tasks: Arc<dyn Fn() -> bool + Send + Sync>,
+    /// If `true`, the children are only walked once to register resources.
+    /// Conditional resource reads that depend on other resources will not be
+    /// discovered, but side effects in the children body run fewer times.
+    pub strict: bool,
 }
 
 impl<const TRANSITION: bool, Fal, Chil> Render
@@ -259,6 +270,7 @@ where
             children,
             error_boundary_parent,
             has_tasks,
+            strict,
         } = self;
         SuspenseBoundary {
             id,
@@ -267,6 +279,7 @@ where
             children: children.add_any_attr(attr),
             error_boundary_parent,
             has_tasks,
+            strict,
         }
     }
 }
@@ -294,25 +307,18 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        self.fallback.to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        self.fallback
+            .to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -332,104 +338,46 @@ where
         // 1. all tasks are finished loading, or
         // 2. we read from a local resource, meaning this Suspense can never resolve on the server
 
-        // first, create listener for tasks
-        let tasks = suspense_context.tasks.clone();
-        let (tasks_tx, mut tasks_rx) =
-            futures::channel::oneshot::channel::<()>();
-
-        let mut tasks_tx = Some(tasks_tx);
-
-        // now, create listener for local resources
+        // first, create listener for local resources
         let (local_tx, mut local_rx) =
             futures::channel::oneshot::channel::<()>();
         provide_context(LocalResourceNotifier::from(local_tx));
 
-        // walk over the tree of children once to make sure that all resource loads are registered
-        self.children.dry_resolve();
         let children = Arc::new(Mutex::new(Some(self.children)));
 
-        // check the set of tasks to see if it is empty, now or later
-        let eff = reactive_graph::effect::Effect::new_isomorphic({
-            let children = Arc::clone(&children);
-            let notify_error_boundary = notify_error_boundary.clone();
-            move |double_checking: Option<bool>| {
-                // Subscribe to `tasks` before reading on every run, unless the notification
-                // has already been sent via `tasks_tx`
-                //
-                // Because dependencies are dynamic, the signal<>effect set of links is cleared
-                // on every run, it's possible for a run that reads first and subscribes second to lose
-                // a notification that fires in between on another thread. It reads a non-empty task
-                // set, the last task finishes and notifies its subscribers, but this run has not
-                // subscribed yet. This run then subscribes... but the signal won't be updated again.
-                //
-                // This is the primary source of the hangs described in a few issues
-                // - https://github.com/leptos-rs/leptos/issues/4851
-                // - https://github.com/leptos-rs/leptos/issues/4673
-                // - https://github.com/leptos-rs/leptos/pull/4698
-                //
-                // It's important not to *over*-run this effect though; `dry_resolve` walks the view tree
-                // and re-runs child closures, which can have side effects (like creating new Resources, etc.)
-                //
-                // Tracking only if the notification has not already been sent should block those spurious reruns.
-                if tasks_tx.is_some() {
-                    tasks.track();
-                }
-
-                let curr_tasks = tasks.try_read_untracked();
-
-                if let Some(curr_tasks) = curr_tasks {
-                    if curr_tasks.is_empty() {
-                        if double_checking == Some(true) {
-                            // we have finished loading, and checking the children again told us there are
-                            // no more pending tasks. so we can render both the children and the error boundary
-
-                            if let Some(tx) = tasks_tx.take() {
-                                // If the receiver has dropped, it means the ScopedFuture has already
-                                // dropped, so it doesn't matter if we manage to send this.
-                                _ = tx.send(());
-                            }
-                            if let Some(tx) =
-                                notify_error_boundary.write_value().take()
-                            {
-                                _ = tx.send(());
-                            }
-                        } else {
-                            // release the read guard on tasks, as we'll be updating it again
-                            drop(curr_tasks);
-                            // check the children for additional pending tasks
-                            // the will catch additional resource reads nested inside a conditional depending on initial resource reads
-                            if let Some(children) =
-                                children.lock().or_poisoned().as_mut()
-                            {
-                                children.dry_resolve();
-                            }
-
-                            if tasks
-                                .try_read_untracked()
-                                .map(|n| n.is_empty())
-                                .unwrap_or(false)
-                            {
-                                // there are no additional pending tasks, and we can simply return
-                                if let Some(tx) = tasks_tx.take() {
-                                    // If the receiver has dropped, it means the ScopedFuture has already
-                                    // dropped, so it doesn't matter if we manage to send this.
-                                    _ = tx.send(());
-                                }
-                                if let Some(tx) =
-                                    notify_error_boundary.write_value().take()
-                                {
-                                    _ = tx.send(());
-                                }
-                            }
-
-                            // tell ourselves that we're just double-checking
-                            return true;
+        // `tasks_ready` is a `Future` that is ready once every task registered with this
+        // `<Suspense/>` has finished.
+        let strict = self.strict;
+        let mut tasks_ready = Box::pin(
+            {
+                let suspense_context = suspense_context.clone();
+                let children = Arc::clone(&children);
+                // whether walking the tree again could reveal a resource read
+                // we haven't tracked yet
+                let mut may_reveal_more = true;
+                poll_fn(move |cx| {
+                    loop {
+                        if !suspense_context.poll_empty(cx.waker()) {
+                            return Poll::Pending;
                         }
+
+                        if !may_reveal_more {
+                            return Poll::Ready(());
+                        }
+
+                        if let Some(children) =
+                            children.lock().or_poisoned().as_mut()
+                        {
+                            children.dry_resolve();
+                        }
+
+                        may_reveal_more =
+                            !strict && !suspense_context.poll_empty(cx.waker());
                     }
-                }
-                false
+                })
             }
-        });
+            .fuse(),
+        );
 
         let mut fut = Box::pin(ScopedFuture::new(ErrorHookFuture::new(
             async move {
@@ -457,7 +405,15 @@ where
                         }
                         None
                     }
-                    _ = tasks_rx => {
+                    _ = tasks_ready => {
+                        // every task has finished, so the error boundary can
+                        // render its children too
+                        if let Some(tx) =
+                            notify_error_boundary.write_value().take()
+                        {
+                            let _ = tx.send(());
+                        }
+
                         let children = {
                             let mut children_lock = children.lock().or_poisoned();
                             children_lock.take().expect("children should not be removed until we render here")
@@ -484,9 +440,6 @@ where
                                 None
                             }
                             children = children => {
-                                // clean up the (now useless) effect
-                                eff.dispose();
-
                                 Some(OwnedView::new_with_owner(children, owner))
                             }
                         }
@@ -500,8 +453,7 @@ where
                     .to_html_async_with_buf::<OUT_OF_ORDER>(
                         buf,
                         position,
-                        escape,
-                        mark_branches,
+                        flags,
                         extra_attrs,
                     );
             }
@@ -510,8 +462,7 @@ where
                     .to_html_async_with_buf::<OUT_OF_ORDER>(
                         buf,
                         position,
-                        escape,
-                        mark_branches,
+                        flags,
                         extra_attrs,
                     );
             }
@@ -525,13 +476,13 @@ where
                     buf.push_fallback(
                         self.fallback,
                         &mut fallback_position,
-                        mark_branches,
+                        flags.mark_branches,
                         extra_attrs.clone(),
                     );
                     buf.push_async_out_of_order_with_nonce(
                         fut,
                         position,
-                        mark_branches,
+                        flags.mark_branches,
                         nonce_or_not(),
                         extra_attrs,
                     );
@@ -552,8 +503,7 @@ where
                             value.to_html_async_with_buf::<OUT_OF_ORDER>(
                                 &mut builder,
                                 &mut position,
-                                escape,
-                                mark_branches,
+                                flags,
                                 extra_attrs,
                             );
                             builder.finish().take_chunks()
@@ -674,25 +624,17 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
-        (self.0)().to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        );
+        (self.0)().to_html_with_buf(buf, position, flags, extra_attrs);
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -700,8 +642,7 @@ where
         (self.0)().to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         );
     }

@@ -1,12 +1,12 @@
 use crate::{
+    KeyMap, StoreFieldTrigger,
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
-    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::{
-        guards::{Mapped, MappedMut, WriteGuard},
         ArcTrigger,
+        guards::{Mapped, MappedMut, WriteGuard},
     },
     traits::{
         DefinedAt, Get as _, IsDisposed, Notify, ReadUntracked, Track,

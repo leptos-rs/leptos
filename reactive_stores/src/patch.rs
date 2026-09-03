@@ -1,4 +1,7 @@
-use crate::{path::StorePath, KeyMap, KeyedAccess, KeyedSubfield, StoreField};
+use crate::{
+    KeyMap, KeyedAccess, KeyedIterable, KeyedSubfield, StoreField,
+    path::StorePath,
+};
 use indexmap::IndexMap;
 use itertools::{EitherOrBoth, Itertools};
 use reactive_graph::traits::{Notify, UntrackableGuard};
@@ -9,9 +12,9 @@ use std::{
     hash::Hash,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
-        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
-        NonZeroU8, NonZeroUsize,
+        NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128,
+        NonZeroIsize, NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64,
+        NonZeroU128, NonZeroUsize,
     },
     rc::Rc,
     sync::Arc,
@@ -51,7 +54,8 @@ where
 impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Self: StoreField<Value = T>,
     <Self as StoreField>::Value: PatchFieldKeyed<K>,
     Inner: StoreField<Value = Prev>,
@@ -180,6 +184,31 @@ macro_rules! patch_primitives {
     };
 }
 
+macro_rules! patch_floats {
+    ($($ty:ty),*) => {
+        $(impl PatchField for $ty {
+            fn patch_field(
+                &mut self,
+                new: Self,
+                path: &StorePath,
+                notify: &mut dyn FnMut(&StorePath),
+                _keys: Option<&KeyMap>
+            ) {
+                // `!=` is wrong for floats: `NaN != NaN` is `true` (spurious
+                // notify on NaN -> NaN) while `+0.0 == -0.0` is `true` (no
+                // notify even though the bit pattern changed). `total_cmp`
+                // gives a strict total order with the intended semantics.
+                if new.total_cmp(self) != core::cmp::Ordering::Equal {
+                    *self = new;
+                    notify(path);
+                }
+            }
+        })*
+    };
+}
+
+patch_floats! { f32, f64 }
+
 patch_primitives! {
     &str,
     String,
@@ -198,8 +227,6 @@ patch_primitives! {
     i32,
     i64,
     i128,
-    f32,
-    f64,
     char,
     bool,
     IpAddr,
@@ -637,8 +664,12 @@ patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q);
 patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R);
 patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S);
 patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T);
-patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U);
-patch_tuple!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V);
+patch_tuple!(
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U
+);
+patch_tuple!(
+    A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V
+);
 patch_tuple!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W
 );
@@ -652,3 +683,31 @@ patch_tuple!(
     A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y,
     Z
 );
+
+#[cfg(test)]
+mod tests {
+    use super::PatchField;
+    use crate::path::StorePath;
+
+    fn notify_count<T: PatchField>(mut value: T, new: T) -> usize {
+        let path = StorePath::default();
+        let mut count = 0usize;
+        value.patch_field(new, &path, &mut |_| count += 1, None);
+        count
+    }
+
+    #[test]
+    fn patching_float_uses_total_cmp_semantics() {
+        // NaN -> NaN is the same value, so it must not notify
+        assert_eq!(notify_count(f32::NAN, f32::NAN), 0);
+        assert_eq!(notify_count(f64::NAN, f64::NAN), 0);
+
+        // +0.0 -> -0.0 is observably different, so it must notify
+        assert_eq!(notify_count(0.0f32, -0.0f32), 1);
+        assert_eq!(notify_count(0.0f64, -0.0f64), 1);
+
+        // ordinary distinct/equal values behave as expected
+        assert_eq!(notify_count(1.0f32, 2.0f32), 1);
+        assert_eq!(notify_count(1.0f64, 1.0f64), 0);
+    }
+}

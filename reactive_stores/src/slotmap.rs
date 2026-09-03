@@ -1,5 +1,37 @@
 //! SlotMap support for keyed fields based on their map types.
-use crate::KeyedAccess;
+use crate::{KeyedAccess, KeyedIterable};
+
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::SlotMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::DenseSlotMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
+#[allow(deprecated)]
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::HopSlotMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::SecondaryMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
+impl<K: slotmap::Key, V> KeyedIterable for slotmap::SparseSecondaryMap<K, V> {
+    type IterItem<'a>
+        = (K, &'a V)
+    where
+        Self: 'a;
+}
 
 impl<K: slotmap::Key, V> KeyedAccess<K> for slotmap::SlotMap<K, V> {
     type Value = V;
@@ -50,15 +82,15 @@ impl<K: slotmap::Key, V> KeyedAccess<K> for slotmap::SparseSecondaryMap<K, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, tests::tick, AtKeyed, Store};
+    use crate::{self as reactive_stores, AtKeyed, Store, tests::tick};
     use reactive_graph::{
         effect::Effect,
         traits::{GetUntracked, ReadUntracked, Set, Track, Write},
     };
     use slotmap::{DefaultKey, SlotMap};
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
 
     #[derive(Debug, Default, Store)]

@@ -1,9 +1,11 @@
-use super::{add_attr::AddAnyAttr, Position, PositionState, RenderHtml};
+use super::{
+    Position, PositionState, RenderFlags, RenderHtml, add_attr::AddAnyAttr,
+};
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     ssr::StreamBuilder,
-    view::{iterators::OptionState, Mountable, Render},
+    view::{Mountable, Render, iterators::OptionState},
 };
 use either_of::Either;
 use std::sync::Arc;
@@ -116,7 +118,6 @@ where
 impl<T, E> AddAnyAttr for Result<T, E>
 where
     T: AddAnyAttr,
-
     E: Into<AnyError> + Send + 'static,
 {
     type Output<SomeNewAttr: Attribute> =
@@ -167,19 +168,12 @@ where
         self,
         buf: &mut String,
         position: &mut super::Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Ok(inner) => {
-                inner.to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
+                inner.to_html_with_buf(buf, position, flags, extra_attrs);
             }
             Err(e) => {
                 buf.push_str("<!>");
@@ -192,8 +186,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -202,8 +195,7 @@ where
             Ok(inner) => inner.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             ),
             Err(e) => {

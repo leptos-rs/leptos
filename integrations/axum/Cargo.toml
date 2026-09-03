@@ -4,7 +4,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Axum integrations for the Leptos web framework."
-version = "0.8.10"
+version = "0.9.0-beta"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -21,6 +21,7 @@ leptos_macro = { workspace = true, features = ["axum"] }
 leptos_meta = { workspace = true, features = ["ssr", "nonce"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_integration_utils = { workspace = true }
+lru = { workspace = true, optional = true }
 tachys = { workspace = true }
 tokio = { default-features = false, workspace = true }
 tower = { features = ["util"], workspace = true, default-features = true }
@@ -30,7 +31,9 @@ or_poisoned = { workspace = true, default-features = true }
 
 [dev-dependencies]
 anyhow = { workspace = true }
-axum = { workspace = true, default-features = true }
+axum = { workspace = true, default-features = true, features = ["macros"] }
+futures = { workspace = true, default-features = true }
+http-body-util = { workspace = true, default-features = true }
 reqwest = { workspace = true }
 tempfile = { workspace = true, default-features = true }
 tokio = { features = [
@@ -44,11 +47,13 @@ tokio = { features = [
 [features]
 wasm = []
 default = [
+  "dep:lru",
   "tokio/fs",
   "tokio/sync",
   "tower-http/fs",
   "tower/util",
   "server_fn/axum",
+  "leptos_integration_utils/fs",
 ]
 islands-router = ["tachys/islands"]
 tracing = ["dep:tracing"]

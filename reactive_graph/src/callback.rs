@@ -12,9 +12,9 @@
 //! Use `SyncCallback` if the function is not `Sync` and `Send`.
 
 use crate::{
+    IntoReactiveValue,
     owner::{LocalStorage, StoredValue},
     traits::{Dispose, WithValue},
-    IntoReactiveValue,
 };
 use std::{fmt, rc::Rc, sync::Arc};
 
@@ -296,10 +296,10 @@ where
 mod tests {
     use super::Callable;
     use crate::{
+        IntoReactiveValue,
         callback::{Callback, UnsyncCallback},
         owner::Owner,
         traits::Dispose,
-        IntoReactiveValue,
     };
 
     struct NoClone {}

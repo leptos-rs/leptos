@@ -181,22 +181,38 @@ fn parses_complex() {
     );
 }
 
-// #[test]
-// fn deny_consecutive_slashes() {
-//     let _ = path!("/////foo///bar/////baz/");
-// }
-//
-// #[test]
-// fn deny_invalid_segment() {
-//     let _ = path!("/foo/^/");
-// }
-//
-// #[test]
-// fn deny_non_trailing_wildcard_segment() {
-//     let _ = path!("/home/*any/end");
-// }
-//
-// #[test]
-// fn deny_invalid_wildcard() {
-//     let _ = path!("/home/any*");
-// }
+#[test]
+fn parses_raw_string() {
+    let output = path!(r"/home");
+    assert_eq!(output, (StaticSegment("home"),));
+}
+
+#[test]
+fn parses_raw_string_with_hashes() {
+    let output = path!(r#"/home/"#);
+    assert_eq!(output, (StaticSegment("home"), StaticSegment("/")));
+}
+
+#[test]
+fn parses_raw_single_slash() {
+    let output = path!(r"/");
+    assert!(output.eq(&()));
+}
+
+#[test]
+fn parses_rfc3986_sub_delims_and_colon() {
+    let output = path!("/v1:beta/items;color=red/$5/me!/(a+b)");
+    assert_eq!(
+        output,
+        (
+            StaticSegment("v1:beta"),
+            StaticSegment("items;color=red"),
+            StaticSegment("$5"),
+            StaticSegment("me!"),
+            StaticSegment("(a+b)"),
+        )
+    );
+}
+
+// Negative cases (the macro must reject these at compile time) are covered by
+// the `trybuild` suite in `tests/ui.rs` / `tests/ui/`.

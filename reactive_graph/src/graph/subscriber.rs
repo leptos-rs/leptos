@@ -1,4 +1,4 @@
-use super::{node::ReactiveNode, AnySource};
+use super::{AnySource, node::ReactiveNode};
 #[cfg(debug_assertions)]
 use crate::diagnostics::SpecialNonReactiveZone;
 use core::{fmt::Debug, hash::Hash};
