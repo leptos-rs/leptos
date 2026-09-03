@@ -9,7 +9,7 @@
 //! - [`Callback`](reactive_graph::callback::Callback)
 //! - [`UnsyncCallback`](reactive_graph::callback::UnsyncCallback)
 //!
-//! Use `SyncCallback` if the function is not `Sync` and `Send`.
+//! Use `UnsyncCallback` if the function is not `Sync` and `Send`.
 
 use crate::{
     owner::{LocalStorage, StoredValue},
@@ -47,7 +47,7 @@ pub struct UnsyncCallback<In: 'static, Out: 'static = ()>(
 
 impl<In> fmt::Debug for UnsyncCallback<In> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        fmt.write_str("Callback")
+        fmt.write_str("UnsyncCallback")
     }
 }
 
@@ -147,7 +147,7 @@ where
 
 impl<In, Out> fmt::Debug for Callback<In, Out> {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        fmt.write_str("SyncCallback")
+        fmt.write_str("Callback")
     }
 }
 
