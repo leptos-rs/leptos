@@ -2207,7 +2207,6 @@ dependencies = [
  "leptos_router",
  "log",
  "prettyplease",
- "proc-macro-error2",
  "proc-macro2",
  "quote",
  "rstml",
@@ -2267,10 +2266,10 @@ dependencies = [
  "leptos",
  "leptos_macro",
  "leptos_router",
- "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn 2.0.114",
+ "trybuild",
 ]
 
 [[package]]
@@ -2786,7 +2785,6 @@ dependencies = [
  "proc-macro-error-attr2",
  "proc-macro2",
  "quote",
- "syn 2.0.114",
 ]
 
 [[package]]
@@ -3043,7 +3041,6 @@ name = "reactive_stores_macro"
 version = "0.4.3"
 dependencies = [
  "convert_case 0.11.0",
- "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn 2.0.114",

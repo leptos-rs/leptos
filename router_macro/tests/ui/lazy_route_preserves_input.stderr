@@ -1,0 +1,5 @@
+error: `lazy_route` can only be used on an `impl LazyRoute for ...` block
+ --> tests/ui/lazy_route_preserves_input.rs:6:1
+  |
+6 | impl Route {
+  | ^^^^
