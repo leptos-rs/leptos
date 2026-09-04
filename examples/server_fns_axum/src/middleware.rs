@@ -8,6 +8,7 @@ use std::{
 };
 use tower::{Layer, Service};
 
+#[derive(Clone)]
 pub struct LoggingLayer;
 
 impl<S> Layer<S> for LoggingLayer {
@@ -18,6 +19,7 @@ impl<S> Layer<S> for LoggingLayer {
     }
 }
 
+#[derive(Clone)]
 pub struct LoggingService<T> {
     inner: T,
 }
