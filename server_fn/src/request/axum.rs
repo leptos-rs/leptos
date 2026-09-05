@@ -83,6 +83,7 @@ where
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
             impl Sink<Bytes> + Send + 'static,
+            impl std::future::Future<Output = ()> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -95,6 +96,7 @@ where
                         std::future::Ready<Result<Bytes, Bytes>>,
                     >,
                     futures::sink::Drain<Bytes>,
+                    std::future::Pending<()>,
                     Self::WebsocketResponse,
                 ),
                 Error,
@@ -123,6 +125,8 @@ where
                 futures::channel::mpsc::channel::<Result<Bytes, Bytes>>(2048);
             let (incoming_tx, mut incoming_rx) =
                 futures::channel::mpsc::channel::<Bytes>(2048);
+            let (closed_tx, closed_rx) =
+                futures::channel::oneshot::channel::<()>();
             let response = upgrade
         .on_failed_upgrade({
             let mut outgoing_tx = outgoing_tx.clone();
@@ -130,7 +134,7 @@ where
                 _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(err.to_string())).ser().body));
             }
         })
-        .on_upgrade(|mut session| async move {
+        .on_upgrade(move |mut session| async move {
             loop {
                 futures::select! {
                     incoming = incoming_rx.next() => {
@@ -173,9 +177,10 @@ where
                 }
             }
             _ = session.send(Message::Close(None)).await;
+            drop(closed_tx);
         });
 
-            Ok((outgoing_rx, incoming_tx, response))
+            Ok((outgoing_rx, incoming_tx, closed_rx.map(|_| ()), response))
         }
     }
 }

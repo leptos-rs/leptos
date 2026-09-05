@@ -82,6 +82,7 @@ where
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
             impl Sink<Bytes> + Send + 'static,
+            impl std::future::Future<Output = ()> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -90,6 +91,7 @@ where
             (
                 futures::stream::Once<std::future::Ready<Result<Bytes, Bytes>>>,
                 futures::sink::Drain<Bytes>,
+                std::future::Pending<()>,
                 Self::WebsocketResponse,
             ),
             _,

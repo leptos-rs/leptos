@@ -353,6 +353,9 @@ where
     ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, Error>;
 
     /// Attempts to convert the body of the request into a websocket handle.
+    ///
+    /// The third tuple element resolves once the websocket connection has been
+    /// closed by either side and is used to stop forwarding output.
     #[allow(clippy::type_complexity)]
     fn try_into_websocket(
         self,
@@ -361,6 +364,7 @@ where
             (
                 impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
                 impl Sink<Bytes> + Send + 'static,
+                impl Future<Output = ()> + Send + 'static,
                 Self::WebsocketResponse,
             ),
             Error,
@@ -416,6 +420,7 @@ where
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
             impl Sink<Bytes> + Send + 'static,
+            impl Future<Output = ()> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -425,6 +430,7 @@ where
             (
                 futures::stream::Once<std::future::Ready<Result<Bytes, Bytes>>>,
                 futures::sink::Drain<Bytes>,
+                std::future::Pending<()>,
                 Self::WebsocketResponse,
             ),
             _,
