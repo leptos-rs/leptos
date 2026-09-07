@@ -111,28 +111,39 @@ where
 
     let on_submit = {
         move |ev: SubmitEvent| {
-            if ev.default_prevented() {
-                return;
-            }
-
-            ev.prevent_default();
-
-            match ServFn::from_event(&ev) {
-                Ok(new_input) => {
-                    action.dispatch(new_input);
+            // request_animation_frame here schedules this event handler to run slightly later
+            // this means that this `submit` handler will run *after* any other `submit` handlers
+            // that have been added by the user. this is useful because it means that the user can
+            // add an `on:submit` handler and call `ev.prevent_default()` to prevent the form submission
+            //
+            // without this delay, this handler will always run before the user's handler (which was added
+            // later), which means the user can't prevent the form submission in the same way
+            //
+            // see https://github.com/leptos-rs/leptos/issues/3872
+            request_animation_frame(move || {
+                if ev.default_prevented() {
+                    return;
                 }
-                Err(err) => {
-                    crate::logging::error!(
-                        "Error converting form field into server function \
-                         arguments: {err:?}"
-                    );
-                    value.set(Some(Err(ServerFnErrorErr::Serialization(
-                        err.to_string(),
-                    )
-                    .into_app_error())));
-                    version.update(|n| *n += 1);
+
+                ev.prevent_default();
+
+                match ServFn::from_event(&ev) {
+                    Ok(new_input) => {
+                        action.dispatch(new_input);
+                    }
+                    Err(err) => {
+                        crate::logging::error!(
+                            "Error converting form field into server function \
+                             arguments: {err:?}"
+                        );
+                        value.set(Some(Err(ServerFnErrorErr::Serialization(
+                            err.to_string(),
+                        )
+                        .into_app_error())));
+                        version.update(|n| *n += 1);
+                    }
                 }
-            }
+            });
         }
     };
 
