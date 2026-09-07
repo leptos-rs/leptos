@@ -284,6 +284,29 @@ fn lazy_page() -> Lazy<LazyPage> {
     Lazy::new()
 }
 
+/// A lazy layout route (see [`LazyPage`]) that renders its child.
+struct LazyLayout;
+
+fn lazy_layout() -> Lazy<LazyLayout> {
+    Lazy::new()
+}
+
+impl LazyRoute for LazyLayout {
+    fn data() -> Self {
+        LazyLayout
+    }
+
+    async fn view(_this: Self) -> AnyView {
+        lazy_gate().await;
+        view! { <span id="lazy-layout">"lazy layout"</span><Outlet/> }
+            .into_any()
+    }
+
+    async fn preload() {
+        lazy_gate().await;
+    }
+}
+
 impl LazyRoute for LazyPage {
     fn data() -> Self {
         LazyPage
@@ -399,12 +422,17 @@ fn nested_router_app() -> impl IntoView {
                     view=|| view! { <span id="parent">"parent"</span><LateGate/><Outlet/> }
                 >
                     <Route path=path!("") view=|| view! { <span id="parent-index">"index"</span> }/>
+                    <Route path=path!("lazy") view=lazy_page()/>
                     <ParentRoute
                         path=path!("child")
                         view=|| view! { <span id="child">"child"</span><Outlet/> }
                     >
                         <Route path=path!("") view=GatedPage/>
                     </ParentRoute>
+                </ParentRoute>
+                <ParentRoute path=path!("lazy-layout") view=lazy_layout()>
+                    <Route path=path!("a") view=|| view! { <span id="child-a">"a"</span> }/>
+                    <Route path=path!("b") view=|| view! { <span id="child-b">"b"</span> }/>
                 </ParentRoute>
             </Routes>
         </Router>
@@ -1905,4 +1933,181 @@ async fn boundary_created_after_the_initial_load_in_flat_routes_does_not_registe
         text_of(&wrapper, "#late #page").as_deref(),
         Some("page-data")
     );
+}
+
+/// A route built from scratch (here: from the fallback) whose load is still
+/// pending must be cancelled by a navigation that replaces it, so that load
+/// cannot install its view over the new route once it finishes.
+#[wasm_bindgen_test]
+async fn replacing_a_pending_lazy_route_built_from_the_fallback() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    navigate("/does-not-exist");
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    // a route built from scratch whose load is pending...
+    navigate("/lazy/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    // ...is replaced before that load finishes: finishing it must not
+    // install the lazy view over the new route
+    navigate("/normal");
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+}
+
+/// Same as `replacing_a_pending_lazy_route_built_from_the_fallback`, but
+/// through `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn replacing_a_pending_lazy_route_built_from_the_fallback_in_flat_routes()
+{
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    navigate("/does-not-exist");
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    // a route built from scratch whose load is pending...
+    navigate("/lazy/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    // ...is replaced before that load finishes: finishing it must not
+    // install the lazy view over the new route
+    navigate("/normal");
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+}
+
+/// A navigation that reuses a parent outlet whose load is still pending, but
+/// replaces its child, must not cancel the parent's load.
+#[wasm_bindgen_test]
+async fn replacing_a_child_keeps_the_pending_load_of_its_parent() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), nested_router_app);
+
+    tick_n(10).await;
+    navigate("/does-not-exist");
+    tick_n(10).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    // the layout and its child are built from scratch; the layout's preload
+    // is pending
+    navigate("/lazy-layout/a");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    // the child changes while the layout is still loading
+    navigate("/lazy-layout/b");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    // the layout's preload, then its view
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#lazy-layout").as_deref(),
+        Some("lazy layout"),
+        "replacing the child must not cancel the reused layout's load"
+    );
+    assert_eq!(text_of(&wrapper, "#child-b").as_deref(), Some("b"));
+    assert_eq!(text_of(&wrapper, "#child-a"), None);
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+}
+
+/// The initial load must not render its outlets over a fallback that a
+/// navigation rendered in the meantime, even if some of its preloads had
+/// already finished; and the router must keep working afterwards.
+#[wasm_bindgen_test]
+async fn initial_load_does_not_render_over_a_later_fallback() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    // mount on a layout whose own preload finishes at once, with a lazy
+    // child whose preload is pending
+    window()
+        .history()
+        .unwrap()
+        .replace_state_with_url(&JsValue::NULL, "", Some("/parent/lazy"))
+        .unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), nested_router_app);
+
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#parent"), None);
+
+    navigate("/does-not-exist");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert!(wrapper
+        .text_content()
+        .unwrap_or_default()
+        .contains("not found"));
+
+    // the initial load finishes: the fallback must stay
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert!(
+        wrapper
+            .text_content()
+            .unwrap_or_default()
+            .contains("not found"),
+        "the initial load must not render over the fallback"
+    );
+    assert_eq!(text_of(&wrapper, "#parent"), None);
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+
+    // a fresh route, then a navigation reusing its layout, still render
+    navigate("/lazy-layout/a");
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#child-a").as_deref(), Some("a"));
+    navigate("/lazy-layout/b");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#child-b").as_deref(), Some("b"));
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
 }
