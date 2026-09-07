@@ -176,6 +176,134 @@ pub mod suspense {
         }
     }
 
+    /// Tracks the `<Suspense>`/`<Transition>` boundaries built for a route
+    /// during a router navigation, so `<Router set_is_routing>` can keep
+    /// `is_routing` set until they have all settled.
+    ///
+    /// This is router plumbing shared between the router and the boundary
+    /// components, not an application-facing API. A boundary built for the
+    /// navigation registers a task at construction and releases it once it
+    /// has built its children (so nested boundaries register before their
+    /// parent releases) and has no pending tasks of its own; registering does
+    /// **not** affect what the boundary displays. The router polls the context
+    /// with [`poll_settled`](Self::poll_settled), which reports the route as
+    /// settled once every task has been released.
+    ///
+    /// The context is *closed* once the view has settled, or once the router
+    /// has replaced the view with another one: [`task`](Self::task) then
+    /// returns `None`, so boundaries created later (for example by user
+    /// interaction inside the route, which can still find the context via
+    /// `use_context`) do not register.
+    #[doc(hidden)]
+    #[derive(Clone, Debug)]
+    pub struct RouteSettleContext {
+        state: Arc<Mutex<RouteSettleState>>,
+    }
+
+    #[derive(Debug)]
+    struct RouteSettleState {
+        open: bool,
+        pending: usize,
+        wakers: Vec<Waker>,
+    }
+
+    impl Default for RouteSettleContext {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl RouteSettleContext {
+        /// Creates a new, open context with no tasks.
+        pub fn new() -> Self {
+            Self {
+                state: Arc::new(Mutex::new(RouteSettleState {
+                    open: true,
+                    pending: 0,
+                    wakers: Vec::new(),
+                })),
+            }
+        }
+
+        /// Registers a task that keeps the route "unsettled" until the returned
+        /// handle is dropped, or `None` if the context has been closed.
+        pub fn task(&self) -> Option<RouteSettleTask> {
+            let mut state = self.state.lock().or_poisoned();
+            if !state.open {
+                return None;
+            }
+            state.pending += 1;
+            Some(RouteSettleTask {
+                state: Arc::clone(&self.state),
+            })
+        }
+
+        /// Closes the context, so that [`task`](Self::task) no longer registers
+        /// anything, and wakes anyone waiting on
+        /// [`poll_settled`](Self::poll_settled). Used by the router when the
+        /// view the context belongs to is replaced before it settles; a view
+        /// that settles is closed by `poll_settled` itself.
+        pub fn close(&self) {
+            let wakers = {
+                let mut state = self.state.lock().or_poisoned();
+                state.open = false;
+                mem::take(&mut state.wakers)
+            };
+            for waker in wakers {
+                waker.wake();
+            }
+        }
+
+        /// Whether every registered task has been released, or the context has
+        /// been closed.
+        ///
+        /// Observing the route as settled and closing the context happen under
+        /// the same lock, so no task can register in between. If this returns
+        /// `false`, `waker` will be woken when the last [`RouteSettleTask`] is
+        /// dropped or the context is closed.
+        pub fn poll_settled(&self, waker: &Waker) -> bool {
+            let mut state = self.state.lock().or_poisoned();
+            if !state.open {
+                return true;
+            }
+            if state.pending == 0 {
+                state.open = false;
+                state.wakers.clear();
+                return true;
+            }
+            if !state.wakers.iter().any(|w| w.will_wake(waker)) {
+                state.wakers.push(waker.clone());
+            }
+            false
+        }
+    }
+
+    /// A task registered with a [`RouteSettleContext`]; releases itself when
+    /// dropped.
+    #[doc(hidden)]
+    #[derive(Debug)]
+    pub struct RouteSettleTask {
+        state: Arc<Mutex<RouteSettleState>>,
+    }
+
+    impl Drop for RouteSettleTask {
+        fn drop(&mut self) {
+            let wakers = {
+                let mut state = self.state.lock().or_poisoned();
+                debug_assert!(state.pending > 0);
+                state.pending = state.pending.saturating_sub(1);
+                if state.pending == 0 {
+                    mem::take(&mut state.wakers)
+                } else {
+                    Vec::new()
+                }
+            };
+            for waker in wakers {
+                waker.wake();
+            }
+        }
+    }
+
     /// A unique identifier that removes itself from the set of tasks when it is dropped.
     #[derive(Debug)]
     pub struct TaskHandle {

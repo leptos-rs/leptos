@@ -57,6 +57,16 @@ pub fn Router<Chil>(
     #[prop(optional, into)]
     base: Option<Cow<'static, str>>,
     /// A signal that will be set while the navigation process is underway.
+    ///
+    /// When set, a client-side navigation is only considered complete once
+    /// the resources the new route creates while it is chosen and built have
+    /// loaded: this includes resources read behind a `<Suspense>` or
+    /// `<Transition>` in the route (also one built later, such as a
+    /// `<ProtectedRoute>`'s content), and resources that reload because the
+    /// route's params changed. The new route's view is rendered only once the
+    /// resources created while it was chosen have loaded, so the previous
+    /// view stays visible, and the new route's own loading fallback may not
+    /// be shown, during that phase.
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
     // TODO trailing slashes
