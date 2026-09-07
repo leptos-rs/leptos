@@ -420,16 +420,22 @@ macro_rules! spawn_derived {
 
                                     let new_value = fut.await;
 
-                                    let latest_version = {
+                                    let (latest_version, pending_suspenses) = {
                                         let mut guard = inner.write().or_poisoned();
-                                        for handle in mem::take(&mut guard.pending_suspenses) {
-                                            handle.release();
-                                        }
-                                        guard.version
+                                        (guard.version, mem::take(&mut guard.pending_suspenses))
                                     };
 
                                     if latest_version == this_version {
                                         Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
+                                    }
+
+                                    // Released only once the value is stored and its
+                                    // subscribers notified: a boundary woken by the last
+                                    // release re-reads through memos on its next pass, and
+                                    // a memo notified after that wake would still answer
+                                    // with the stale value.
+                                    for handle in pending_suspenses {
+                                        handle.release();
                                     }
                                 }
                                 _ => break,
