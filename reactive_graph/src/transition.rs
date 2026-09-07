@@ -5,6 +5,7 @@ use pin_project_lite::pin_project;
 use std::{
     cell::RefCell,
     future::Future,
+    iter,
     pin::Pin,
     sync::mpsc,
     task::{Context, Poll},
@@ -65,6 +66,47 @@ impl AsyncTransition {
         value
     }
 
+    /// Runs `action` synchronously with a transition active, and returns its
+    /// value together with a future that resolves once every async resource
+    /// that started loading, or was notified that it may need to reload,
+    /// while `action` ran has finished loading.
+    ///
+    /// This is the synchronous counterpart of [`run`](Self::run): `action`
+    /// runs to completion before this returns, and only what happens inside
+    /// it is captured. A resource is captured if it is created during
+    /// `action`, or if a signal update inside `action` notifies it (for
+    /// example, a resource keyed on route params when the params change);
+    /// a notification that turns out not to need a reload is not waited for.
+    /// Work started later by effects that run because of those updates is
+    /// not captured. Dropping the returned future stops waiting, but does not
+    /// cancel the loads.
+    ///
+    /// A transition started inside another one is separate from it: what it
+    /// captures is not added to the outer transition.
+    #[must_use = "await the returned future to wait for the captured loads"]
+    pub fn track<T>(
+        action: impl FnOnce() -> T,
+    ) -> (T, impl Future<Output = ()> + Send) {
+        struct Restore(Option<TransitionInner>);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                TRANSITION.with_borrow_mut(|slot| *slot = self.0.take());
+            }
+        }
+
+        let (tx, rx) = mpsc::channel();
+        let value = {
+            let _restore = TRANSITION.with_borrow_mut(|slot| {
+                Restore(slot.replace(TransitionInner { tx }))
+            });
+            action()
+        };
+        let pending = iter::from_fn(|| rx.try_recv().ok()).collect::<Vec<_>>();
+        (value, async move {
+            join_all(pending).await;
+        })
+    }
+
     pub(crate) fn register(rx: oneshot::Receiver<()>) {
         TRANSITION.with_borrow(|current| {
             if let Some(inner) = current.as_ref() {
@@ -74,6 +116,18 @@ impl AsyncTransition {
                 _ = inner.tx.send(rx);
             }
         });
+    }
+
+    /// If a transition is active, registers a new pending load with it and
+    /// returns the sender that completes it; otherwise returns `None`.
+    pub(crate) fn register_pending() -> Option<oneshot::Sender<()>> {
+        TRANSITION.with_borrow(|current| {
+            current.as_ref().map(|inner| {
+                let (tx, rx) = oneshot::channel();
+                _ = inner.tx.send(rx);
+                tx
+            })
+        })
     }
 }
 

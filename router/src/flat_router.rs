@@ -282,10 +282,49 @@ where
 
         // if it's the same route, we just update the params
         if new_id == initial_state.id {
-            initial_state.params.set(matched_params);
-            initial_state.matched.set(matched_string);
-            if let Some(location) = location {
-                location.ready_to_complete();
+            let params = initial_state.params.clone();
+            let matched = initial_state.matched.clone();
+            // this is a navigation of its own (so an older one must not
+            // complete it), but it keeps the route instance (so an older
+            // navigation to this route may still render its view, and this
+            // navigation waits for that view to settle too)
+            let navigation_id = initial_state.navigation.wrapping_add(1);
+            initial_state.navigation = navigation_id;
+            let route_settle = initial_state.route_settle.clone();
+            drop(initial_state);
+            let update = move || {
+                params.set(matched_params);
+                matched.set(matched_string);
+            };
+            match set_is_routing {
+                // nothing is chosen or built, so hold is_routing for the
+                // resources that reload because of the new params, and for
+                // the route's view if it is still loading
+                Some(set_is_routing) => {
+                    set_is_routing.set(true);
+                    let ((), reloaded) = AsyncTransition::track(update);
+                    Executor::spawn_local({
+                        let state = Rc::clone(state);
+                        async move {
+                            reloaded.await;
+                            if let Some(route_settle) = route_settle {
+                                wait_until_route_settled(route_settle).await;
+                            }
+                            if state.borrow().navigation == navigation_id {
+                                set_is_routing.set(false);
+                                if let Some(location) = location {
+                                    location.ready_to_complete();
+                                }
+                            }
+                        }
+                    });
+                }
+                None => {
+                    update();
+                    if let Some(location) = location {
+                        location.ready_to_complete();
+                    }
+                }
             }
             return;
         }

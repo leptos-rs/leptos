@@ -709,7 +709,8 @@ impl Clone for RouteContext {
     }
 }
 
-/// Resolves once an outlet's view has been chosen during a navigation.
+/// Resolves once an outlet's view has been chosen, or a reused outlet's
+/// resources have reloaded, during a navigation.
 type FullLoader = Pin<Box<dyn Future<Output = ()>>>;
 
 /// An outlet's view together with the [`RouteSettleTask`] held for it while
@@ -1342,9 +1343,27 @@ where
 
                 // otherwise, set the params and URL signals,
                 // then just keep rebuilding recursively, checking the remaining routes in the list
-                current.matched.set(new_match);
-                current.params.set(new_params);
-                current.url.set(url.to_owned());
+                let update = {
+                    let matched = current.matched.clone();
+                    let params = current.params.clone();
+                    let current_url = current.url.clone();
+                    let url = url.to_owned();
+                    move || {
+                        matched.set(new_match);
+                        params.set(new_params);
+                        current_url.set(url);
+                    }
+                };
+                if set_is_routing {
+                    // the route is reused, so nothing is chosen or built: hold
+                    // is_routing for the resources that reload because of
+                    // the new params as well (the outlet's view, if it is
+                    // still loading, is polled like any other outlet's)
+                    let ((), reloaded) = AsyncTransition::track(update);
+                    full_loaders.push(Box::pin(reloaded));
+                } else {
+                    update();
+                }
                 if let Some(child) = child {
                     *items += 1;
                     child.rebuild_nested_route(

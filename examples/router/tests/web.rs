@@ -92,6 +92,24 @@ fn release_first_gate() {
     });
 }
 
+/// Release only the newest pending gated resource.
+fn release_last_gate() {
+    GATES.with(|g| {
+        if let Some(tx) = g.borrow_mut().pop() {
+            _ = tx.send(());
+        }
+    });
+}
+
+/// Let every pending lazy-route preload or view resolve.
+fn release_lazy_gates() {
+    LAZY_GATES.with(|g| {
+        for tx in g.borrow_mut().drain(..) {
+            _ = tx.send(());
+        }
+    });
+}
+
 /// Let every pending gated auth check resolve.
 fn release_auth_gates() {
     AUTH_GATES.with(|g| {
@@ -317,6 +335,7 @@ fn router_app() -> impl IntoView {
                 <Route path=path!("") view=|| view! { <span id="home">"home"</span> }/>
                 <Route path=path!("normal") view=GatedPage/>
                 <Route path=path!("late") view=LatePage/>
+                <Route path=path!("late/:id") view=LatePage/>
                 <Route path=path!("lazy") view=lazy_page()/>
                 <Route path=path!("lazy/:id") view=lazy_page()/>
                 <Route path=path!("items/:id") view=ParamPage/>
@@ -346,6 +365,7 @@ fn flat_router_app() -> impl IntoView {
                 <Route path=path!("") view=|| view! { <span id="home">"home"</span> }/>
                 <Route path=path!("normal") view=GatedPage/>
                 <Route path=path!("late") view=LatePage/>
+                <Route path=path!("late/:id") view=LatePage/>
                 <Route path=path!("lazy") view=lazy_page()/>
                 <Route path=path!("lazy/:id") view=lazy_page()/>
                 <Route path=path!("items/:id") view=ParamPage/>
@@ -1165,5 +1185,724 @@ async fn fresh_outlet_holds_is_routing_for_unbounded_resources() {
     assert_eq!(
         text_of(&wrapper, "#unbounded").as_deref(),
         Some("unbounded-data")
+    );
+}
+
+/// Navigating to the same route with different params reuses the route and
+/// only updates its params; `is_routing` must still be held while resources
+/// that depend on the params refetch.
+#[wasm_bindgen_test]
+async fn params_only_navigation_holds_is_routing() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    navigate("/items/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-1"));
+
+    // same route, new param: the route is reused and its resource refetches
+    navigate("/items/2");
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must hold is_routing while the reused \
+         route's resource refetches"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-2"));
+}
+
+/// Same as `params_only_navigation_holds_is_routing`, but through
+/// `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn params_only_navigation_in_flat_routes_holds_is_routing() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    navigate("/items/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-1"));
+
+    // same route, new param: the route is reused and its resource refetches
+    navigate("/items/2");
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must hold is_routing while the reused \
+         route's resource refetches"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-2"));
+}
+
+/// A params-only navigation that arrives while the route it reuses is still
+/// loading must wait for that load as well as for its own reloads.
+#[wasm_bindgen_test]
+async fn params_only_navigation_during_route_load_waits_for_it() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    navigate("/items/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    // the param resource and the unrelated one
+    assert_eq!(gate_count(), 2);
+
+    // a params-only navigation while the route is still loading
+    navigate("/items/2");
+    tick_n(20).await;
+    // the param resource reloads once its first load has finished...
+    release_first_gate();
+    tick_n(20).await;
+    assert_eq!(gate_count(), 2);
+    // ...and that reload finishes, while the unrelated resource is pending
+    release_last_gate();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must not complete while the route it reuses \
+         is still loading"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-2"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// Same as `params_only_navigation_during_route_load_waits_for_it`, but
+/// through `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn params_only_navigation_during_route_load_in_flat_routes_waits_for_it()
+{
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    navigate("/items/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    // the param resource and the unrelated one
+    assert_eq!(gate_count(), 2);
+
+    // a params-only navigation while the route is still loading
+    navigate("/items/2");
+    tick_n(20).await;
+    // the param resource reloads once its first load has finished...
+    release_first_gate();
+    tick_n(20).await;
+    assert_eq!(gate_count(), 2);
+    // ...and that reload finishes, while the unrelated resource is pending
+    release_last_gate();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must not complete while the route it reuses \
+         is still loading"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-2"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// Two overlapping params-only navigations: only the newest may clear
+/// `is_routing`.
+#[wasm_bindgen_test]
+async fn older_params_only_navigation_does_not_clear_is_routing() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    navigate("/items/1");
+    tick_n(20).await;
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-1"));
+
+    // two params-only navigations, the second while the first reloads
+    navigate("/items/2");
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    navigate("/items/3");
+    tick_n(20).await;
+    // the first reload finishes; the second starts
+    release_first_gate();
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "an older params-only navigation must not clear is_routing for a \
+         newer one"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-3"));
+}
+
+/// Same as `older_params_only_navigation_does_not_clear_is_routing`, but
+/// through `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn older_params_only_navigation_in_flat_routes_does_not_clear_is_routing()
+{
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    navigate("/items/1");
+    tick_n(20).await;
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-1"));
+
+    // two params-only navigations, the second while the first reloads
+    navigate("/items/2");
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    navigate("/items/3");
+    tick_n(20).await;
+    // the first reload finishes; the second starts
+    release_first_gate();
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "an older params-only navigation must not clear is_routing for a \
+         newer one"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-3"));
+}
+
+/// A navigation that replaces a route must not wait for a reload that a
+/// superseded params-only navigation to that route started and that never
+/// finishes.
+#[wasm_bindgen_test]
+async fn navigation_after_an_abandoned_reload_completes() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    navigate("/items/1");
+    tick_n(20).await;
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    // a params-only navigation whose reload never finishes...
+    navigate("/items/2");
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    // ...must not hold up a navigation that replaces the route
+    navigate("/");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#home").as_deref(), Some("home"));
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("idle"),
+        "a navigation must not wait for the abandoned reload of a route it \
+         replaced"
+    );
+}
+
+/// Same as `navigation_after_an_abandoned_reload_completes`, but through
+/// `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn navigation_after_an_abandoned_reload_in_flat_routes_completes() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    navigate("/items/1");
+    tick_n(20).await;
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+
+    // a params-only navigation whose reload never finishes...
+    navigate("/items/2");
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    // ...must not hold up a navigation that replaces the route
+    navigate("/");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#home").as_deref(), Some("home"));
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("idle"),
+        "a navigation must not wait for the abandoned reload of a route it \
+         replaced"
+    );
+}
+
+/// A params-only navigation that arrives while the route's view is still
+/// being chosen must wait for resources that view only creates once it
+/// renders, which happens after the navigation was superseded.
+#[wasm_bindgen_test]
+async fn params_only_navigation_waits_for_resources_created_while_rendering() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    navigate("/deferred/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    assert_eq!(gate_count(), 1);
+
+    // a params-only navigation while the route's view is still being chosen
+    navigate("/deferred/2");
+    tick_n(20).await;
+    // the view is chosen and built; the param resource reloads
+    release_first_gate();
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    // the reload finishes, and only now is the unrelated resource created
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    assert_eq!(
+        text_of(&wrapper, "#page-fallback").as_deref(),
+        Some("loading")
+    );
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must not complete while a resource created \
+         when the reused route rendered is pending"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-2"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// Same as `params_only_navigation_waits_for_resources_created_while_rendering`,
+/// but through `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn params_only_navigation_in_flat_routes_waits_for_resources_created_while_rendering(
+) {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    navigate("/deferred/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    assert_eq!(gate_count(), 1);
+
+    // a params-only navigation while the route's view is still being chosen
+    navigate("/deferred/2");
+    tick_n(20).await;
+    // the view is chosen and built; the param resource reloads
+    release_first_gate();
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    // the reload finishes, and only now is the unrelated resource created
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(gate_count(), 1);
+    assert_eq!(
+        text_of(&wrapper, "#page-fallback").as_deref(),
+        Some("loading")
+    );
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must not complete while a resource created \
+         when the reused route rendered is pending"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#param").as_deref(), Some("item-2"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+}
+
+/// A params-only navigation that arrives while the route it reuses is still
+/// being loaded (a lazy route's preload or view) must wait for that load.
+#[wasm_bindgen_test]
+async fn params_only_navigation_waits_for_a_pending_lazy_load() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    navigate("/lazy/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+
+    // a params-only navigation while the route is still being loaded: it
+    // reuses that load and must wait for it
+    navigate("/lazy/2");
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must wait for the load of the route it \
+         reuses"
+    );
+
+    // the preload, then the view
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#lazy").as_deref(), Some("lazy"));
+}
+
+/// Same as `params_only_navigation_waits_for_a_pending_lazy_load`, but
+/// through `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn params_only_navigation_in_flat_routes_waits_for_a_pending_lazy_load() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    navigate("/lazy/1");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+
+    // a params-only navigation while the route is still being loaded: it
+    // reuses that load and must wait for it
+    navigate("/lazy/2");
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must wait for the load of the route it \
+         reuses"
+    );
+
+    // the preload, then the view
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#lazy").as_deref(), Some("lazy"));
+}
+
+/// The initial load does not set `is_routing`, but a params-only
+/// navigation that reuses the route while it is still loading must wait for
+/// it.
+#[wasm_bindgen_test]
+async fn params_only_navigation_waits_for_the_initial_load() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    // mount directly on the lazy route, so it is loading from the start
+    window()
+        .history()
+        .unwrap()
+        .replace_state_with_url(&JsValue::NULL, "", Some("/lazy/1"))
+        .unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+
+    // a params-only navigation while the initial load is still pending
+    navigate("/lazy/2");
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must wait for the initial load of the route \
+         it reuses"
+    );
+
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#lazy").as_deref(), Some("lazy"));
+}
+
+/// Same as `params_only_navigation_waits_for_the_initial_load`, but through
+/// `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn params_only_navigation_in_flat_routes_waits_for_the_initial_load() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    // mount directly on the lazy route, so it is loading from the start
+    window()
+        .history()
+        .unwrap()
+        .replace_state_with_url(&JsValue::NULL, "", Some("/lazy/1"))
+        .unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+
+    // a params-only navigation while the initial load is still pending
+    navigate("/lazy/2");
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("routing"),
+        "a params-only navigation must wait for the initial load of the route \
+         it reuses"
+    );
+
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#lazy").as_deref(), Some("lazy"));
+}
+
+/// A params-only navigation keeps the pending load of the route it reuses;
+/// a later navigation that replaces the route must still be able to cancel
+/// that load, so it cannot install its view over the new route.
+#[wasm_bindgen_test]
+async fn replacing_a_pending_lazy_route_after_a_params_only_navigation() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(10).await;
+    navigate("/lazy/1");
+    tick_n(20).await;
+    navigate("/lazy/2");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    // replace the lazy route while its load is still pending, then let that
+    // load finish: it must not install the lazy view over the new route
+    navigate("/normal");
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+}
+
+/// Same as `replacing_a_pending_lazy_route_after_a_params_only_navigation`,
+/// but through `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn replacing_a_pending_lazy_route_after_a_params_only_navigation_in_flat_routes(
+) {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(10).await;
+    navigate("/lazy/1");
+    tick_n(20).await;
+    navigate("/lazy/2");
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    // replace the lazy route while its load is still pending, then let that
+    // load finish: it must not install the lazy view over the new route
+    navigate("/normal");
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    release_lazy_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("routing"));
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+    assert_eq!(text_of(&wrapper, "#lazy"), None);
+}
+
+/// The initial load's settle context must close once it has settled, so a
+/// boundary created later by user interaction does not hold up a params-only
+/// navigation that reuses the route.
+#[wasm_bindgen_test]
+async fn boundary_created_after_the_initial_load_does_not_register() {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    window()
+        .history()
+        .unwrap()
+        .replace_state_with_url(&JsValue::NULL, "", Some("/late/1"))
+        .unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), router_app);
+
+    tick_n(20).await;
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+
+    // a boundary created by user interaction after the initial load settled
+    show_late();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#late #page-fallback").as_deref(),
+        Some("loading")
+    );
+
+    // a params-only navigation reusing the route must not wait for it
+    navigate("/late/2");
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("idle"),
+        "a params-only navigation must not wait for a boundary created after \
+         the initial load settled"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#late #page").as_deref(),
+        Some("page-data")
+    );
+}
+
+/// Same as `boundary_created_after_the_initial_load_does_not_register`, but
+/// through `<FlatRoutes>`.
+#[wasm_bindgen_test]
+async fn boundary_created_after_the_initial_load_in_flat_routes_does_not_register(
+) {
+    reset();
+    let document = document();
+    let wrapper = document.create_element("section").unwrap();
+    document.body().unwrap().append_child(&wrapper).unwrap();
+    window()
+        .history()
+        .unwrap()
+        .replace_state_with_url(&JsValue::NULL, "", Some("/late/1"))
+        .unwrap();
+    let _handle = mount_to(wrapper.clone().unchecked_into(), flat_router_app);
+
+    tick_n(20).await;
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(text_of(&wrapper, "#status").as_deref(), Some("idle"));
+    assert_eq!(text_of(&wrapper, "#page").as_deref(), Some("page-data"));
+
+    // a boundary created by user interaction after the initial load settled
+    show_late();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#late #page-fallback").as_deref(),
+        Some("loading")
+    );
+
+    // a params-only navigation reusing the route must not wait for it
+    navigate("/late/2");
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#status").as_deref(),
+        Some("idle"),
+        "a params-only navigation must not wait for a boundary created after \
+         the initial load settled"
+    );
+
+    release_all_gates();
+    tick_n(20).await;
+    assert_eq!(
+        text_of(&wrapper, "#late #page").as_deref(),
+        Some("page-data")
     );
 }
