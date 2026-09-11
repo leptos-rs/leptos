@@ -68,11 +68,10 @@ export default defineConfig({
     // },
   ],
 
-  // Let Playwright manage the server without test artifacts triggering reloads.
-  webServer: {
-    command: "trunk serve --no-autoreload --ignore e2e",
-    cwd: "..",
-    url: "http://127.0.0.1:8080",
-    reuseExistingServer: false,
-  },
+  /* Run your local dev server before starting the tests */
+  // webServer: {
+  //   command: "cd ../ && trunk serve",
+  //   url: "http://127.0.0.1:8080",
+  //   reuseExistingServer: false, //!process.env.CI,
+  // },
 });
