@@ -235,7 +235,9 @@ macro_rules! spawn_derived {
             state: AsyncDerivedState::Clean,
             version: 0,
             suspenses: Vec::new(),
-            pending_suspenses: Vec::new()
+            pending_suspenses: Vec::new(),
+            transitions: Vec::new(),
+            has_worker: $should_spawn,
         }));
         let value = Arc::new(AsyncRwLock::new($initial));
         let wakers = Arc::new(RwLock::new(Vec::new()));
@@ -324,6 +326,15 @@ macro_rules! spawn_derived {
                     }
 
                     while rx.next().await.is_some() {
+                        // take the transition registrations made by the
+                        // notifications handled in this iteration before
+                        // looking at the sources, so a notification arriving
+                        // while they are checked is handled (with its own
+                        // registration) by the next iteration
+                        let mut completions = inner
+                            .upgrade()
+                            .map(|inner| mem::take(&mut inner.write().or_poisoned().transitions))
+                            .unwrap_or_default();
                         let update_if_necessary = !owner.paused() && if $should_track {
                             any_subscriber
                                 .with_observer(|| any_subscriber.update_if_necessary())
@@ -353,14 +364,18 @@ macro_rules! spawn_derived {
                                         Box::pin(fut)
                                     });
 
-                                    // register with global transition listener, if any
-                                    let ready_tx = first_run.take().unwrap_or_else(|| {
+                                    // complete the first run's registration, and every
+                                    // registration made by the notifications handled here,
+                                    // once this load finishes; if there are none, register
+                                    // with the transition active now, if any
+                                    completions.extend(first_run.take());
+                                    if completions.is_empty() {
                                         let (ready_tx, ready_rx) = oneshot::channel();
                                         if !was_ready {
                                             AsyncTransition::register(ready_rx);
                                         }
-                                        ready_tx
-                                    });
+                                        completions.push(ready_tx);
+                                    }
 
                                     // generate and assign new value
                                     loading.store(true, Ordering::Relaxed);
@@ -388,12 +403,15 @@ macro_rules! spawn_derived {
                                     };
 
                                     if latest_version == this_version {
-                                        Self::set_inner_value(new_value, value, wakers, inner, loading, Some(ready_tx)).await;
+                                        Self::set_inner_value(new_value, value, wakers, inner, loading, completions).await;
                                     }
                                 }
                                 _ => break,
                             }
                         }
+                        // otherwise the notifications caused no reload, and
+                        // `completions` is dropped here: there is nothing for
+                        // their transitions to wait on
                     }
                 };
 
@@ -415,17 +433,17 @@ impl<T: 'static> ArcAsyncDerived<T> {
         wakers: Arc<RwLock<Vec<Waker>>>,
         inner: Arc<RwLock<ArcAsyncDerivedInner>>,
         loading: Arc<AtomicBool>,
-        ready_tx: Option<oneshot::Sender<()>>,
+        completions: Vec<oneshot::Sender<()>>,
     ) {
         *value.write().await.deref_mut() = new_value;
-        Self::notify_subs(&wakers, &inner, &loading, ready_tx);
+        Self::notify_subs(&wakers, &inner, &loading, completions);
     }
 
     fn notify_subs(
         wakers: &Arc<RwLock<Vec<Waker>>>,
         inner: &Arc<RwLock<ArcAsyncDerivedInner>>,
         loading: &Arc<AtomicBool>,
-        ready_tx: Option<oneshot::Sender<()>>,
+        completions: Vec<oneshot::Sender<()>>,
     ) {
         // clear `loading` and take the workers under one lock, to prevent polling
         // from registering a waker that's never woken
@@ -440,7 +458,7 @@ impl<T: 'static> ArcAsyncDerived<T> {
             AsyncDerivedState::Notifying,
         );
 
-        if let Some(ready_tx) = ready_tx {
+        for ready_tx in completions {
             // if it's an Err, that just means the Receiver was dropped
             // we don't particularly care about that: the point is to notify if
             // it still exists, but we don't need to know if Suspense is no
@@ -682,7 +700,7 @@ impl<T: 'static> ReadUntracked for ArcAsyncDerived<T> {
 
 impl<T: 'static> Notify for ArcAsyncDerived<T> {
     fn notify(&self) {
-        Self::notify_subs(&self.wakers, &self.inner, &self.loading, None);
+        Self::notify_subs(&self.wakers, &self.inner, &self.loading, Vec::new());
     }
 }
 
