@@ -15,6 +15,8 @@ use rust_embed::{EmbeddedFile, RustEmbed};
 use std::borrow::Cow;
 #[cfg(any(feature = "default", feature = "embed"))]
 use tower::builder::ServiceBuilder;
+#[cfg(feature = "embed")]
+use tower_http::services::ServeDir;
 
 pub(crate) mod traits {
     //! Provides the trait for [`RouterConfiguration`].
@@ -566,7 +568,10 @@ where
                     }
                     #[cfg(feature = "embed")]
                     Site::Embed(path) => {
-                        let serve_dir = EmbeddedSiteRoot::new(self.site_root);
+                        let serve_dir = ServeDir::with_backend(
+                            "/",
+                            EmbeddedSiteRoot::new(self.site_root),
+                        );
                         if let Some(error_handler) = error_handler.clone() {
                             router.route_service(
                                 &path,
