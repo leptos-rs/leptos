@@ -95,12 +95,14 @@ pub(crate) mod private {
     pub trait Sealed {}
 
     impl<S> Sealed for axum::Router<S> {}
-    impl<APP, CX, SH, S> Sealed for RouterConfiguration<APP, CX, SH, S> {}
+    impl<APP, CX, SH, S, SR> Sealed for RouterConfiguration<APP, CX, SH, S, SR> {}
 }
 
 mod config;
 mod service;
 pub use config::RouterConfiguration;
+#[cfg(feature = "embed")]
+pub use rust_embed;
 pub use service::{ErrorHandler, LeptosContext, LeptosContextLayer};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -2748,6 +2750,7 @@ async fn get_static_file(
     }
 }
 
+// TODO FIXME rename this to serve_site_root_service
 /// A helper to create a [`ServeDir`] service for the static files under
 /// `LEPTOS_SITE_ROOT`.  This may be further configured before being assigned
 /// as the fallback service, or be attached as a service route on the router,
