@@ -49,13 +49,13 @@ any_spawner = { path = "./any_spawner/", version = "0.3.0" }
 const_str_slice_concat = { path = "./const_str_slice_concat", version = "0.1" }
 either_of = { path = "./either_of/", version = "0.1.9" }
 hydration_context = { path = "./hydration_context", version = "0.3.1" }
-leptos = { path = "./leptos", version = "0.8.20" }
+leptos = { path = "./leptos", version = "0.8.21" }
 leptos_config = { path = "./leptos_config", version = "0.8.10" }
 leptos_dom = { path = "./leptos_dom", version = "0.8.8" }
 leptos_hot_reload = { path = "./leptos_hot_reload", version = "0.8.6" }
 leptos_integration_utils = { path = "./integrations/utils", version = "0.8.8" }
 leptos_macro = { path = "./leptos_macro", version = "0.8.17" }
-leptos_router = { path = "./router", version = "0.8.15" }
+leptos_router = { path = "./router", version = "0.8.16" }
 leptos_router_macro = { path = "./router_macro", version = "0.8.6" }
 leptos_server = { path = "./leptos_server", version = "0.8.7" }
 leptos_meta = { path = "./meta", version = "0.8.6" }
@@ -65,7 +65,7 @@ or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
 reactive_graph = { path = "./reactive_graph", version = "0.2.14" }
 reactive_stores = { path = "./reactive_stores", version = "0.4.3" }
 reactive_stores_macro = { path = "./reactive_stores_macro", version = "0.4.3" }
-server_fn = { path = "./server_fn", version = "0.8.13" }
+server_fn = { path = "./server_fn", version = "0.8.14" }
 server_fn_macro = { path = "./server_fn_macro", version = "0.8.10" }
 server_fn_macro_default = { path = "./server_fn/server_fn_macro_default", version = "0.8.5" }
 tachys = { path = "./tachys", version = "0.2.18" }
@@ -96,7 +96,7 @@ tokio-test = { default-features = false, version = "0.4" }
 html-escape = { default-features = false, version = "0.2" }
 proc-macro-error2 = { default-features = false, version = "2.0" }
 const_format = { default-features = false, version = "0.2" }
-gloo-net = { default-features = false, version = "0.6" }
+gloo-net = { default-features = false, version = "0.7" }
 url = { default-features = false, version = "2.5" }
 tokio = { default-features = false, version = "1.49" }
 base64 = { default-features = false, version = "0.22" }
