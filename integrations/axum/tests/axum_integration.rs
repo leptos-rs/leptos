@@ -663,6 +663,7 @@ fn build_test_service(name: &str) {
         .into_std()
         .arg("leptos")
         .arg("build")
+        .arg("--frontend-only")
         // need to manually specify this to avoid mismatch between this value that may be set (e.g.
         // during CI) and the `output-name` defined in Cargo.toml for this relevant project.
         .env("LEPTOS_OUTPUT_NAME", name)
@@ -675,6 +676,35 @@ fn build_test_service(name: &str) {
         .success()
     {
         panic!("failed to run `cargo leptos build`");
+    }
+
+    // As of writing of this comment/commit, `cargo leptos build --server-only` **will** delete contents
+    // of `LEPTOS_SITE_ROOT` unconditionally, which incidentally breaks the ability to embed or otherwise
+    // keep the frontend around for the testing to happen.  For now just workaround the issue by issuing
+    // the roughly equivalent `cargo` command that it would have execute.
+    let cmd = Command::new("cargo");
+    let mut build = cmd
+        .into_std()
+        .arg("build")
+        .arg("--package")
+        .arg(name)
+        .arg("--bin")
+        .arg(name)
+        .arg("--no-default-features")
+        .arg("--features=ssr")
+        .env("LEPTOS_OUTPUT_NAME", name)
+        .env("LEPTOS_SITE_ROOT", "target/site")
+        .env("LEPTOS_SITE_PKG_DIR", "pkg")
+        .env("RUSTFLAGS", "--cfg erase_components")
+        .current_dir(&working_dir)
+        .spawn()
+        .expect("cargo build should start");
+    if !build
+        .wait()
+        .expect("there shouldn't be i/o error")
+        .success()
+    {
+        panic!("failed to run `cargo build`");
     }
 }
 
