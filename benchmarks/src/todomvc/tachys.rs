@@ -90,8 +90,8 @@ impl Todo {
         title: String,
         completed: bool,
     ) -> Self {
-        let (title, set_title) = create_signal(title);
-        let (completed, set_completed) = create_signal(completed);
+        let (title, set_title) = signal(title);
+        let (completed, set_completed) = signal(completed);
         Self {
             id,
             title,
@@ -119,10 +119,10 @@ pub fn TodoMVC(todos: Todos) -> impl Render<Dom> + RenderHtml<Dom> {
         .map(|last| last + 1)
         .unwrap_or(0);
 
-    let (todos, set_todos) = create_signal(todos);
+    let (todos, set_todos) = signal(todos);
     provide_context(set_todos);
 
-    let (mode, set_mode) = create_signal(Mode::All);
+    let (mode, set_mode) = signal(Mode::All);
 
     let add_todo = move |ev: web_sys::KeyboardEvent| {
         todo!()
@@ -141,7 +141,7 @@ pub fn TodoMVC(todos: Todos) -> impl Render<Dom> + RenderHtml<Dom> {
         } */
     };
 
-    let filtered_todos = create_memo::<Vec<Todo>>(move |_| {
+    let filtered_todos = Memo::<Vec<Todo>>::new(move |_| {
         todos.with(|todos| match mode.get() {
             Mode::All => todos.0.to_vec(),
             Mode::Active => todos
@@ -161,7 +161,7 @@ pub fn TodoMVC(todos: Todos) -> impl Render<Dom> + RenderHtml<Dom> {
 
     // effect to serialize to JSON
     // this does reactive reads, so it will automatically serialize on any relevant change
-    create_effect(move |_| {
+    Effect::new(move |_| {
         ()
         /* if let Ok(Some(storage)) = window().local_storage() {
             let objs = todos
@@ -249,7 +249,7 @@ pub fn TodoMVC(todos: Todos) -> impl Render<Dom> + RenderHtml<Dom> {
 }
 
 pub fn Todo(todo: Todo) -> impl Render<Dom> + RenderHtml<Dom> {
-    let (editing, set_editing) = create_signal(false);
+    let (editing, set_editing) = signal(false);
     let set_todos = use_context::<WriteSignal<Todos>>().unwrap();
     //let input = NodeRef::new();
 
