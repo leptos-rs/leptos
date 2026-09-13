@@ -4,5 +4,10 @@ extend = [
 ]
 
 [tasks.integration-test]
-dependencies = ["build", "start-client", "test-playwright"]
+dependencies = ["build", "start-client-for-tests", "test-playwright"]
 description = "Run integration test with automated start and stop of processes"
+
+[tasks.start-client-for-tests]
+extend = "start-client"
+# Test artifacts must not trigger rebuilds or reset the page during a test.
+env = { TRUNK_SERVE_NO_AUTORELOAD = "true", TRUNK_WATCH_IGNORE = "e2e" }
