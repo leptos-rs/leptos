@@ -1,8 +1,9 @@
 use super::{
     fragment_to_tokens, utils::is_nostrip_optional_and_update_key, TagType,
 };
-use crate::view::{
-    attribute_absolute, text_to_tokens, utils::filter_prefixed_attrs,
+use crate::{
+    diagnostics::Errors,
+    view::{attribute_absolute, text_to_tokens, utils::filter_prefixed_attrs},
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned};
@@ -19,10 +20,11 @@ pub(crate) fn component_to_tokens(
     node: &mut NodeElement<impl CustomNode>,
     global_class: Option<&TokenTree>,
     disable_inert_html: bool,
-) -> TokenStream {
+    errors: &mut Errors,
+) -> syn::Result<TokenStream> {
     #[allow(unused)] // TODO this is used by hot-reloading
     #[cfg(debug_assertions)]
-    let component_name = super::ident_from_tag_name(node.name());
+    let component_name = super::ident_from_tag_name(node.name(), errors);
 
     // an attribute that contains {..} can be used to split props from attributes
     // anything before it is a prop, unless it uses the special attribute syntaxes
@@ -158,18 +160,18 @@ pub(crate) fn component_to_tokens(
                 } else {
                     None
                 };
-                Some(dotted.unwrap_or_else(|| {
+                Some(Ok(dotted.unwrap_or_else(|| {
                     quote! {
                         #node
                     }
-                }))
+                })))
             } else if let NodeAttribute::Attribute(node) = attr {
-                attribute_absolute(node, idx >= spread_marker)
+                attribute_absolute(node, idx >= spread_marker).transpose()
             } else {
                 None
             }
         })
-        .collect::<Vec<_>>();
+        .collect::<syn::Result<Vec<_>>>()?;
 
     let spreads = (!(spreads.is_empty())).then(|| {
         if cfg!(feature = "__internal_erase_components") {
@@ -215,7 +217,8 @@ pub(crate) fn component_to_tokens(
             global_class,
             None,
             disable_inert_html,
-        );
+            errors,
+        )?;
 
         // TODO view marker for hot-reloading
         /*
@@ -314,7 +317,7 @@ pub(crate) fn component_to_tokens(
     /* #[cfg(debug_assertions)]
     IdeTagHelper::add_component_completion(&mut component, node); */
 
-    component
+    Ok(component)
 }
 
 fn is_attr_let(key: &NodeName) -> bool {

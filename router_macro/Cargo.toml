@@ -13,7 +13,6 @@ edition.workspace = true
 proc-macro = true
 
 [dependencies]
-proc-macro-error2 = { default-features = false, workspace = true }
 proc-macro2 = { workspace = true, default-features = true }
 quote = { workspace = true, default-features = true }
 syn = { features = ["full"], workspace = true, default-features = true }
@@ -22,6 +21,7 @@ syn = { features = ["full"], workspace = true, default-features = true }
 leptos = { path = "../leptos" }
 leptos_router = { path = "../router" }
 leptos_macro = { path = "../leptos_macro" }
+trybuild = { workspace = true, default-features = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }

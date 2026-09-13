@@ -1,31 +1,30 @@
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
-use proc_macro_error2::abort;
 use quote::{format_ident, quote};
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     mem,
 };
-use syn::{
-    parse::Parse, parse_macro_input, parse_quote, ItemFn, Path, ReturnType,
-    Stmt,
-};
+use syn::{parse::Parse, parse_quote, ItemFn, Path, ReturnType, Stmt};
 
 fn preload_name(ident: &Ident) -> Ident {
     format_ident!("__preload_{}", ident)
 }
 
-pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
+pub fn lazy_impl(
+    args: proc_macro::TokenStream,
+    s: TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
     let name = if !args.is_empty() {
-        Some(parse_macro_input!(args as syn::Ident))
+        Some(syn::parse::<syn::Ident>(args)?)
     } else {
         None
     };
 
-    let fun = syn::parse::<ItemFn>(s).unwrap_or_else(|e| {
-        abort!(e.span(), "`lazy` can only be used on a function")
-    });
+    let fun = syn::parse::<ItemFn>(s).map_err(|e| {
+        syn::Error::new(e.span(), "`lazy` can only be used on a function")
+    })?;
 
     let was_async = fun.sig.asyncness.is_some();
 
@@ -53,7 +52,7 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
     };
 
     let is_wasm = cfg!(feature = "csr") || cfg!(feature = "hydrate");
-    if is_wasm {
+    Ok(if is_wasm {
         let mut fun = fun;
         let mut return_wrapper = None;
         if was_async {
@@ -100,8 +99,7 @@ pub fn lazy_impl(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         });
         statements.extend(old_statements);
         quote! { #fun }
-    }
-    .into()
+    })
 }
 
 struct LazyPath(Path);
@@ -112,18 +110,21 @@ impl Parse for LazyPath {
     }
 }
 
-pub fn lazy_preload_impl(s: proc_macro::TokenStream) -> TokenStream {
-    let LazyPath(mut path) = syn::parse::<LazyPath>(s).unwrap_or_else(|e| {
-        abort!(
+pub fn lazy_preload_impl(
+    s: proc_macro::TokenStream,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let LazyPath(mut path) = syn::parse::<LazyPath>(s).map_err(|e| {
+        syn::Error::new(
             e.span(),
-            "`lazy_preload` only takes a function path as argument"
+            "`lazy_preload` only takes a function path as argument",
         )
-    });
-    let last_segment = path.segments.last_mut().unwrap_or_else(|| {
-        abort_call_site!(
-            "`lazy_preload` needs a path ending with an identifier"
+    })?;
+    let last_segment = path.segments.last_mut().ok_or_else(|| {
+        syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "`lazy_preload` needs a path ending with an identifier",
         )
-    });
+    })?;
     last_segment.ident = preload_name(&last_segment.ident);
 
     let preload_call = if cfg!(feature = "hydrate") {
@@ -138,12 +139,11 @@ pub fn lazy_preload_impl(s: proc_macro::TokenStream) -> TokenStream {
         quote! {}
     };
 
-    quote! {{
+    Ok(quote! {{
         use ::leptos::prelude::Set;
 
         let (loaded, set_loaded) = ::leptos::prelude::signal(false);
         #preload_call
         loaded
-    }}
-    .into()
+    }})
 }
