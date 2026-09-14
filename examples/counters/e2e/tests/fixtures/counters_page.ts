@@ -58,7 +58,7 @@ export class CountersPage {
   }
 
   async addOneThousandCounters() {
-    this.addOneThousandCountersButton.click();
+    await this.addOneThousandCountersButton.click();
   }
 
   async decrementCount(index: number = 0) {
