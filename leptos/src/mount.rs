@@ -1,6 +1,6 @@
+use crate::IntoView;
 #[cfg(debug_assertions)]
 use crate::logging;
-use crate::IntoView;
 use any_spawner::Executor;
 use reactive_graph::owner::Owner;
 #[cfg(debug_assertions)]

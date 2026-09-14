@@ -20,7 +20,7 @@ pub fn Demo1() -> impl IntoView {
 
     // We need to add the 3D view onto the canvas post render.
     Effect::new(move |_| {
-        request_animation_frame(move || {
+        _ = request_animation_frame(move || {
             scene_sig.get_untracked().setup();
         });
     });

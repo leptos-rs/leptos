@@ -1,6 +1,6 @@
 use super::{
-    arc_stored_value::ArcStoredValue, ArenaItem, LocalStorage, Storage,
-    SyncStorage,
+    ArenaItem, LocalStorage, Storage, SyncStorage,
+    arc_stored_value::ArcStoredValue,
 };
 use crate::{
     signal::guards::{Plain, ReadGuard, UntrackedWriteGuard},

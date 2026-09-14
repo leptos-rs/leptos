@@ -1,4 +1,4 @@
-use crate::{children::TypedChildren, IntoView};
+use crate::{IntoView, children::TypedChildren};
 use futures::{channel::oneshot, future::join_all};
 use hydration_context::{SerializedDataId, SharedContext};
 use leptos_macro::component;
@@ -6,7 +6,7 @@ use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::ArcMemo,
     effect::RenderEffect,
-    owner::{provide_context, ArcStoredValue, Owner},
+    owner::{ArcStoredValue, Owner, provide_context},
     signal::ArcRwSignal,
     traits::{Get, Update, With, WithUntracked, WriteValue},
 };
@@ -18,13 +18,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tachys::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     reactive_graph::OwnedView,
     ssr::{StreamBuilder, StreamChunk},
     view::{
-        add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-        RenderHtml,
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+        add_attr::AddAnyAttr,
     },
 };
 use throw_error::{Error, ErrorHook, ErrorId};
@@ -326,43 +326,44 @@ where
         mut self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         // first, attempt to serialize the children to HTML, then check for errors
         let _hook = throw_error::set_error_hook(self.hook);
-        let mut new_buf = String::with_capacity(Chil::MIN_LENGTH);
+        // Render children straight into `buf`. If a child throws, roll back to
+        // this marker (`String::truncate` keeps the reserved capacity) and emit
+        // the fallback instead. This avoids the scratch `String` allocation plus
+        // a full second pass copying the whole subtree on the common no-error path.
+        let marker = buf.len();
         let mut new_pos = *position;
         self.children.to_html_with_buf(
-            &mut new_buf,
+            buf,
             &mut new_pos,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs.clone(),
         );
 
-        // any thrown errors would've been caught here
-        if self.errors.with_untracked(|map| map.is_empty()) {
-            buf.push_str(&new_buf);
-        } else {
-            // otherwise, serialize the fallback instead
+        // any thrown errors would've been caught here; on error, discard the
+        // children bytes and serialize the fallback instead
+        if !self.errors.with_untracked(|map| map.is_empty()) {
+            buf.truncate(marker);
             (self.fallback)(self.errors).to_html_with_buf(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             );
         }
+        // happy path: children are already in `buf`; nothing to copy. `*position`
+        // is intentionally left unchanged, matching prior behavior.
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         mut self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -375,8 +376,7 @@ where
         self.children.to_html_async_with_buf::<OUT_OF_ORDER>(
             &mut new_buf,
             &mut new_pos,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs.clone(),
         );
 
@@ -394,8 +394,7 @@ where
                 (self.fallback)(self.errors).to_html_with_buf(
                     &mut fallback,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 );
                 buf.push_sync(&fallback);
@@ -440,8 +439,7 @@ where
                     (self.fallback)(self.errors).to_html_with_buf(
                         &mut fallback,
                         &mut position,
-                        escape,
-                        mark_branches,
+                        flags,
                         extra_attrs,
                     );
                     my_chunks.clear();

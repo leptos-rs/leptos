@@ -1,7 +1,7 @@
 use super::{Patch, Post, Put};
 use crate::{ContentType, Decodes, Encodes, Format, FormatType};
-use bytes::Bytes;
-use serde::{de::DeserializeOwned, Serialize};
+use bytes::{BufMut, Bytes, BytesMut};
+use serde::{Serialize, de::DeserializeOwned};
 
 /// Serializes and deserializes JSON with [`serde_json`].
 pub struct JsonEncoding;
@@ -22,6 +22,10 @@ where
 
     fn encode(output: &T) -> Result<Bytes, Self::Error> {
         serde_json::to_vec(output).map(Bytes::from)
+    }
+
+    fn encode_into(output: &T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        serde_json::to_writer(buf.writer(), output)
     }
 }
 

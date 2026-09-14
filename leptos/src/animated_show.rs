@@ -1,10 +1,10 @@
-use crate::{children::ChildrenFn, component, control_flow::Show, IntoView};
+use crate::{IntoView, children::ChildrenFn, component, control_flow::Show};
 use core::time::Duration;
 use leptos_dom::helpers::TimeoutHandle;
 use leptos_macro::view;
 use reactive_graph::{
     effect::RenderEffect,
-    owner::{on_cleanup, StoredValue},
+    owner::{StoredValue, on_cleanup},
     signal::RwSignal,
     traits::{Get, GetUntracked, GetValue, Set, SetValue},
     wrappers::read::Signal,
@@ -83,7 +83,7 @@ pub fn AnimatedShow(
         } else {
             cls.set(hide_class);
 
-            let h = leptos_dom::helpers::set_timeout_with_handle(
+            let h = leptos_dom::helpers::set_timeout(
                 move || show.set(false),
                 hide_delay,
             )
@@ -100,7 +100,7 @@ pub fn AnimatedShow(
     });
 
     view! {
-        <Show when=move || show.get() fallback=|| ()>
+        <Show when=show>
             <div class=move || cls.get()>{children()}</div>
         </Show>
     }

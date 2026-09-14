@@ -1,15 +1,15 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml, ToTemplate,
+    Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+    ToTemplate, add_attr::AddAnyAttr,
 };
 use crate::{
     html::attribute::{
+        Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
+        NextAttribute,
         any_attribute::AnyAttribute,
         maybe_next_attr_erasure_macros::{
             next_attr_combine, next_attr_output_type,
         },
-        Attribute, AttributeKey, AttributeValue, NamedAttributeKey,
-        NextAttribute,
     },
     hydration::Cursor,
     renderer::{CastFrom, Rndr},
@@ -185,17 +185,16 @@ impl<const V: &'static str> RenderHtml for Static<V> {
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        _mark_branches: bool,
+        flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         // add a comment node to separate from previous sibling, if any
-        if matches!(position, Position::NextChildAfterText) {
+        if flags.hydrate && matches!(position, Position::NextChildAfterText) {
             buf.push_str("<!>")
         }
-        if V.is_empty() && escape {
+        if V.is_empty() && flags.hydrate {
             buf.push(' ');
-        } else if escape {
+        } else if flags.escape {
             let escaped = html_escape::encode_text(V);
             buf.push_str(&escaped);
         } else {
@@ -248,8 +247,8 @@ impl<const V: &'static str> AddAnyAttr for Static<V> {
     {
         // inline helper function to assist the compiler with type inference
         #[inline(always)]
-        const fn create_static<const S: &'static str, A: Attribute>(
-        ) -> <Static<S> as AddAnyAttr>::Output<A> {
+        const fn create_static<const S: &'static str, A: Attribute>()
+        -> <Static<S> as AddAnyAttr>::Output<A> {
             Static
         }
 

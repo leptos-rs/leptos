@@ -53,13 +53,64 @@ struct ExecutorFns {
 // Use a single OnceLock to ensure atomic initialization of all functions.
 static EXECUTOR_FNS: OnceLock<ExecutorFns> = OnceLock::new();
 
+thread_local! {
+    // Per-thread executor override installed by
+    // `Executor::init_local_custom_executor`. When set, it takes precedence
+    // over the global `EXECUTOR_FNS` for spawns made *on this thread only*,
+    // leaving other threads and the global state untouched.
+    static LOCAL_EXECUTOR_FNS: OnceLock<ExecutorFns> = const { OnceLock::new() };
+}
+
+// Resolves the executor functions to use for the current thread: a thread-local
+// executor installed via `init_local_custom_executor` takes precedence;
+// otherwise the global executor is used. Returns `None` if neither is set.
+#[inline]
+fn current_executor_fns() -> Option<ExecutorFns> {
+    LOCAL_EXECUTOR_FNS
+        .with(|local| local.get().copied())
+        .or_else(|| EXECUTOR_FNS.get().copied())
+}
+
+// Non-generic dispatch tail shared by every `Executor::spawn` call site.
+// `#[inline(never)]` forces a single shared copy of the lookup + match +
+// indirect call rather than duplicating it into each monomorphization of the
+// generic `spawn`. `#[track_caller]` keeps the original call site flowing
+// through to `handle_uninitialized_spawn` for diagnostics.
+#[inline(never)]
+#[track_caller]
+fn dispatch_spawn(fut: PinnedFuture<()>) {
+    if let Some(fns) = current_executor_fns() {
+        (fns.spawn)(fut)
+    } else {
+        // No executor set for this thread or globally.
+        handle_uninitialized_spawn(fut);
+    }
+}
+
+// Non-generic dispatch tail shared by every `Executor::spawn_local` call site.
+// See `dispatch_spawn`.
+#[inline(never)]
+#[track_caller]
+fn dispatch_spawn_local(fut: PinnedLocalFuture<()>) {
+    if let Some(fns) = current_executor_fns() {
+        (fns.spawn_local)(fut)
+    } else {
+        // No executor set for this thread or globally.
+        handle_uninitialized_spawn_local(fut);
+    }
+}
+
 // No-op functions to use when an executor doesn't support a specific operation.
 #[cfg(any(feature = "tokio", feature = "wasm-bindgen", feature = "glib"))]
 #[cold]
 #[inline(never)]
 fn no_op_poll() {}
 
-#[cfg(all(not(feature = "wasm-bindgen"), not(debug_assertions)))]
+#[cfg(all(
+    not(feature = "wasm-bindgen"),
+    not(debug_assertions),
+    not(feature = "tracing")
+))]
 #[cold]
 #[inline(never)]
 fn no_op_spawn(_: PinnedFuture<()>) {
@@ -81,7 +132,7 @@ fn no_op_spawn(_: PinnedFuture<()>) {
     );
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(all(not(debug_assertions), not(feature = "tracing")))]
 #[cold]
 #[inline(never)]
 fn no_op_spawn_local(_: PinnedLocalFuture<()>) {
@@ -107,34 +158,27 @@ impl Executor {
     ///
     /// Uses the globally configured executor.
     /// Panics if no global executor has been initialized.
-    #[inline(always)]
+    #[inline]
     #[track_caller]
     pub fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
-        let pinned_fut = Box::pin(fut);
-
-        if let Some(fns) = EXECUTOR_FNS.get() {
-            (fns.spawn)(pinned_fut)
-        } else {
-            // No global executor set.
-            handle_uninitialized_spawn(pinned_fut);
-        }
+        // Only the `Box::pin` coercion to `dyn Future` is generic over the
+        // concrete future type and must be monomorphized per call site; the
+        // executor lookup and dispatch live in the non-generic
+        // `dispatch_spawn`, so a single shared copy of that logic is emitted
+        // instead of one inlined copy per (call site × future type).
+        dispatch_spawn(Box::pin(fut));
     }
 
     /// Spawns a [`Future`] that cannot be sent across threads.
     ///
     /// Uses the globally configured executor.
     /// Panics if no global executor has been initialized.
-    #[inline(always)]
+    #[inline]
     #[track_caller]
     pub fn spawn_local(fut: impl Future<Output = ()> + 'static) {
-        let pinned_fut = Box::pin(fut);
-
-        if let Some(fns) = EXECUTOR_FNS.get() {
-            (fns.spawn_local)(pinned_fut)
-        } else {
-            // No global executor set.
-            handle_uninitialized_spawn_local(pinned_fut);
-        }
+        // See `spawn`: keep the per-type work to just `Box::pin` and route the
+        // shared dispatch through the outlined `dispatch_spawn_local`.
+        dispatch_spawn_local(Box::pin(fut));
     }
 
     /// Waits until the next "tick" of the current async executor.
@@ -151,7 +195,19 @@ impl Executor {
             _ = tx.send(());
         });
 
-        _ = rx.await;
+        if rx.await.is_err() {
+            // The task spawned to signal the next tick was dropped before it
+            // ran, so the executor never advanced. Returning here would make the
+            // caller believe a tick elapsed when none did; surface it instead of
+            // silently synchronizing on nothing.
+            panic!(
+                "Executor::tick() could not synchronize with the executor: \
+                 the task spawned to signal the next tick was dropped before \
+                 it ran. Either no global executor was initialized, or the \
+                 configured executor drops spawned futures instead of running \
+                 them."
+            );
+        }
     }
 
     /// Polls the global async executor.
@@ -160,7 +216,7 @@ impl Executor {
     /// Does nothing if the global executor does not support polling.
     #[inline(always)]
     pub fn poll_local() {
-        if let Some(fns) = EXECUTOR_FNS.get() {
+        if let Some(fns) = current_executor_fns() {
             (fns.poll_local)()
         }
         // If not initialized or doesn't support polling, do nothing gracefully.
@@ -354,31 +410,42 @@ impl Executor {
             Box<dyn CustomExecutor + Send + Sync>,
         > = OnceLock::new();
 
-        CUSTOM_EXECUTOR_INSTANCE
-            .set(Box::new(custom_executor))
-            .map_err(|_| ExecutorError::AlreadySet)?;
-
-        // Now set the ExecutorFns using the stored instance
         let executor_impl = ExecutorFns {
-            spawn: |fut| {
-                // Unwrap is safe because we just set it successfully or returned Err.
-                CUSTOM_EXECUTOR_INSTANCE.get().unwrap().spawn(fut);
+            spawn: |fut| match CUSTOM_EXECUTOR_INSTANCE.get() {
+                Some(executor) => executor.spawn(fut),
+                // Only reachable in the tiny window between winning the global
+                // slot and storing the instance below; treat it the same as
+                // spawning before any executor was initialized.
+                None => handle_uninitialized_spawn(fut),
             },
-            spawn_local: |fut| {
-                CUSTOM_EXECUTOR_INSTANCE.get().unwrap().spawn_local(fut);
+            spawn_local: |fut| match CUSTOM_EXECUTOR_INSTANCE.get() {
+                Some(executor) => executor.spawn_local(fut),
+                None => handle_uninitialized_spawn_local(fut),
             },
             poll_local: || {
-                CUSTOM_EXECUTOR_INSTANCE.get().unwrap().poll_local();
+                if let Some(executor) = CUSTOM_EXECUTOR_INSTANCE.get() {
+                    executor.poll_local();
+                }
             },
         };
 
+        // Claim the global slot *first*. If another initializer wins the race
+        // (or one already ran), we return here without ever storing
+        // `custom_executor`, so it is dropped on return instead of being leaked
+        // into static memory for the life of the process.
         EXECUTOR_FNS
             .set(executor_impl)
-            .map_err(|_| ExecutorError::AlreadySet)
-        // If setting EXECUTOR_FNS fails (extremely unlikely race if called *concurrently*
-        // with another init_* after CUSTOM_EXECUTOR_INSTANCE was set), we technically
-        // leave CUSTOM_EXECUTOR_INSTANCE set but EXECUTOR_FNS not. This is an edge case,
-        // but the primary race condition is solved.
+            .map_err(|_| ExecutorError::AlreadySet)?;
+
+        // We are the unique winner of the global slot, so the instance slot is
+        // guaranteed to be empty; this store cannot fail.
+        let _ = CUSTOM_EXECUTOR_INSTANCE.set(Box::new(custom_executor));
+        debug_assert!(
+            CUSTOM_EXECUTOR_INSTANCE.get().is_some(),
+            "custom executor instance must be stored after winning \
+             EXECUTOR_FNS"
+        );
+        Ok(())
     }
 
     /// Sets a custom executor *for the current thread only*.
@@ -399,8 +466,18 @@ impl Executor {
         thread_local! {
             static CUSTOM_EXECUTOR_INSTANCE: OnceLock<
                 Box<dyn CustomExecutor>,
-            > = OnceLock::new();
+            > = const { OnceLock::new() };
         };
+
+        // Reject re-initialization up front, before allocating the box or
+        // touching the instance slot. `LOCAL_EXECUTOR_FNS` is the authoritative
+        // per-thread "already configured" flag and is the *last* slot written
+        // on the success path, so checking it here guarantees we never leave the
+        // instance slot populated while reporting failure. The rejected executor
+        // is dropped when this function returns.
+        if LOCAL_EXECUTOR_FNS.with(|local| local.get().is_some()) {
+            return Err(ExecutorError::AlreadySet);
+        }
 
         CUSTOM_EXECUTOR_INSTANCE.with(|this| {
             this.set(Box::new(custom_executor))
@@ -410,7 +487,9 @@ impl Executor {
         // Now set the ExecutorFns using the stored instance
         let executor_impl = ExecutorFns {
             spawn: |fut| {
-                // Unwrap is safe because we just set it successfully or returned Err.
+                // Unwrap is safe: the dispatch table below is only installed
+                // after the thread-local instance has been set, and these
+                // function pointers read the instance on the same thread.
                 CUSTOM_EXECUTOR_INSTANCE
                     .with(|this| this.get().unwrap().spawn(fut));
             },
@@ -424,8 +503,11 @@ impl Executor {
             },
         };
 
-        EXECUTOR_FNS
-            .set(executor_impl)
+        // Install the dispatch table for *this thread only*. The global
+        // `EXECUTOR_FNS` is intentionally left untouched so that other threads
+        // continue to use the global executor and `init_*` remains available.
+        LOCAL_EXECUTOR_FNS
+            .with(|local| local.set(executor_impl))
             .map_err(|_| ExecutorError::AlreadySet)
     }
 }
@@ -458,26 +540,31 @@ fn test_object_safety(_: Box<dyn CustomExecutor + Send + Sync>) {} // Added Send
 #[inline(never)]
 #[track_caller]
 fn handle_uninitialized_spawn(_fut: PinnedFuture<()>) {
-    let caller = std::panic::Location::caller();
-    #[cfg(all(debug_assertions, feature = "tracing"))]
+    // When tracing is enabled, emit a diagnostic and drop the task. This now
+    // fires in release builds too, where the log was previously cfg-gated out
+    // and the task was dropped with no diagnostic at all.
+    #[cfg(feature = "tracing")]
     {
+        let caller = std::panic::Location::caller();
         tracing::error!(
             target: "any_spawner",
-            spawn_caller=%caller,
-            "Executor::spawn called before a global executor was initialized. Task dropped."
+            spawn_caller = %caller,
+            "Executor::spawn called before a global executor was initialized. \
+             Task dropped."
         );
-        // Drop the future implicitly after logging
         drop(_fut);
     }
-    #[cfg(all(debug_assertions, not(feature = "tracing")))]
+    // Without tracing, fail loudly in debug builds.
+    #[cfg(all(not(feature = "tracing"), debug_assertions))]
     {
+        let caller = std::panic::Location::caller();
         panic!(
             "At {caller}, tried to spawn a Future with Executor::spawn() \
              before a global executor was initialized."
         );
     }
-    // In release builds (without tracing), call the specific no-op function.
-    #[cfg(not(debug_assertions))]
+    // Without tracing in release builds, fall back to the no-op function.
+    #[cfg(all(not(feature = "tracing"), not(debug_assertions)))]
     {
         no_op_spawn(_fut);
     }
@@ -488,26 +575,31 @@ fn handle_uninitialized_spawn(_fut: PinnedFuture<()>) {
 #[inline(never)]
 #[track_caller]
 fn handle_uninitialized_spawn_local(_fut: PinnedLocalFuture<()>) {
-    let caller = std::panic::Location::caller();
-    #[cfg(all(debug_assertions, feature = "tracing"))]
+    // When tracing is enabled, emit a diagnostic and drop the task. This now
+    // fires in release builds too, where the log was previously cfg-gated out.
+    #[cfg(feature = "tracing")]
     {
+        let caller = std::panic::Location::caller();
         tracing::error!(
             target: "any_spawner",
-            spawn_caller=%caller,
-            "Executor::spawn_local called before a global executor was initialized. \
-            Task likely dropped or panicked."
+            spawn_caller = %caller,
+            "Executor::spawn_local called before a global executor was \
+             initialized. Task dropped."
         );
-        // Fall through to panic or no-op depending on build/target
+        drop(_fut);
     }
-    #[cfg(all(debug_assertions, not(feature = "tracing")))]
+    // Without tracing, fail loudly in debug builds.
+    #[cfg(all(not(feature = "tracing"), debug_assertions))]
     {
+        let caller = std::panic::Location::caller();
         panic!(
             "At {caller}, tried to spawn a Future with \
              Executor::spawn_local() before a global executor was initialized."
         );
     }
-    // In release builds (without tracing), call the specific no-op function (which usually panics).
-    #[cfg(not(debug_assertions))]
+    // Without tracing in release builds, fall back to the no-op function
+    // (which panics).
+    #[cfg(all(not(feature = "tracing"), not(debug_assertions)))]
     {
         no_op_spawn_local(_fut);
     }

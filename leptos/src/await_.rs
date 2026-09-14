@@ -1,8 +1,8 @@
-use crate::{prelude::Suspend, suspense_component::Suspense, IntoView};
+use crate::{IntoView, prelude::Suspend, suspense_component::Suspense};
 use leptos_macro::{component, view};
 use leptos_server::ArcOnceResource;
 use reactive_graph::prelude::ReadUntracked;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 #[component]
 /// Allows you to inline the data loading for an `async` block or

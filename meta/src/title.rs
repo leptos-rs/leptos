@@ -1,6 +1,7 @@
-use crate::{use_head, MetaContext, ServerMetaContext};
+use crate::{MetaContext, ServerMetaContext, use_head};
 use leptos::{
-    attr::{any_attribute::AnyAttribute, Attribute},
+    IntoView,
+    attr::{Attribute, any_attribute::AnyAttribute},
     component,
     oco::Oco,
     prelude::{ArcTrigger, Notify, Track},
@@ -9,17 +10,16 @@ use leptos::{
         dom::document,
         hydration::Cursor,
         view::{
-            add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-            RenderHtml,
+            Mountable, Position, PositionState, Render, RenderFlags,
+            RenderHtml, add_attr::AddAnyAttr,
         },
     },
     text_prop::TextProp,
-    IntoView,
 };
 use or_poisoned::OrPoisoned;
 use std::sync::{
-    atomic::{AtomicU32, Ordering},
     Arc, Mutex, RwLock,
+    atomic::{AtomicU32, Ordering},
 };
 
 /// Contains the current state of the document's `<title>`.
@@ -162,7 +162,7 @@ impl TitleContext {
             if let Some(formatter) =
                 self.formatter_stack.read().or_poisoned().last()
             {
-                (formatter.1 .0)(title.into_owned()).into()
+                (formatter.1.0)(title.into_owned()).into()
             } else {
                 title
             }
@@ -334,8 +334,7 @@ impl RenderHtml for TitleView {
         self,
         _buf: &mut String,
         _position: &mut Position,
-        _escape: bool,
-        _mark_branches: bool,
+        _flags: RenderFlags,
         _extra_attrs: Vec<AnyAttribute>,
     ) {
         // meta tags are rendered into the buffer stored into the context

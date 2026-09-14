@@ -50,7 +50,7 @@ where
         };
 
         // here, we return the handle
-        set_interval_with_handle(
+        set_interval(
             f.clone(),
             // this is the only reactive access, so this effect will only
             // re-run when the interval changes

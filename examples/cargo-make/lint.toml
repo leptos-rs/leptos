@@ -13,4 +13,5 @@ args = ["all-features", "clippy", "--no-deps", "--", "-D", "warnings"]
 
 [tasks.check-format]
 env = { LEPTOS_PROJECT_DIRECTORY = "../../" }
+condition = { channels = ["nightly"] }
 args = ["fmt", "--", "--check", "--config-path", "${LEPTOS_PROJECT_DIRECTORY}"]

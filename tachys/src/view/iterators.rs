@@ -1,9 +1,9 @@
 use super::{
-    add_attr::AddAnyAttr, Mountable, Position, PositionState, Render,
-    RenderHtml,
+    Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+    add_attr::AddAnyAttr,
 };
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     renderer::Rndr,
     ssr::StreamBuilder,
@@ -88,29 +88,21 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Some(value) => Either::Left(value),
             None => Either::Right(()),
         }
-        .to_html_with_buf(
-            buf,
-            position,
-            escape,
-            mark_branches,
-            extra_attrs,
-        )
+        .to_html_with_buf(buf, position, flags, extra_attrs)
     }
 
     fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -122,8 +114,7 @@ where
         .to_html_async_with_buf::<OUT_OF_ORDER>(
             buf,
             position,
-            escape,
-            mark_branches,
+            flags,
             extra_attrs,
         )
     }
@@ -317,31 +308,23 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         let mut children = self.into_iter();
         if let Some(first) = children.next() {
-            first.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs.clone(),
-            );
+            first.to_html_with_buf(buf, position, flags, extra_attrs.clone());
         }
         for child in children {
             child.to_html_with_buf(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 // each child will have the extra attributes applied
                 extra_attrs.clone(),
             );
         }
-        if escape {
+        if flags.hydrate {
             buf.push_str("<!>");
             *position = Position::NextChild;
         }
@@ -351,8 +334,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -362,8 +344,7 @@ where
             first.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs.clone(),
             );
         }
@@ -371,12 +352,11 @@ where
             child.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs.clone(),
             );
         }
-        if escape {
+        if flags.hydrate {
             buf.push_sync("<!>");
             *position = Position::NextChild;
         }
@@ -616,20 +596,13 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         for child in self.0.into_iter() {
-            child.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs.clone(),
-            );
+            child.to_html_with_buf(buf, position, flags, extra_attrs.clone());
         }
-        if escape {
+        if flags.hydrate {
             buf.push_str("<!>");
             *position = Position::NextChild;
         }
@@ -639,8 +612,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -649,12 +621,11 @@ where
             child.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs.clone(),
             );
         }
-        if escape {
+        if flags.hydrate {
             buf.push_sync("<!>");
             *position = Position::NextChild;
         }
@@ -817,18 +788,11 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         for child in self.into_iter() {
-            child.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs.clone(),
-            );
+            child.to_html_with_buf(buf, position, flags, extra_attrs.clone());
         }
     }
 
@@ -836,8 +800,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -846,8 +809,7 @@ where
             child.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs.clone(),
             );
         }

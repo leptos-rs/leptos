@@ -28,7 +28,6 @@ macro_rules! tuples {
                     let mut r = path;
 
                     let mut p = Vec::new();
-                    let mut m = String::new();
 
                     if $first.optional() {
                         nth_field += 1;
@@ -40,13 +39,12 @@ macro_rules! tuples {
                             },
                             Some(PartialPathMatch { remaining, matched, params }) => {
                                 p.extend(params.into_iter());
-                                m.push_str(matched);
+                                matched_len += matched.len();
                                 r = remaining;
                             },
                         }
                     }
 
-                    matched_len += m.len();
                     $(
                         if $ty.optional() {
                             nth_field += 1;

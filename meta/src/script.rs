@@ -1,6 +1,6 @@
-use crate::{register, OrDefaultNonce};
+use crate::{OrDefaultNonce, register};
 use leptos::{
-    component, oco::Oco, prelude::*, tachys::html::element::script, IntoView,
+    IntoView, component, oco::Oco, prelude::*, tachys::html::element::script,
 };
 
 /// Injects an [`HTMLScriptElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLScriptElement) into the document

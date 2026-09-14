@@ -1,12 +1,12 @@
 use crate::{
+    KeyMap, StoreFieldTrigger,
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
-    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::{
-        guards::{Mapped, MappedMut, MappedMutArc, WriteGuard},
         ArcTrigger,
+        guards::{Mapped, MappedMut, MappedMutArc, WriteGuard},
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
@@ -14,13 +14,66 @@ use reactive_graph::{
     },
 };
 use std::{
-    collections::VecDeque,
+    collections::{BTreeMap, HashMap, VecDeque},
     fmt::Debug,
     hash::Hash,
     iter,
     ops::{Deref, DerefMut, Index, IndexMut},
     panic::Location,
 };
+
+/// A trait that provides the iterator item type for keyed collections.
+/// This uses a GAT to express the lifetime-parameterized item type,
+/// avoiding problematic struct-level bounds on `IntoIterator` that can
+/// conflict with other crates' blanket implementations.
+pub trait KeyedIterable {
+    /// The iterator item type when borrowing the collection with lifetime `'a`.
+    type IterItem<'a>
+    where
+        Self: 'a;
+}
+
+impl<T> KeyedIterable for Vec<T> {
+    type IterItem<'a>
+        = &'a T
+    where
+        Self: 'a;
+}
+
+impl<T> KeyedIterable for [T] {
+    type IterItem<'a>
+        = &'a T
+    where
+        Self: 'a;
+}
+
+impl<T, const N: usize> KeyedIterable for [T; N] {
+    type IterItem<'a>
+        = &'a T
+    where
+        Self: 'a;
+}
+
+impl<K, V> KeyedIterable for HashMap<K, V> {
+    type IterItem<'a>
+        = (&'a K, &'a V)
+    where
+        Self: 'a;
+}
+
+impl<K, V> KeyedIterable for BTreeMap<K, V> {
+    type IterItem<'a>
+        = (&'a K, &'a V)
+    where
+        Self: 'a;
+}
+
+impl<T> KeyedIterable for VecDeque<T> {
+    type IterItem<'a>
+        = &'a T
+    where
+        Self: 'a;
+}
 
 /// Accesses an item from a keyed collection.
 ///
@@ -86,7 +139,7 @@ impl<K: Hash + Eq, V> KeyedAccess<K> for std::collections::HashMap<K, V> {
 #[derive(Debug)]
 pub struct KeyedSubfield<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
 {
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
@@ -94,12 +147,12 @@ where
     inner: Inner,
     read: fn(&Prev) -> &T,
     write: fn(&mut Prev) -> &mut T,
-    pub(crate) key_fn: fn(<&T as IntoIterator>::Item) -> K,
+    pub(crate) key_fn: for<'a> fn(<T as KeyedIterable>::IterItem<'a>) -> K,
 }
 
 impl<Inner, Prev, K, T> Clone for KeyedSubfield<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     Inner: Clone,
 {
     fn clone(&self) -> Self {
@@ -117,21 +170,21 @@ where
 
 impl<Inner, Prev, K, T> Copy for KeyedSubfield<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     Inner: Copy,
 {
 }
 
 impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
 {
     /// Creates a keyed subfield of the inner data type with the given key function.
     #[track_caller]
     pub fn new(
         inner: Inner,
         path_segment: StorePathSegment,
-        key_fn: fn(<&T as IntoIterator>::Item) -> K,
+        key_fn: for<'a> fn(<T as KeyedIterable>::IterItem<'a>) -> K,
         read: fn(&Prev) -> &T,
         write: fn(&mut Prev) -> &mut T,
     ) -> Self {
@@ -150,7 +203,8 @@ where
 impl<Inner, Prev, K, T> StoreField for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -220,7 +274,8 @@ where
 impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -255,7 +310,7 @@ where
 impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     Inner: StoreField<Value = Prev>,
 {
     /// Keyed access to a keyed subfield of a store.
@@ -268,7 +323,8 @@ where
 pub struct KeyedSubfieldWriteGuard<Inner, Prev, K, T, Guard>
 where
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -283,7 +339,8 @@ impl<Inner, Prev, K, T, Guard> Deref
 where
     Guard: Deref,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -303,7 +360,8 @@ impl<Inner, Prev, K, T, Guard> DerefMut
 where
     Guard: DerefMut,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -321,7 +379,8 @@ impl<Inner, Prev, K, T, Guard> UntrackableGuard
 where
     Guard: UntrackableGuard,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -338,7 +397,8 @@ impl<Inner, Prev, K, T, Guard> Drop
     for KeyedSubfieldWriteGuard<Inner, Prev, K, T, Guard>
 where
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -363,7 +423,7 @@ where
 
 impl<Inner, Prev, K, T> DefinedAt for KeyedSubfield<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     Inner: StoreField<Value = Prev>,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
@@ -380,7 +440,7 @@ where
 
 impl<Inner, Prev, K, T> IsDisposed for KeyedSubfield<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     Inner: IsDisposed,
 {
     fn is_disposed(&self) -> bool {
@@ -391,7 +451,8 @@ where
 impl<Inner, Prev, K, T> Notify for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -406,7 +467,8 @@ where
 impl<Inner, Prev, K, T> Track for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev> + Track + 'static,
     Prev: 'static,
     T: 'static,
@@ -420,7 +482,8 @@ where
 impl<Inner, Prev, K, T> ReadUntracked for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -435,7 +498,8 @@ where
 impl<Inner, Prev, K, T> Write for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     T: 'static,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
@@ -469,7 +533,7 @@ where
 #[derive(Debug)]
 pub struct AtKeyed<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
 {
     #[cfg(any(debug_assertions, leptos_debuginfo))]
     defined_at: &'static Location<'static>,
@@ -479,7 +543,7 @@ where
 
 impl<Inner, Prev, K, T> AtKeyed<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     K: Clone,
 {
     /// Key used for keyed collection access.
@@ -490,7 +554,7 @@ where
 
 impl<Inner, Prev, K, T> Clone for AtKeyed<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
     K: Debug + Clone,
 {
@@ -506,7 +570,7 @@ where
 
 impl<Inner, Prev, K, T> Copy for AtKeyed<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     KeyedSubfield<Inner, Prev, K, T>: Copy,
     K: Debug + Copy,
 {
@@ -514,7 +578,7 @@ where
 
 impl<Inner, Prev, K, T> AtKeyed<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
 {
     /// Provides access to the item in the inner collection at this key.
     #[track_caller]
@@ -532,23 +596,68 @@ impl<Inner, Prev, K, T> AtKeyed<Inner, Prev, K, T>
 where
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     T: KeyedAccess<K>,
     T::Value: Sized,
 {
     /// Attempt to resolve the inner index if is still exists.
+    ///
+    /// The key map is only regenerated when the keyed subfield itself is
+    /// written to. A write to one of its *ancestors* (e.g., `parent.update(...)`)
+    /// notifies the subfield but leaves its keys stale, so a cached index may
+    /// now point past the end of the collection, or at a different element.
+    /// To guard against that, the cached index is checked against the current
+    /// collection, and the keys are regenerated if it no longer matches.
+    ///
+    /// This reads from the store, so it must never be called while a write
+    /// guard on the store is held.
     fn resolve_index(&self) -> Option<usize> {
-        let inner_path = self.inner.path().into_iter().collect();
+        let inner_path: StorePath = self.inner.path().into_iter().collect();
         let keys = self.inner.keys()?;
-        keys.with_field_keys(
-            inner_path,
-            |keys| (keys.get(&self.key), vec![]),
-            || self.inner.latest_keys(),
-        )
-        .flatten()
-        .map(|(_, idx)| idx)
+        let lookup = || {
+            keys.with_field_keys(
+                inner_path.clone(),
+                |keys| (keys.get(&self.key), vec![]),
+                || self.inner.latest_keys(),
+            )
+            .flatten()
+            .map(|(_, idx)| idx)
+        };
+
+        let index = lookup();
+        if self.index_is_current(index) {
+            return index;
+        }
+
+        // the cached keys are out of date: regenerate them and try again
+        self.inner.update_keys();
+        lookup()
+    }
+
+    /// Checks whether `index` (or its absence) matches the current state of
+    /// the collection, by comparing the key of the element at that position.
+    fn index_is_current(&self, index: Option<usize>) -> bool {
+        let Some(reader) = self.inner.reader() else {
+            // nothing to compare against; nothing we can do
+            return true;
+        };
+        let key_fn = self.inner.key_fn;
+        match index {
+            Some(index) => reader
+                .deref()
+                .into_iter()
+                .nth(index)
+                .is_some_and(|item| key_fn(item) == self.key),
+            // the key was not found: this is only current if it is
+            // genuinely absent from the collection
+            None => !reader
+                .deref()
+                .into_iter()
+                .any(|item| key_fn(item) == self.key),
+        }
     }
 }
 
@@ -556,7 +665,8 @@ impl<Inner, Prev, K, T> StoreField for AtKeyed<Inner, Prev, K, T>
 where
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     T: KeyedAccess<K>,
@@ -619,8 +729,10 @@ where
     }
 
     fn reader(&self) -> Option<Self::Reader> {
-        let inner = self.inner.reader()?;
+        // resolve the index before taking the read guard: resolving may
+        // regenerate keys, which reads the store itself
         let index = self.resolve_index()?;
+        let inner = self.inner.reader()?;
         Some(MappedMutArc::new(
             inner,
             {
@@ -635,10 +747,13 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let mut inner = self.inner.writer()?;
-        inner.untrack();
+        // resolve the index (and the triggers, which depend on the current
+        // keys) *before* taking the write guard: resolving reads the store,
+        // which would deadlock against our own write lock
         let index = self.resolve_index()?;
         let triggers = self.triggers_for_current_path();
+        let mut inner = self.inner.writer()?;
+        inner.untrack();
         Some(WriteGuard::new(
             triggers,
             MappedMutArc::new(
@@ -680,7 +795,7 @@ where
 
 impl<Inner, Prev, K, T> DefinedAt for AtKeyed<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
 {
     fn defined_at(&self) -> Option<&'static Location<'static>> {
         #[cfg(any(debug_assertions, leptos_debuginfo))]
@@ -696,7 +811,7 @@ where
 
 impl<Inner, Prev, K, T> IsDisposed for AtKeyed<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
     Inner: IsDisposed,
 {
     fn is_disposed(&self) -> bool {
@@ -708,7 +823,8 @@ impl<Inner, Prev, K, T> Notify for AtKeyed<Inner, Prev, K, T>
 where
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     T: KeyedAccess<K>,
@@ -725,7 +841,8 @@ impl<Inner, Prev, K, T> Track for AtKeyed<Inner, Prev, K, T>
 where
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     T: KeyedAccess<K>,
@@ -740,7 +857,8 @@ impl<Inner, Prev, K, T> ReadUntracked for AtKeyed<Inner, Prev, K, T>
 where
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     T: KeyedAccess<K>,
@@ -757,7 +875,8 @@ impl<Inner, Prev, K, T> Write for AtKeyed<Inner, Prev, K, T>
 where
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
     KeyedSubfield<Inner, Prev, K, T>: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     T: KeyedAccess<K>,
@@ -782,7 +901,8 @@ where
 impl<Inner, Prev, K, T> KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: StoreField<Value = Prev>,
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -811,7 +931,8 @@ where
 impl<Inner, Prev, K, T> IntoIterator for KeyedSubfield<Inner, Prev, K, T>
 where
     Self: Clone,
-    for<'a> &'a T: IntoIterator,
+    T: KeyedIterable,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
     Inner: Clone + StoreField<Value = Prev> + 'static,
     Prev: 'static,
     K: Clone + Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
@@ -846,8 +967,7 @@ where
 /// An iterator over a [`KeyedSubfield`].
 pub struct StoreFieldKeyedIter<Inner, Prev, K, T>
 where
-    for<'a> &'a T: IntoIterator,
-    T: KeyedAccess<K>,
+    T: KeyedIterable + KeyedAccess<K>,
 {
     inner: KeyedSubfield<Inner, Prev, K, T>,
     keys: VecDeque<K>,
@@ -855,9 +975,9 @@ where
 
 impl<Inner, Prev, K, T> Iterator for StoreFieldKeyedIter<Inner, Prev, K, T>
 where
+    T: KeyedIterable,
     Inner: StoreField<Value = Prev> + Clone + 'static,
     T: KeyedAccess<K> + 'static,
-    for<'a> &'a T: IntoIterator,
 {
     type Item = AtKeyed<Inner, Prev, K, T>;
 
@@ -871,10 +991,10 @@ where
 impl<Inner, Prev, K, T> DoubleEndedIterator
     for StoreFieldKeyedIter<Inner, Prev, K, T>
 where
+    T: KeyedIterable,
     Inner: StoreField<Value = Prev> + Clone + 'static,
     T: KeyedAccess<K> + 'static,
     T::Value: Sized + 'static,
-    for<'a> &'a T: IntoIterator,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.keys
@@ -885,7 +1005,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, tests::tick, AtKeyed, Store};
+    use crate::{self as reactive_stores, AtKeyed, Store, tests::tick};
     use reactive_graph::{
         effect::Effect,
         traits::{Get, GetUntracked, ReadUntracked, Set, Track, Write},
@@ -894,8 +1014,8 @@ mod tests {
     use std::{
         collections::{BTreeMap, BTreeSet, HashMap},
         sync::{
-            atomic::{AtomicUsize, Ordering},
             Arc,
+            atomic::{AtomicUsize, Ordering},
         },
     };
 

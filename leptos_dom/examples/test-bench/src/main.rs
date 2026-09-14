@@ -73,14 +73,14 @@ where
     let to = to.into_iter().collect::<Vec<_>>();
 
     let (list, set_list) = create_signal(from.clone());
-    request_animation_frame({
+    _ = request_animation_frame({
         let to = to.clone();
         let then = then.clone();
         move || {
             set_list(to);
 
             if let Some(then) = then {
-                request_animation_frame({
+                _ = request_animation_frame({
                     move || {
                         set_list(then);
                     }

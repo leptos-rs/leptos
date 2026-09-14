@@ -260,7 +260,7 @@ where
                             let rematch = path.trim_end_matches(&format!(
                                 "{matched}{remaining}"
                             ));
-                            let new_partial = segments.test(rematch).unwrap();
+                            let new_partial = segments.test(rematch)?;
                             params = new_partial.params;
                         }
 
@@ -362,5 +362,38 @@ where
                 ))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NestedRoute;
+    use crate::{MatchParams, OptionalParamSegment, RouteDefs, StaticSegment};
+
+    #[test]
+    fn optional_fallback_rematch_failure_returns_none() {
+        let routes = RouteDefs::new(
+            NestedRoute::new(
+                (OptionalParamSegment("x"), StaticSegment("bar")),
+                || (),
+            )
+            .child(NestedRoute::new(StaticSegment("bar"), || ())),
+        );
+
+        assert!(routes.match_route("/bar").is_none());
+
+        let matched = routes
+            .match_route("/foo/bar/bar")
+            .expect("route should match with optional parameter");
+        assert_eq!(matched.to_params(), vec![("x".into(), "foo".into())]);
+
+        let optional_routes = RouteDefs::new(
+            NestedRoute::new(OptionalParamSegment("foo"), || ())
+                .child(NestedRoute::new(StaticSegment("bar"), || ())),
+        );
+        let matched = optional_routes
+            .match_route("/bar")
+            .expect("route should match without optional parameter");
+        assert!(matched.to_params().is_empty());
     }
 }
