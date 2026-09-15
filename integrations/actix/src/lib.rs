@@ -28,8 +28,8 @@ use leptos::{
     reactive::{computed::ScopedFuture, owner::Owner},
 };
 use leptos_integration_utils::{
-    BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
-    accept_header_includes_html, build_request_url,
+    BoxedFnOnce, ExtendResponse, FileId, PinnedFuture, PinnedStream,
+    StaticHeadersCache, accept_header_includes_html, build_request_url,
 };
 use leptos_meta::ServerMetaContext;
 use leptos_router::{
@@ -38,7 +38,6 @@ use leptos_router::{
     location::RequestUrl,
     static_routes::{RegenerationFn, ResolvedStaticPath, StaticResponse},
 };
-use lru::LruCache;
 use or_poisoned::OrPoisoned;
 use send_wrapper::SendWrapper;
 use server_fn::{
@@ -49,7 +48,6 @@ use std::{
     collections::HashSet,
     fmt::{Debug, Display},
     future::Future,
-    num::NonZeroUsize,
     ops::{Deref, DerefMut},
     path::Path,
     sync::{Arc, LazyLock, RwLock},
@@ -1295,34 +1293,13 @@ impl StaticRouteGenerator {
     }
 }
 
-/// Default upper bound on the number of per-path [`ResponseOptions`] entries
-/// cached for static routes. Without a bound the cache grew for the life of the
-/// process, one entry per unique static path served (e.g. attacker-driven slugs
-/// on a regenerated `/posts/{slug}` route).
-///
-/// Eviction is graceful: the static file is still served from disk, the cache
-/// only drops the custom headers/status captured at generation time for the
-/// evicted path (re-populated on the next regeneration). 1024 covers a typical
-/// static site's working set for a worst case on the order of ~1 MB.
-const STATIC_HEADERS_DEFAULT_CAPACITY: NonZeroUsize =
-    match NonZeroUsize::new(1024) {
-        Some(capacity) => capacity,
-        None => unreachable!(),
-    };
-
-/// Environment variable that overrides [`STATIC_HEADERS_DEFAULT_CAPACITY`].
-/// A missing, unparseable, or zero value falls back to the default.
-const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
-
-static STATIC_HEADERS: LazyLock<RwLock<LruCache<String, ResponseParts>>> =
-    LazyLock::new(|| {
-        let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
-            .ok()
-            .and_then(|value| value.parse::<usize>().ok())
-            .and_then(NonZeroUsize::new)
-            .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
-        RwLock::new(LruCache::new(capacity))
-    });
+/// Per-path cache of the headers/status captured when each static route was
+/// rendered, keyed by the [`FileId`] of the file the snapshot was written with,
+/// so a cache hit pairs the file it opened with the matching headers. Capacity
+/// and retained generations are configured from the environment; see
+/// [`StaticHeadersCache`].
+static STATIC_HEADERS: LazyLock<StaticHeadersCache<ResponseParts>> =
+    LazyLock::new(StaticHeadersCache::from_env);
 
 /// Apply a cached [`ResponseParts`] snapshot to a response.
 ///
@@ -1370,7 +1347,7 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
-    use leptos_integration_utils::write_file_atomic;
+    use leptos_integration_utils::stage_file_atomic;
 
     // Reject anything that would escape the site root before caching headers
     // or touching the filesystem.
@@ -1381,22 +1358,26 @@ async fn write_static_route(
         ));
     };
 
-    if let Some(options) = response_options {
-        // Cache an immutable snapshot of the headers/status captured during this
-        // render, not the live request's `Arc<RwLock<..>>`. The generating
-        // request still owns and drains its own `ResponseOptions` when it serves
-        // the page; the cache keeps a private copy so repeated hits can re-apply
-        // it.
-        STATIC_HEADERS
-            .write()
-            .or_poisoned()
-            .put(path.to_string(), options.0.read().or_poisoned().clone());
+    // Snapshot the headers/status captured during this render, not the live
+    // request's `Arc<RwLock<..>>`. The generating request still owns and drains
+    // its own `ResponseOptions` when it serves the page; the cache keeps a
+    // private copy so repeated hits can re-apply it.
+    let parts =
+        response_options.map(|options| options.0.read().or_poisoned().clone());
+
+    // Write atomically (stage + commit): a crash mid-write must never leave a
+    // truncated or empty file that a concurrent request could open and serve.
+    let staged =
+        stage_file_atomic(Path::new(&file_path), html.as_bytes()).await?;
+
+    // Publish the headers keyed by this file's identity *before* the file is
+    // visible, so a concurrent cache hit that opens it always finds the headers
+    // from the same render rather than whichever render last wrote the file.
+    if let Some(parts) = parts {
+        STATIC_HEADERS.record(path, staged.id(), parts);
     }
 
-    let path = Path::new(&file_path);
-    // Write atomically: a crash mid-write must never leave a truncated or empty
-    // file that a concurrent request could open and serve.
-    write_file_atomic(path, html.as_bytes()).await
+    staged.commit().await
 }
 
 fn handle_static_route<IV>(
@@ -1493,19 +1474,22 @@ where
                     opened => {
                         // Cached hit: serve the file opened above and re-apply
                         // the headers captured when it was generated.
-                        //
-                        // `LruCache::get` updates recency, so it needs a write lock.
-                        // Clone the cached snapshot out so the lock is released
-                        // before we touch the response, then apply it
-                        // non-destructively, leaving the entry intact for the
-                        // next hit.
-                        let response_parts = STATIC_HEADERS
-                            .write()
-                            .or_poisoned()
-                            .get(orig_path)
-                            .cloned();
-                        let mut response = match opened {
-                            Ok(file) => file.into_response(&req),
+                        match opened {
+                            Ok(file) => {
+                                // Take the identity from the handle we are about
+                                // to serve, then look up the headers cached for
+                                // that exact render. Body and headers therefore
+                                // come from one render even if the path is being
+                                // regenerated concurrently, with no lock held
+                                // across the file open and the header lookup.
+                                let id = FileId::from_metadata(file.metadata());
+                                let parts = STATIC_HEADERS.get(orig_path, id);
+                                let mut response = file.into_response(&req);
+                                if let Some(parts) = parts {
+                                    apply_response_parts(&mut response, &parts);
+                                }
+                                response
+                            }
                             // A non-NotFound error from the open above (e.g. a
                             // permissions problem) lands here. Do not render the
                             // raw filesystem error into the body — that leaks
@@ -1522,11 +1506,7 @@ where
                                 HttpResponse::InternalServerError()
                                     .body("Internal Server Error")
                             }
-                        };
-                        if let Some(parts) = response_parts {
-                            apply_response_parts(&mut response, &parts);
                         }
-                        response
                     }
                 }
             }
@@ -1844,13 +1824,11 @@ mod tests {
     // `actix_web::test`, which would shadow the `#[test]` attribute macro.
     use super::{
         ActixResponse, ExtendResponse, HttpResponse, LOCATION, LeptosOptions,
-        Method, OrPoisoned, Owner, Request, ResponseOptions, ResponseParts,
-        STATIC_HEADERS_DEFAULT_CAPACITY, SsrMode, header, provide_context,
-        redirect, render_app_to_stream_with_context,
+        Method, OrPoisoned, Owner, Request, ResponseOptions, SsrMode, header,
+        provide_context, redirect, render_app_to_stream_with_context,
         unsupported_ssr_mode_route, write_static_route,
     };
     use actix_web::test::TestRequest;
-    use lru::LruCache;
 
     // A redirect target containing CR/LF cannot be encoded as a header value.
     // `redirect` must skip the redirect instead of panicking, otherwise any
@@ -1914,27 +1892,6 @@ mod tests {
                 .map(|v| v.as_bytes()),
             Some(&b"text/html; charset=utf-8"[..])
         );
-    }
-
-    // The per-path header cache must never grow without bound: serving many
-    // unique static paths (e.g. attacker-driven slugs) used to leak one entry
-    // per path for the life of the process.
-    #[test]
-    fn static_headers_cache_is_bounded() {
-        let mut cache: LruCache<String, ResponseParts> =
-            LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
-        let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
-
-        for i in 0..(capacity + 10) {
-            cache.put(format!("/post/{i}"), ResponseParts::default());
-        }
-
-        // never grows past capacity
-        assert_eq!(cache.len(), capacity);
-        // the earliest-inserted entries have been evicted
-        assert!(cache.get(&"/post/0".to_string()).is_none());
-        // a recently-inserted entry is still present
-        assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
     }
 
     // A HEAD request to a render route must reach the GET handler and return

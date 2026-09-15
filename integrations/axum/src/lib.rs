@@ -62,6 +62,8 @@ use leptos_integration_utils::{
     BoxedFnOnce, ExtendResponse, PinnedFuture, PinnedStream,
     accept_header_includes_html, build_request_url,
 };
+#[cfg(feature = "default")]
+use leptos_integration_utils::{FileId, StaticHeadersCache};
 use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
 use leptos_router::static_routes::{ResolvedStaticPath, StaticResponse};
@@ -1621,38 +1623,14 @@ impl StaticRouteGenerator {
     }
 }
 
-/// Default upper bound on the number of per-path [`ResponseOptions`] entries
-/// cached for static routes. Without a bound the cache grew for the life of the
-/// process, one entry per unique static path served (e.g. attacker-driven slugs
-/// on a regenerated `/posts/{slug}` route).
-///
-/// Eviction is graceful: the static file is still served from disk, the cache
-/// only drops the custom headers/status captured at generation time for the
-/// evicted path (re-populated on the next regeneration). 1024 covers a typical
-/// static site's working set for a worst case on the order of ~1 MB.
+/// Per-path cache of the headers/status captured when each static route was
+/// rendered, keyed by the [`FileId`] of the file the snapshot was written with,
+/// so a cache hit pairs the file it opened with the matching headers. Capacity
+/// and retained generations are configured from the environment; see
+/// [`StaticHeadersCache`].
 #[cfg(feature = "default")]
-const STATIC_HEADERS_DEFAULT_CAPACITY: std::num::NonZeroUsize =
-    match std::num::NonZeroUsize::new(1024) {
-        Some(capacity) => capacity,
-        None => unreachable!(),
-    };
-
-/// Environment variable that overrides [`STATIC_HEADERS_DEFAULT_CAPACITY`].
-/// A missing, unparseable, or zero value falls back to the default.
-#[cfg(feature = "default")]
-const STATIC_HEADERS_CAPACITY_ENV: &str = "LEPTOS_STATIC_HEADERS_CACHE_SIZE";
-
-#[cfg(feature = "default")]
-static STATIC_HEADERS: LazyLock<
-    std::sync::RwLock<lru::LruCache<String, ResponseParts>>,
-> = LazyLock::new(|| {
-    let capacity = std::env::var(STATIC_HEADERS_CAPACITY_ENV)
-        .ok()
-        .and_then(|value| value.parse::<usize>().ok())
-        .and_then(std::num::NonZeroUsize::new)
-        .unwrap_or(STATIC_HEADERS_DEFAULT_CAPACITY);
-    std::sync::RwLock::new(lru::LruCache::new(capacity))
-});
+static STATIC_HEADERS: LazyLock<StaticHeadersCache<ResponseParts>> =
+    LazyLock::new(StaticHeadersCache::from_env);
 
 /// Apply a cached [`ResponseParts`] snapshot to a response.
 ///
@@ -1670,6 +1648,145 @@ fn apply_response_parts<ResBody>(
         *res.status_mut() = status;
     }
     res.headers_mut().extend(parts.headers.clone());
+}
+
+/// Streams an opened static file as a `200 OK` response body.
+///
+/// The body is read from `file` — the same handle whose identity selected the
+/// cached headers — so the bytes and the headers always come from one render,
+/// without `tower_http::ServeFile` (which hides its file handle, leaving no way
+/// to tie a served body to a specific render). `len` is the file size, used for
+/// `content-length`; `text/html` is set as the default content type (these
+/// static routes are always rendered HTML documents).
+#[cfg(feature = "default")]
+fn file_response(file: tokio::fs::File, len: u64) -> Response<Body> {
+    use tokio::io::AsyncReadExt;
+
+    let stream = futures::stream::try_unfold(file, |mut file| async move {
+        let mut buf = vec![0u8; 64 * 1024];
+        let read = file.read(&mut buf).await?;
+        Ok::<_, std::io::Error>(if read == 0 {
+            None
+        } else {
+            buf.truncate(read);
+            Some((buf, file))
+        })
+    });
+
+    let mut response = Response::new(Body::from_stream(stream));
+    let headers = response.headers_mut();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
+    if let Ok(len) = HeaderValue::try_from(len.to_string()) {
+        headers.insert(header::CONTENT_LENGTH, len);
+    }
+    response
+}
+
+/// HTTP cache validators for a served static file, derived from the same
+/// metadata used for its [`FileId`]. Restores the conditional-request behavior
+/// (`ETag`/`Last-Modified` + `304 Not Modified`) that `tower_http::ServeFile`
+/// applied before the cache-hit path served the file directly.
+#[cfg(feature = "default")]
+struct FileValidators {
+    etag: Option<HeaderValue>,
+    modified: Option<std::time::SystemTime>,
+}
+
+#[cfg(feature = "default")]
+impl FileValidators {
+    fn from_metadata(metadata: &std::fs::Metadata) -> Self {
+        let modified = metadata.modified().ok();
+        // Strong validator from (mtime, size), the same basis `ServeFile` uses.
+        let etag = modified
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .and_then(|since| {
+                HeaderValue::from_str(&format!(
+                    "\"{:x}.{:08x}-{:x}\"",
+                    since.as_secs(),
+                    since.subsec_nanos(),
+                    metadata.len()
+                ))
+                .ok()
+            });
+        Self { etag, modified }
+    }
+
+    /// Adds `ETag` and `Last-Modified` to a response.
+    fn apply(&self, headers: &mut HeaderMap) {
+        if let Some(etag) = &self.etag {
+            headers.insert(header::ETAG, etag.clone());
+        }
+        if let Some(modified) = self.modified
+            && let Ok(value) =
+                HeaderValue::from_str(&httpdate::fmt_http_date(modified))
+        {
+            headers.insert(header::LAST_MODIFIED, value);
+        }
+    }
+
+    /// Whether the request's preconditions show the client's cached copy is
+    /// still current, so a `304` can be returned instead of the body.
+    /// `If-None-Match` takes precedence over `If-Modified-Since`
+    /// (RFC 9110 §13.2.2).
+    fn not_modified(&self, request: &HeaderMap) -> bool {
+        if let Some(if_none_match) = request.get(header::IF_NONE_MATCH) {
+            return self.etag.as_ref().is_some_and(|etag| {
+                if_none_match_matches(if_none_match, etag)
+            });
+        }
+        if let Some(if_modified_since) = request.get(header::IF_MODIFIED_SINCE)
+        {
+            return self.not_modified_since(if_modified_since);
+        }
+        false
+    }
+
+    fn not_modified_since(&self, if_modified_since: &HeaderValue) -> bool {
+        let Some(modified) = self.modified else {
+            return false;
+        };
+        let Some(since) = if_modified_since
+            .to_str()
+            .ok()
+            .and_then(|value| httpdate::parse_http_date(value).ok())
+        else {
+            return false;
+        };
+        // HTTP dates have one-second granularity; compare truncated to seconds.
+        match (
+            modified.duration_since(std::time::UNIX_EPOCH).ok(),
+            since.duration_since(std::time::UNIX_EPOCH).ok(),
+        ) {
+            (Some(modified), Some(since)) => {
+                modified.as_secs() <= since.as_secs()
+            }
+            _ => false,
+        }
+    }
+}
+
+/// Weak comparison of an `If-None-Match` header against our `ETag`
+/// (RFC 9110 §13.1.2): `*` matches any current representation, otherwise any
+/// listed entity-tag whose opaque value equals ours (ignoring a `W/` prefix).
+#[cfg(feature = "default")]
+fn if_none_match_matches(
+    if_none_match: &HeaderValue,
+    etag: &HeaderValue,
+) -> bool {
+    let header = if_none_match.as_bytes();
+    if header == b"*" {
+        return true;
+    }
+    let ours = etag.as_bytes();
+    let ours = ours.strip_prefix(b"W/").unwrap_or(ours);
+    header.split(|&byte| byte == b',').any(|candidate| {
+        let candidate = candidate.trim_ascii();
+        let candidate = candidate.strip_prefix(b"W/").unwrap_or(candidate);
+        candidate == ours
+    })
 }
 
 #[cfg(feature = "default")]
@@ -1704,7 +1821,7 @@ async fn write_static_route(
     path: &str,
     html: &str,
 ) -> Result<(), std::io::Error> {
-    use leptos_integration_utils::write_file_atomic;
+    use leptos_integration_utils::stage_file_atomic;
 
     // Reject anything that would escape the site root before caching headers
     // or touching the filesystem.
@@ -1715,22 +1832,26 @@ async fn write_static_route(
         ));
     };
 
-    if let Some(options) = response_options {
-        // Cache an immutable snapshot of the headers/status captured during this
-        // render, not the live request's `Arc<RwLock<..>>`. The generating
-        // request still owns and drains its own `ResponseOptions` when it serves
-        // the page; the cache keeps a private copy so repeated hits can re-apply
-        // it.
-        STATIC_HEADERS
-            .write()
-            .or_poisoned()
-            .put(path.to_string(), options.0.read().or_poisoned().clone());
+    // Snapshot the headers/status captured during this render, not the live
+    // request's `Arc<RwLock<..>>`. The generating request still owns and drains
+    // its own `ResponseOptions` when it serves the page; the cache keeps a
+    // private copy so repeated hits can re-apply it.
+    let parts =
+        response_options.map(|options| options.0.read().or_poisoned().clone());
+
+    // Write atomically (stage + commit): a crash mid-write must never leave a
+    // truncated or empty file that a concurrent request could open and serve.
+    let staged =
+        stage_file_atomic(Path::new(&file_path), html.as_bytes()).await?;
+
+    // Publish the headers keyed by this file's identity *before* the file is
+    // visible, so a concurrent cache hit that opens it always finds the headers
+    // from the same render rather than whichever render last wrote the file.
+    if let Some(parts) = parts {
+        STATIC_HEADERS.record(path, staged.id(), parts);
     }
 
-    let path = Path::new(&file_path);
-    // Write atomically: a crash mid-write must never leave a truncated or empty
-    // file that a concurrent request could open and serve.
-    write_file_atomic(path, html.as_bytes()).await
+    staged.commit().await
 }
 
 #[cfg(feature = "default")]
@@ -1750,17 +1871,14 @@ where
     S: Send + 'static,
     IV: IntoView + 'static,
 {
-    use tower_http::services::ServeFile;
-
     move |state, req| {
         let app_fn = app_fn.clone();
         let additional_context = additional_context.clone();
         let regenerate = regenerate.clone();
         Box::pin(async move {
             let options = LeptosOptions::from_ref(&state);
-            // hold an owned copy of the URI: the request itself is consumed
-            // by the `ServeFile` call below, but the path is still needed
-            // afterwards (`Uri` clones are cheap, reference-counted bytes)
+            // hold an owned copy of the URI: only the path is needed below
+            // (`Uri` clones are cheap, reference-counted bytes)
             let uri = req.uri().clone();
             let orig_path = uri.path();
             // A `None` here means the request path would escape the site root
@@ -1774,8 +1892,16 @@ where
                 return (StatusCode::NOT_FOUND, "Not Found").into_response();
             };
             let path = Path::new(&file_path);
-            let served = ServeFile::new(path).oneshot(req).await;
-            let needs_generation = matches!(&served, Ok(res) if res.status() == StatusCode::NOT_FOUND);
+            // Open the file ourselves rather than handing the request to
+            // `tower_http::ServeFile`: a cache hit must read its headers from the
+            // render that produced the body it serves, which means taking the
+            // file's identity from the very handle being served (see
+            // `file_response`). `ServeFile` doesn't expose that handle.
+            let opened = tokio::fs::File::open(path).await;
+            let needs_generation = matches!(
+                &opened,
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound
+            );
 
             if needs_generation {
                 // On-demand regeneration. Serve the HTML we just rendered
@@ -1837,38 +1963,63 @@ where
                 }
                 res.0
             } else {
-                // Cached hit: serve the file already opened above and re-apply
-                // the headers captured when it was generated.
+                // Cached hit: serve the file we opened and pair it with the
+                // headers captured for the exact render that produced it. The
+                // identity comes from this handle, so the body and headers can't
+                // come from different renders even while the path is being
+                // regenerated concurrently — with no lock spanning the file open
+                // and the header lookup.
                 //
-                // `LruCache::get` updates recency, so it needs a write lock.
-                // Clone the cached snapshot out so the lock is released before we
-                // touch the response, then apply it non-destructively, leaving
-                // the entry intact for the next hit.
-                let response_parts = STATIC_HEADERS
-                    .write()
-                    .or_poisoned()
-                    .get(orig_path)
-                    .cloned();
-                let mut response = match served {
-                    Ok(res) => res.into_response(),
-                    // A failed read of the cached file lands here. Do not
-                    // render the raw filesystem error into the body — that
-                    // leaks server paths — log it and return a generic 500.
-                    Err(err) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::warn!(
-                            "failed to serve static file {}: {err}",
-                            path.display()
-                        );
-                        #[cfg(not(feature = "tracing"))]
-                        let _ = &err;
-                        internal_server_error()
-                    }
+                // A failed open/stat (e.g. a permissions problem) must not leak
+                // the raw filesystem error and server paths into the body: log it
+                // and return a generic 500.
+                let serve_error = |err: &std::io::Error| {
+                    #[cfg(feature = "tracing")]
+                    tracing::warn!(
+                        "failed to serve static file {}: {err}",
+                        path.display()
+                    );
+                    #[cfg(not(feature = "tracing"))]
+                    let _ = err;
+                    internal_server_error()
                 };
-                if let Some(parts) = response_parts {
-                    apply_response_parts(&mut response, &parts);
+                match opened {
+                    Ok(file) => match file.metadata().await {
+                        Ok(metadata) => {
+                            let id = FileId::from_metadata(&metadata);
+                            let parts = STATIC_HEADERS.get(orig_path, id);
+                            let validators =
+                                FileValidators::from_metadata(&metadata);
+                            // Conditional GET: revalidate without resending the
+                            // body when the client's cached copy is current.
+                            if validators.not_modified(req.headers()) {
+                                let mut response = Response::new(Body::empty());
+                                *response.status_mut() =
+                                    StatusCode::NOT_MODIFIED;
+                                validators.apply(response.headers_mut());
+                                // A 304 carries cache-relevant headers but must
+                                // keep its status, so apply the cached headers
+                                // without the cached status override.
+                                if let Some(parts) = parts {
+                                    response
+                                        .headers_mut()
+                                        .extend(parts.headers);
+                                }
+                                response
+                            } else {
+                                let mut response =
+                                    file_response(file, metadata.len());
+                                validators.apply(response.headers_mut());
+                                if let Some(parts) = parts {
+                                    apply_response_parts(&mut response, &parts);
+                                }
+                                response
+                            }
+                        }
+                        Err(err) => serve_error(&err),
+                    },
+                    Err(err) => serve_error(&err),
                 }
-                response
             }
         })
     }
@@ -2900,27 +3051,5 @@ mod tests {
 
         let res = handler(State(options), req).await;
         assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    // The per-path header cache must never grow without bound: serving many
-    // unique static paths (e.g. attacker-driven slugs) used to leak one entry
-    // per path for the life of the process.
-    #[cfg(feature = "default")]
-    #[test]
-    fn static_headers_cache_is_bounded() {
-        let mut cache: lru::LruCache<String, ResponseParts> =
-            lru::LruCache::new(STATIC_HEADERS_DEFAULT_CAPACITY);
-        let capacity = STATIC_HEADERS_DEFAULT_CAPACITY.get();
-
-        for i in 0..(capacity + 10) {
-            cache.put(format!("/post/{i}"), ResponseParts::default());
-        }
-
-        // never grows past capacity
-        assert_eq!(cache.len(), capacity);
-        // the earliest-inserted entries have been evicted
-        assert!(cache.get(&"/post/0".to_string()).is_none());
-        // a recently-inserted entry is still present
-        assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
     }
 }
