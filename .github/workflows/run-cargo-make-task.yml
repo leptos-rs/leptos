@@ -125,7 +125,7 @@ jobs:
           max_attempts: 3
           timeout_minutes: 30
           retry_wait_seconds: 15
-          command: cargo binstall trunk --no-confirm
+          command: cargo binstall trunk --locked --no-confirm
       - name: Print Trunk Version
         if: contains(inputs.directory, 'examples')
         uses: nick-fields/retry@v4
