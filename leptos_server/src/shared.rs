@@ -1,15 +1,15 @@
 use crate::{FromEncodedStr, IntoEncodedString};
+#[cfg(feature = "serde-lite")]
+use codee::SerdeLite;
 #[cfg(feature = "rkyv")]
 use codee::binary::RkyvCodec;
 #[cfg(feature = "serde-wasm-bindgen")]
 use codee::string::JsonSerdeWasmCodec;
 #[cfg(feature = "miniserde")]
 use codee::string::MiniserdeCodec;
-#[cfg(feature = "serde-lite")]
-use codee::SerdeLite;
 use codee::{
-    string::{FromToStringCodec, JsonSerdeCodec},
     Decoder, Encoder,
+    string::{FromToStringCodec, JsonSerdeCodec},
 };
 use std::{
     fmt::{Debug, Display},
@@ -232,20 +232,19 @@ where
             } else {
                 let init = initial();
                 #[cfg(feature = "ssr")]
-                if let Some(sc) = sc {
-                    if sc.get_is_hydrating() {
-                        match Ser::encode(&init)
-                            .map(IntoEncodedString::into_encoded_string)
-                        {
-                            Ok(value) => sc.write_async(
-                                id,
-                                Box::pin(async move { value }),
-                            ),
-                            #[allow(unused_variables)] // used in tracing
-                            Err(e) => {
-                                #[cfg(feature = "tracing")]
-                                tracing::error!("couldn't serialize: {e:?}");
-                            }
+                if let Some(sc) = sc
+                    && sc.get_is_hydrating()
+                {
+                    match Ser::encode(&init)
+                        .map(IntoEncodedString::into_encoded_string)
+                    {
+                        Ok(value) => {
+                            sc.write_async(id, Box::pin(async move { value }))
+                        }
+                        #[allow(unused_variables)] // used in tracing
+                        Err(e) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("couldn't serialize: {e:?}");
                         }
                     }
                 }

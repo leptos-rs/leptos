@@ -1,12 +1,12 @@
 use crate::component::{
-    convert_from_snake_case, drain_filter, is_option, unwrap_option, Docs,
+    Docs, convert_from_snake_case, drain_filter, is_option, unwrap_option,
 };
 use attribute_derive::FromAttr;
 use proc_macro2::{Ident, TokenStream};
-use quote::{quote, ToTokens, TokenStreamExt};
+use quote::{ToTokens, TokenStreamExt, quote};
 use syn::{
-    parse::Parse, parse_quote, Field, ItemStruct, LitStr, Meta, Type,
-    Visibility,
+    Field, ItemStruct, LitStr, Meta, Type, Visibility, parse::Parse,
+    parse_quote,
 };
 
 pub struct Model {

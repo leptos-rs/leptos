@@ -1,6 +1,6 @@
 use reactive_graph::{
     computed::Memo,
-    owner::{on_cleanup, Owner},
+    owner::{Owner, on_cleanup},
     signal::{RwSignal, Trigger},
     traits::{Dispose, GetUntracked, Track},
 };

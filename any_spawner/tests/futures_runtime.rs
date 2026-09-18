@@ -18,8 +18,8 @@ fn can_spawn_local_future() {
 #[test]
 fn can_make_local_progress() {
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
     let _ = Executor::init_futures_executor();
     let counter = Arc::new(AtomicUsize::new(0));

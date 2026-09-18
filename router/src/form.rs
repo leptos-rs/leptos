@@ -1,8 +1,8 @@
 use crate::{
+    NavigateOptions,
     components::ToHref,
     hooks::{has_router, use_navigate, use_resolved_path},
     location::{BrowserUrl, LocationProvider},
-    NavigateOptions,
 };
 use leptos::{ev, html::form, logging::*, prelude::*, task::spawn_local};
 use std::{error::Error, sync::Arc};
@@ -15,6 +15,7 @@ type OnError = Arc<dyn Fn(&gloo_net::Error)>;
 
 /// An HTML [`form`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form) progressively
 /// enhanced to use client-side routing.
+/// Cross-origin actions fall back to the browser's native form submission.
 #[component]
 pub fn Form<A>(
     /// [`method`](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/form#attr-method)
@@ -117,6 +118,9 @@ where
                 else {
                     return;
                 };
+                if !is_same_origin(&action) {
+                    return;
+                }
 
                 let form_data =
                     leptos::form::form_data_from_event(&ev).unwrap_throw();
@@ -346,6 +350,14 @@ fn current_window_origin() -> String {
     )
 }
 
+fn is_same_origin(action: &str) -> bool {
+    <crate::location::BrowserUrl as crate::location::LocationProvider>::parse(
+        action,
+    )
+    .map(|url| url.origin() == current_window_origin())
+    .unwrap_or(false)
+}
+
 fn extract_form_attributes(
     ev: &web_sys::SubmitEvent,
 ) -> Option<(String, String, String)> {
@@ -357,9 +369,7 @@ fn extract_form_attributes(
                     form.get_attribute("method")
                         .unwrap_or_else(|| "get".to_string())
                         .to_lowercase(),
-                    form.get_attribute("action")
-                        .unwrap_or_default()
-                        .to_lowercase(),
+                    form.get_attribute("action").unwrap_or_default(),
                     form.get_attribute("enctype")
                         .unwrap_or_else(|| {
                             "application/x-www-form-urlencoded".to_string()
@@ -374,23 +384,28 @@ fn extract_form_attributes(
                     .unwrap()
                     .unchecked_into::<web_sys::HtmlFormElement>();
                 Some((
-                    input.get_attribute("method").unwrap_or_else(|| {
-                        form.get_attribute("method")
-                            .unwrap_or_else(|| "get".to_string())
-                            .to_lowercase()
+                    input
+                        .get_attribute("formmethod")
+                        .map(|method| method.to_lowercase())
+                        .unwrap_or_else(|| {
+                            form.get_attribute("method")
+                                .unwrap_or_else(|| "get".to_string())
+                                .to_lowercase()
+                        }),
+                    input.get_attribute("formaction").unwrap_or_else(|| {
+                        form.get_attribute("action").unwrap_or_default()
                     }),
-                    input.get_attribute("action").unwrap_or_else(|| {
-                        form.get_attribute("action")
-                            .unwrap_or_default()
-                            .to_lowercase()
-                    }),
-                    input.get_attribute("enctype").unwrap_or_else(|| {
-                        form.get_attribute("enctype")
-                            .unwrap_or_else(|| {
-                                "application/x-www-form-urlencoded".to_string()
-                            })
-                            .to_lowercase()
-                    }),
+                    input
+                        .get_attribute("formenctype")
+                        .map(|enctype| enctype.to_lowercase())
+                        .unwrap_or_else(|| {
+                            form.get_attribute("enctype")
+                                .unwrap_or_else(|| {
+                                    "application/x-www-form-urlencoded"
+                                        .to_string()
+                                })
+                                .to_lowercase()
+                        }),
                 ))
             } else if let Some(button) =
                 el.dyn_ref::<web_sys::HtmlButtonElement>()
@@ -400,23 +415,28 @@ fn extract_form_attributes(
                     .unwrap()
                     .unchecked_into::<web_sys::HtmlFormElement>();
                 Some((
-                    button.get_attribute("method").unwrap_or_else(|| {
-                        form.get_attribute("method")
-                            .unwrap_or_else(|| "get".to_string())
-                            .to_lowercase()
+                    button
+                        .get_attribute("formmethod")
+                        .map(|method| method.to_lowercase())
+                        .unwrap_or_else(|| {
+                            form.get_attribute("method")
+                                .unwrap_or_else(|| "get".to_string())
+                                .to_lowercase()
+                        }),
+                    button.get_attribute("formaction").unwrap_or_else(|| {
+                        form.get_attribute("action").unwrap_or_default()
                     }),
-                    button.get_attribute("action").unwrap_or_else(|| {
-                        form.get_attribute("action")
-                            .unwrap_or_default()
-                            .to_lowercase()
-                    }),
-                    button.get_attribute("enctype").unwrap_or_else(|| {
-                        form.get_attribute("enctype")
-                            .unwrap_or_else(|| {
-                                "application/x-www-form-urlencoded".to_string()
-                            })
-                            .to_lowercase()
-                    }),
+                    button
+                        .get_attribute("formenctype")
+                        .map(|enctype| enctype.to_lowercase())
+                        .unwrap_or_else(|| {
+                            form.get_attribute("enctype")
+                                .unwrap_or_else(|| {
+                                    "application/x-www-form-urlencoded"
+                                        .to_string()
+                                })
+                                .to_lowercase()
+                        }),
                 ))
             } else {
                 leptos::logging::debug_warn!(
@@ -445,5 +465,179 @@ fn extract_form_attributes(
                 ))
             }
         },
+    }
+}
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod wasm_tests {
+    use super::{extract_form_attributes, is_same_origin};
+    use leptos::form::form_data_with_submitter;
+    use std::{cell::RefCell, rc::Rc};
+    use wasm_bindgen::{JsCast, UnwrapThrowExt, closure::Closure};
+    use wasm_bindgen_test::*;
+    use web_sys::{
+        Event, HtmlButtonElement, HtmlElement, HtmlFormElement,
+        HtmlInputElement, SubmitEvent, SubmitEventInit,
+    };
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    fn element<T: JsCast>(tag: &str) -> T {
+        leptos::prelude::document()
+            .create_element(tag)
+            .unwrap_throw()
+            .unchecked_into()
+    }
+
+    fn append_form() -> HtmlFormElement {
+        let form = element::<HtmlFormElement>("form");
+        leptos::prelude::document()
+            .body()
+            .unwrap_throw()
+            .append_child(&form)
+            .unwrap_throw();
+        form
+    }
+
+    fn extracted_attributes(
+        form: &HtmlFormElement,
+        submitter: &HtmlElement,
+    ) -> (String, String, String) {
+        let init = SubmitEventInit::new();
+        init.set_submitter(Some(submitter));
+        let event = SubmitEvent::new_with_event_init_dict("submit", &init)
+            .unwrap_throw();
+        let attributes = Rc::new(RefCell::new(None));
+        let captured = Rc::clone(&attributes);
+        let listener = Closure::<dyn Fn(Event)>::new(move |event: Event| {
+            *captured.borrow_mut() =
+                extract_form_attributes(event.unchecked_ref());
+        });
+        form.add_event_listener_with_callback(
+            "submit",
+            listener.as_ref().unchecked_ref(),
+        )
+        .unwrap_throw();
+        form.dispatch_event(&event).unwrap_throw();
+        form.remove_event_listener_with_callback(
+            "submit",
+            listener.as_ref().unchecked_ref(),
+        )
+        .unwrap_throw();
+        attributes.take().unwrap_throw()
+    }
+
+    #[wasm_bindgen_test]
+    fn button_submitter_overrides_form_attributes() {
+        let form = append_form();
+        form.set_attribute("method", "get").unwrap_throw();
+        form.set_attribute("action", "/preview").unwrap_throw();
+        form.set_attribute("enctype", "application/x-www-form-urlencoded")
+            .unwrap_throw();
+        let button = element::<HtmlButtonElement>("button");
+        button.set_attribute("type", "submit").unwrap_throw();
+        button.set_attribute("formmethod", "POST").unwrap_throw();
+        button
+            .set_attribute("formaction", "/DeleteCase")
+            .unwrap_throw();
+        button
+            .set_attribute("formenctype", "TEXT/PLAIN")
+            .unwrap_throw();
+        form.append_child(&button).unwrap_throw();
+
+        let (method, action, enctype) =
+            extracted_attributes(&form, button.unchecked_ref());
+        form.remove();
+
+        assert_eq!(
+            (method.as_str(), action.as_str(), enctype.as_str()),
+            ("post", "/DeleteCase", "text/plain")
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn submitter_without_overrides_uses_form_attributes() {
+        let form = append_form();
+        form.set_attribute("method", "POST").unwrap_throw();
+        form.set_attribute("action", "/items").unwrap_throw();
+        form.set_attribute("enctype", "TEXT/PLAIN").unwrap_throw();
+        let button = element::<HtmlButtonElement>("button");
+        button.set_attribute("type", "submit").unwrap_throw();
+        form.append_child(&button).unwrap_throw();
+
+        let (method, action, enctype) =
+            extracted_attributes(&form, button.unchecked_ref());
+        form.remove();
+
+        assert_eq!(
+            (method.as_str(), action.as_str(), enctype.as_str()),
+            ("post", "/items", "text/plain")
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn input_submitter_overrides_form_attributes() {
+        let form = append_form();
+        form.set_attribute("method", "get").unwrap_throw();
+        form.set_attribute("action", "/preview").unwrap_throw();
+        let input = element::<HtmlInputElement>("input");
+        input.set_attribute("type", "submit").unwrap_throw();
+        input.set_attribute("formmethod", "POST").unwrap_throw();
+        input
+            .set_attribute("formaction", "/InputAction")
+            .unwrap_throw();
+        input
+            .set_attribute("formenctype", "TEXT/PLAIN")
+            .unwrap_throw();
+        form.append_child(&input).unwrap_throw();
+
+        let (method, action, enctype) =
+            extracted_attributes(&form, input.unchecked_ref());
+        form.remove();
+
+        assert_eq!(
+            (method.as_str(), action.as_str(), enctype.as_str()),
+            ("post", "/InputAction", "text/plain")
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn form_data_includes_only_the_activated_submitter() {
+        let form = append_form();
+        let save = element::<HtmlButtonElement>("button");
+        save.set_attribute("name", "intent").unwrap_throw();
+        save.set_attribute("value", "save").unwrap_throw();
+        let delete = element::<HtmlButtonElement>("button");
+        delete.set_attribute("name", "intent").unwrap_throw();
+        delete.set_attribute("value", "delete").unwrap_throw();
+        form.append_child(&save).unwrap_throw();
+        form.append_child(&delete).unwrap_throw();
+
+        let submitted =
+            form_data_with_submitter(&form, Some(delete.unchecked_ref()))
+                .unwrap_throw();
+        let without_submitter =
+            form_data_with_submitter(&form, None).unwrap_throw();
+        let intents = submitted.get_all("intent");
+        let empty_intents = without_submitter.get_all("intent");
+        form.remove();
+
+        assert_eq!(intents.length(), 1);
+        assert_eq!(intents.get(0).as_string().as_deref(), Some("delete"));
+        assert_eq!(empty_intents.length(), 0);
+    }
+
+    #[wasm_bindgen_test]
+    fn form_actions_are_classified_by_origin() {
+        let location = leptos::prelude::window().location();
+        let origin = location.origin().unwrap_throw();
+        let hostname = location.hostname().unwrap_throw();
+
+        assert!(is_same_origin(""));
+        assert!(is_same_origin("/x"));
+        assert!(is_same_origin("?q=1"));
+        assert!(is_same_origin(&format!("{origin}/x")));
+        assert!(!is_same_origin("http://example.com/x"));
+        assert!(!is_same_origin(&format!("https://{hostname}:1/x")));
     }
 }

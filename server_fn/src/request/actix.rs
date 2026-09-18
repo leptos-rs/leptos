@@ -3,10 +3,10 @@ use crate::{
     request::Req,
     response::actix::ActixResponse,
 };
-use actix_web::{web::Payload, FromRequest, HttpRequest};
+use actix_web::{FromRequest, HttpRequest, web::Payload};
 use actix_ws::Message;
 use bytes::Bytes;
-use futures::{FutureExt, Stream, StreamExt};
+use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use send_wrapper::SendWrapper;
 use std::{borrow::Cow, future::Future};
 
@@ -25,7 +25,7 @@ impl ActixRequest {
 
     fn header(&self, name: &str) -> Option<Cow<'_, str>> {
         self.0
-             .0
+            .0
             .headers()
             .get(name)
             .map(|h| String::from_utf8_lossy(h.as_bytes()))
@@ -48,7 +48,7 @@ where
     type WebsocketResponse = ActixResponse;
 
     fn as_query(&self) -> Option<&str> {
-        self.0 .0.uri().query()
+        self.0.0.uri().query()
     }
 
     fn to_content_type(&self) -> Option<Cow<'_, str>> {
@@ -110,6 +110,7 @@ where
                     e.to_string(),
                 ))
                 .ser()
+                .body
             })
         });
         Ok(SendWrapper::new(stream))
@@ -121,6 +122,7 @@ where
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
             impl futures::Sink<Bytes> + Send + 'static,
+            impl Future<Output = ()> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -137,6 +139,7 @@ where
             futures::channel::mpsc::channel(2048);
         let (response_sink_tx, mut response_sink_rx) =
             futures::channel::mpsc::channel::<Bytes>(2048);
+        let (closed_tx, closed_rx) = futures::channel::oneshot::channel::<()>();
 
         actix_web::rt::spawn(async move {
             loop {
@@ -145,9 +148,10 @@ where
                         let Some(incoming) = incoming else {
                             break;
                         };
-                                if let Err(err) = session.binary(incoming).await {
-                                    _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
-                                }
+                        if let Err(err) = session.binary(incoming).await
+                            && response_stream_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body)).await.is_err() {
+                                break;
+                            }
                     },
                     outgoing = msg_stream.next().fuse() => {
                         let Some(outgoing) = outgoing else {
@@ -160,13 +164,14 @@ where
                                 }
                             }
                             Ok(Message::Binary(bytes)) => {
-                                _ = response_stream_tx
-                                    .start_send(
-                                        Ok(bytes),
-                                    );
+                                if response_stream_tx.send(Ok(bytes)).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(Message::Text(text)) => {
-                                _ = response_stream_tx.start_send(Ok(text.into_bytes()));
+                                if response_stream_tx.send(Ok(text.into_bytes())).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(Message::Close(_)) => {
                                 break;
@@ -174,18 +179,22 @@ where
                             Ok(_other) => {
                             }
                             Err(e) => {
-                                _ = response_stream_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser()));
+                                if response_stream_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser().body)).await.is_err() {
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
             let _ = session.close(None).await;
+            drop(closed_tx);
         });
 
         Ok((
             response_stream_rx,
             response_sink_tx,
+            closed_rx.map(|_| ()),
             ActixResponse::from(response),
         ))
     }

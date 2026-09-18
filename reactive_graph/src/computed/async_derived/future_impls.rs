@@ -1,9 +1,9 @@
-use super::{inner::ArcAsyncDerivedInner, ArcAsyncDerived, AsyncDerived};
+use super::{ArcAsyncDerived, AsyncDerived, inner::ArcAsyncDerivedInner};
 use crate::{
     computed::suspense::SuspenseContext,
     diagnostics::SpecialNonReactiveZone,
     graph::{AnySource, ToAnySource},
-    owner::{use_context, Storage},
+    owner::{Storage, use_context},
     send_wrapper_ext::SendOption,
     signal::guards::{AsyncPlain, Mapped, ReadGuard},
     traits::{DefinedAt, Track},
@@ -15,8 +15,8 @@ use std::{
     future::{Future, IntoFuture},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, RwLock,
+        atomic::{AtomicBool, Ordering},
     },
     task::{Context, Poll, Waker},
 };

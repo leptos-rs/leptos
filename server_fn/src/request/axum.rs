@@ -3,14 +3,16 @@ use crate::{
     request::Req,
 };
 use axum::{
+    RequestExt,
     body::{Body, Bytes},
     response::Response,
-    RequestExt,
 };
+#[cfg(feature = "axum")]
+use futures::SinkExt;
 use futures::{Sink, Stream, StreamExt};
 use http::{
-    header::{ACCEPT, CONTENT_TYPE, REFERER},
     Request,
+    header::{ACCEPT, CONTENT_TYPE, REFERER},
 };
 use http_body_util::BodyExt;
 use std::borrow::Cow;
@@ -55,7 +57,7 @@ where
 
     async fn try_into_string(self) -> Result<String, Error> {
         let bytes = Req::<Error>::try_into_bytes(self).await?;
-        String::from_utf8(bytes.to_vec()).map_err(|e| {
+        String::from_utf8(bytes.into()).map_err(|e| {
             ServerFnErrorErr::Deserialization(e.to_string()).into_app_error()
         })
     }
@@ -70,6 +72,7 @@ where
                     e.to_string(),
                 ))
                 .ser()
+                .body
             })
         }))
     }
@@ -80,6 +83,7 @@ where
         (
             impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
             impl Sink<Bytes> + Send + 'static,
+            impl std::future::Future<Output = ()> + Send + 'static,
             Self::WebsocketResponse,
         ),
         Error,
@@ -92,6 +96,7 @@ where
                         std::future::Ready<Result<Bytes, Bytes>>,
                     >,
                     futures::sink::Drain<Bytes>,
+                    std::future::Pending<()>,
                     Self::WebsocketResponse,
                 ),
                 Error,
@@ -105,7 +110,7 @@ where
         }
         #[cfg(feature = "axum")]
         {
-            use axum::extract::{ws::Message, FromRequest};
+            use axum::extract::{FromRequest, ws::Message};
             use futures::FutureExt;
 
             let upgrade =
@@ -120,23 +125,26 @@ where
                 futures::channel::mpsc::channel::<Result<Bytes, Bytes>>(2048);
             let (incoming_tx, mut incoming_rx) =
                 futures::channel::mpsc::channel::<Bytes>(2048);
+            let (closed_tx, closed_rx) =
+                futures::channel::oneshot::channel::<()>();
             let response = upgrade
         .on_failed_upgrade({
             let mut outgoing_tx = outgoing_tx.clone();
             move |err: axum::Error| {
-                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(err.to_string())).ser()));
+                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(err.to_string())).ser().body));
             }
         })
-        .on_upgrade(|mut session| async move {
+        .on_upgrade(move |mut session| async move {
             loop {
                 futures::select! {
                     incoming = incoming_rx.next() => {
                         let Some(incoming) = incoming else {
                             break;
                         };
-                        if let Err(err) = session.send(Message::Binary(incoming)).await {
-                            _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser()));
-                        }
+                        if let Err(err) = session.send(Message::Binary(incoming)).await
+                            && outgoing_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Request(err.to_string())).ser().body)).await.is_err() {
+                                break;
+                            }
                     },
                         outgoing = session.recv().fuse() => {
                         let Some(outgoing) = outgoing else {
@@ -144,13 +152,14 @@ where
                         };
                         match outgoing {
                             Ok(Message::Binary(bytes)) => {
-                                _ = outgoing_tx
-                                    .start_send(
-                                        Ok(bytes),
-                                    );
+                                if outgoing_tx.send(Ok(bytes)).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(Message::Text(text)) => {
-                                _ = outgoing_tx.start_send(Ok(Bytes::from(text)));
+                                if outgoing_tx.send(Ok(Bytes::from(text))).await.is_err() {
+                                    break;
+                                }
                             }
                             Ok(Message::Ping(bytes)) => {
                                 if session.send(Message::Pong(bytes)).await.is_err() {
@@ -159,16 +168,19 @@ where
                             }
                             Ok(_other) => {}
                             Err(e) => {
-                                _ = outgoing_tx.start_send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser()));
+                                if outgoing_tx.send(Err(InputStreamError::from_server_fn_error(ServerFnErrorErr::Response(e.to_string())).ser().body)).await.is_err() {
+                                    break;
+                                }
                             }
                         }
                     }
                 }
             }
             _ = session.send(Message::Close(None)).await;
+            drop(closed_tx);
         });
 
-            Ok((outgoing_rx, incoming_tx, response))
+            Ok((outgoing_rx, incoming_tx, closed_rx.map(|_| ()), response))
         }
     }
 }

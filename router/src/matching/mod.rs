@@ -9,7 +9,7 @@ pub use path_segment::*;
 mod horizontal;
 mod nested;
 mod vertical;
-use crate::{static_routes::RegenerationFn, Method, SsrMode};
+use crate::{Method, SsrMode, static_routes::RegenerationFn};
 pub use horizontal::*;
 pub use nested::*;
 use std::{borrow::Cow, collections::HashSet, sync::atomic::Ordering};
@@ -60,12 +60,17 @@ where
         let path = match &self.base {
             None => path,
             Some(base) => {
-                let (base, path) = if base.starts_with('/') {
-                    (base.trim_start_matches('/'), path.trim_start_matches('/'))
+                let base = base.trim_matches('/');
+                if base.is_empty() {
+                    path
                 } else {
-                    (base.as_ref(), path)
-                };
-                path.strip_prefix(base)?
+                    let rest =
+                        path.trim_start_matches('/').strip_prefix(base)?;
+                    if !(rest.is_empty() || rest.starts_with('/')) {
+                        return None;
+                    }
+                    rest
+                }
             }
         };
 
@@ -158,8 +163,8 @@ pub struct GeneratedRouteData {
 mod tests {
     use super::{NestedRoute, ParamSegment, RouteDefs};
     use crate::{
-        matching::MatchParams, MatchInterface, PathSegment, StaticSegment,
-        WildcardSegment,
+        MatchInterface, PathSegment, StaticSegment, WildcardSegment,
+        matching::MatchParams,
     };
     use either_of::{Either, EitherOf4};
 
@@ -292,6 +297,28 @@ mod tests {
     }
 
     #[test]
+    pub fn nested_tuple_preserves_inner_route_match_id() {
+        use crate::matching::MatchNestedRoutes;
+
+        // Each NestedRoute is assigned a unique RouteMatchId at construction.
+        let three = (
+            NestedRoute::new(StaticSegment("a"), || ()),
+            NestedRoute::new(StaticSegment("b"), || ()),
+            NestedRoute::new(StaticSegment("c"), || ()),
+        );
+
+        // For each position, the id returned by the tuple's `match_nested`
+        // must be the matched route's own id (as reported by `as_id`), not the
+        // child's positional index within the tuple.
+        for path in ["/a", "/b", "/c"] {
+            let (matched, _) = three.match_nested(path);
+            let (id, m) = matched
+                .unwrap_or_else(|| panic!("`{path}` should match a route"));
+            assert_eq!(id, m.as_id());
+        }
+    }
+
+    #[test]
     pub fn arbitrary_nested_routes() {
         let routes: RouteDefs<_> = RouteDefs::new_with_base(
             (
@@ -337,6 +364,47 @@ mod tests {
         let matched = routes.match_route("/portfolio/contact/foobar").unwrap();
         let params = matched.to_params();
         assert_eq!(params, vec![("any".into(), "foobar".into())]);
+    }
+
+    #[test]
+    pub fn base_with_root_or_trailing_slash_matches() {
+        for (base, path) in [
+            ("/", "/about"),
+            ("/app/", "/app/about"),
+            ("/app", "/app/about"),
+            ("app", "/app/about"),
+            ("", "/about"),
+        ] {
+            let routes = RouteDefs::new_with_base(
+                NestedRoute::new(StaticSegment("about"), || ()),
+                base,
+            );
+            assert!(routes.match_route(path).is_some(), "base {base:?}");
+        }
+
+        let routes = RouteDefs::new_with_base(
+            NestedRoute::new(StaticSegment(""), || ()),
+            "/app",
+        );
+        assert!(routes.match_route("/app").is_some());
+
+        let routes = RouteDefs::new_with_base(
+            NestedRoute::new(ParamSegment("id"), || ()),
+            "/",
+        );
+        let matched = routes.match_route("/123").unwrap();
+        assert_eq!(matched.to_params(), vec![("id".into(), "123".into())]);
+    }
+
+    #[test]
+    pub fn base_must_match_whole_segment() {
+        let routes = RouteDefs::new_with_base(
+            NestedRoute::new(StaticSegment("about"), || ()),
+            "/app",
+        );
+
+        assert!(routes.match_route("/apple/about").is_none());
+        assert!(routes.match_route("/about").is_none());
     }
 
     #[test]

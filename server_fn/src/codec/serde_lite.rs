@@ -1,9 +1,9 @@
 use crate::{
+    ContentType, Decodes, Encodes, Format, FormatType,
     codec::{Patch, Post, Put},
     error::ServerFnErrorErr,
-    ContentType, Decodes, Encodes, Format, FormatType,
 };
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 use serde_lite::{Deserialize, Serialize};
 
 /// Pass arguments and receive responses as JSON in the body of a `POST` request.
@@ -31,6 +31,14 @@ where
         )
         .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()))
         .map(Bytes::from)
+    }
+
+    fn encode_into(value: &T, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        let intermediate = value
+            .serialize()
+            .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()))?;
+        serde_json::to_writer(buf.writer(), &intermediate)
+            .map_err(|e| ServerFnErrorErr::Serialization(e.to_string()))
     }
 }
 

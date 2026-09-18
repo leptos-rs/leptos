@@ -1,6 +1,6 @@
 [package]
 name = "tachys"
-version = "0.2.18"
+version = "0.3.0-beta2"
 authors = ["Greg Johnston"]
 license = "MIT"
 readme = "../README.md"
@@ -72,6 +72,7 @@ web-sys = { features = [
   "SecurityPolicyViolationEvent",
   "StorageEvent",
   "SubmitEvent",
+  "ToggleEvent",
   "TouchEvent",
   "TransitionEvent",
   "UiEvent",
@@ -168,6 +169,7 @@ tokio = { features = [
   "rt",
   "macros",
 ], workspace = true, default-features = true }
+wasm-bindgen-test = { workspace = true, default-features = true }
 
 [build-dependencies]
 rustc_version = { workspace = true, default-features = true }
@@ -177,6 +179,7 @@ default = ["testing"]
 delegation = []                                                       # enables event delegation
 error-hook = []
 hydrate = []
+lazy = []
 islands = ["dep:serde", "dep:serde_json"]
 ssr = []
 oco = ["dep:oco_ref"]
