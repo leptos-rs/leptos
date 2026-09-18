@@ -19,7 +19,7 @@ leptos = { path = "../../leptos" }
 leptos_actix = { path = "../../integrations/actix", optional = true }
 log = "0.4.22"
 simple_logger = "5.0"
-gloo = { git = "https://github.com/rustwasm/gloo" }
+gloo = "0.12"
 sqlx = { version = "0.8.6", features = [
   "runtime-tokio-rustls",
   "sqlite",

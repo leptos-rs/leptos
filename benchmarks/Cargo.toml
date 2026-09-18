@@ -19,7 +19,7 @@ sycamore = { version = "0.8.0", features = ["ssr"] }
 yew = { version = "0.20.0", features = ["ssr"] }
 tokio-test = "0.4.0"
 miniserde = "0.1.0"
-gloo = "0.8.0"
+gloo = "0.12"
 uuid = { version = "1.0", features = ["serde", "v4", "wasm-bindgen"] }
 wasm-bindgen = "0.2.100"
 lazy_static = "1.0"
