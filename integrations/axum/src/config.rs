@@ -1,12 +1,12 @@
 //! Provides a builder and implementation for wholesale configuration of [`axum::Router`].
 
+#[cfg(feature = "default")]
+use crate::serve_site_root_service;
 #[cfg(feature = "embed")]
 use crate::service::EmbeddedSiteRoot;
-#[cfg(feature = "default")]
-use crate::site_pkg_dir_service;
 use crate::{ErrorHandler, LeptosRoutes, generate_route_list};
 #[cfg(any(feature = "default", feature = "embed"))]
-use crate::{LeptosContextLayer, site_pkg_dir_service_route_path};
+use crate::{LeptosContextLayer, serve_site_root_service_route_path};
 use axum::{Router, extract::FromRef};
 use leptos::{IntoView, config::LeptosOptions};
 #[cfg(feature = "embed")]
@@ -64,7 +64,7 @@ enum AssetMode {
     /// Disables the serving of assets.
     #[default]
     Disable,
-    /// Serves the assets directory by using the [`ServeDir`] service created by [`site_pkg_dir_service`].
+    /// Serves the assets directory by using the [`ServeDir`] service created by [`serve_site_root_service`].
     /// If the provided path is `"/"`, it will become part of the fallback service, otherwise a new router
     /// will be created to serve this.
     ///
@@ -516,12 +516,13 @@ where
                 #[cfg(feature = "default")]
                 ResourceMode::Filesystem => {
                     site_pkg_routes.push(Site::Filesystem(
-                        site_pkg_dir_service_route_path(&leptos_options).into(),
+                        serve_site_root_service_route_path(&leptos_options)
+                            .into(),
                     ))
                 }
                 #[cfg(feature = "embed")]
                 ResourceMode::Embed => site_pkg_routes.push(Site::Embed(
-                    site_pkg_dir_service_route_path(&leptos_options).into(),
+                    serve_site_root_service_route_path(&leptos_options).into(),
                 )),
             };
 
@@ -551,7 +552,8 @@ where
                 .fold(router, |router, entry: Site| match entry {
                     #[cfg(feature = "default")]
                     Site::Filesystem(path) => {
-                        let serve_dir = site_pkg_dir_service(&leptos_options);
+                        let serve_dir =
+                            serve_site_root_service(&leptos_options);
                         if let Some(error_handler) = error_handler.clone() {
                             router.route_service(
                                 &path,
@@ -602,7 +604,7 @@ where
                 AssetMode::ServeDir(path) if path == "/" => router
                     .fallback_service(
                         builder.service(
-                            site_pkg_dir_service(&leptos_options)
+                            serve_site_root_service(&leptos_options)
                                 .fallback(error_handler),
                         ),
                     ),
@@ -613,7 +615,7 @@ where
                         Router::new().route_service(
                             "/{*path}",
                             builder.service(
-                                site_pkg_dir_service(&leptos_options)
+                                serve_site_root_service(&leptos_options)
                                     .fallback(error_handler.clone()),
                             ),
                         ),
@@ -626,14 +628,16 @@ where
                 #[cfg(feature = "default")]
                 AssetMode::ServeDir(path) if path == "/" => router
                     .fallback_service(
-                        builder.service(site_pkg_dir_service(&leptos_options)),
+                        builder
+                            .service(serve_site_root_service(&leptos_options)),
                     ),
                 #[cfg(feature = "default")]
                 AssetMode::ServeDir(path) => router.nest(
                     &path,
                     Router::new().route_service(
                         "/{*path}",
-                        builder.service(site_pkg_dir_service(&leptos_options)),
+                        builder
+                            .service(serve_site_root_service(&leptos_options)),
                     ),
                 ),
                 AssetMode::Disable => router,
