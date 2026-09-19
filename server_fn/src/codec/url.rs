@@ -8,6 +8,19 @@ use http::Method;
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Pass arguments as a URL-encoded query string of a `GET` request.
+///
+/// **Security note**: Browsers attach `SameSite=Lax` cookies (the modern default for
+/// cookies that don't set `SameSite` explicitly) to top-level cross-site `GET`
+/// navigations — for example, an attacker page that auto-submits
+/// `<form method="GET" action="https://your-app/api/...">`. This is *not* true for the
+/// default `PostUrl` encoding, since `SameSite=Lax` blocks cookies on cross-site `POST`
+/// navigations. If a `#[server(input = GetUrl)]` function mutates state and your app
+/// relies on a session cookie for authentication, it can be triggered cross-site
+/// (CSRF) even though an equivalent `PostUrl` function would not be. Reserve `GetUrl`
+/// for read-only/idempotent functions, or add your own CSRF protection if a `GET`
+/// function must mutate state. Leptos does not perform `Origin`/CSRF validation on
+/// server function requests (see the `#[server]` macro docs and
+/// <https://github.com/leptos-rs/leptos/issues/3786>).
 pub struct GetUrl;
 
 /// Pass arguments as the URL-encoded body of a `POST` request.
