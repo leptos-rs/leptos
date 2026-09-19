@@ -132,6 +132,13 @@ where
 
     fn open(&self, path: PathBuf) -> Self::OpenFuture {
         Box::pin(async move {
+            // This direct conversion to a string is fine under both Windows and Linux as the underlying
+            // implementations of `RustEmbed::get` is designed to work with either path separators.
+            //
+            // As an aside, note that this `path` is provided by `ServeDir` after it has been joined with
+            // the root path that it has been set up with.
+            //
+            // This also applies to `metadata` below.
             path.as_os_str()
                 .to_str()
                 .and_then(SR::get)
