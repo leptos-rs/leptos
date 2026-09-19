@@ -350,7 +350,7 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
 }
 
 #[cfg(feature = "default")]
-impl<APP, CX, SH, S> RouterConfiguration<APP, CX, SH, S> {
+impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     /// Configure the [`AssetMode`] to seve the assets with.
     ///
     /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
