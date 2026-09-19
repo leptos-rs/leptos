@@ -113,7 +113,7 @@ mod router {
                         move || shell(leptos_options.clone())
                     })
                     .fallback_service(
-                        leptos_axum::site_pkg_dir_service(&leptos_options)
+                        leptos_axum::serve_site_root_service(&leptos_options)
                             .fallback(ErrorHandler::new(
                                 shell,
                                 leptos_options.clone(),
@@ -126,10 +126,10 @@ mod router {
                         move || shell(leptos_options.clone())
                     })
                     .route_service(
-                        &leptos_axum::site_pkg_dir_service_route_path(
+                        &leptos_axum::serve_site_root_service_route_path(
                             &leptos_options,
                         ),
-                        leptos_axum::site_pkg_dir_service(&leptos_options),
+                        leptos_axum::serve_site_root_service(&leptos_options),
                     )
                     .fallback_service(ErrorHandler::new(
                         shell,
