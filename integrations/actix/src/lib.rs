@@ -1004,7 +1004,6 @@ impl ActixPath for Vec<PathSegment> {
     fn to_actix_path(&self) -> String {
         let mut path = String::new();
         for segment in self.iter() {
-            // TODO trailing slash handling
             let raw = segment.as_raw_str();
             if !raw.is_empty() && !raw.starts_with('/') {
                 path.push('/');
@@ -1033,6 +1032,26 @@ impl ActixPath for Vec<PathSegment> {
             }
         }
         path
+    }
+}
+
+// `leptos_router` allows a single trailing slash when matching any route, which
+// Actix does not. As a result, we need to register extra trailing-slash possibilities
+// for routes that would otherwise 404 from the Actix router but be valid Leptos routes.
+//
+// See https://github.com/leptos-rs/leptos/issues/4034.
+fn route_path_aliases(path: &str) -> Vec<String> {
+    if path.ends_with(":.*}") {
+        return match path.rfind("/{") {
+            // a top-level catch-all already matches the root
+            Some(0) | None => Vec::new(),
+            Some(idx) => vec![path[..idx].to_owned()],
+        };
+    }
+    if path.ends_with('/') {
+        Vec::new()
+    } else {
+        vec![format!("{path}/")]
     }
 }
 
@@ -1623,27 +1642,44 @@ where
         }
 
         // register routes defined in Leptos's Router
+        let mut registered = paths
+            .iter()
+            .filter(|p| !p.exclude)
+            .map(|p| p.path.clone())
+            .collect::<HashSet<_>>();
+
         for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
             let mode = listing.mode();
+            let aliases = if matches!(mode, SsrMode::Static(_)) {
+                Vec::new()
+            } else {
+                route_path_aliases(path)
+                    .into_iter()
+                    .filter(|alias| registered.insert(alias.clone()))
+                    .collect()
+            };
 
             for method in listing.methods() {
-                let additional_context = additional_context.clone();
-                let additional_context_and_method = move || {
-                    provide_context(method);
-                    additional_context();
-                };
-                router = if matches!(listing.mode(), SsrMode::Static(_)) {
-                    router.route(
-                        path,
-                        handle_static_route(
-                            additional_context_and_method.clone(),
-                            app_fn.clone(),
-                            listing.regenerate.clone(),
-                        ),
-                    )
-                } else {
-                    router
+                for path in std::iter::once(path)
+                    .chain(aliases.iter().map(String::as_str))
+                {
+                    let additional_context = additional_context.clone();
+                    let additional_context_and_method = move || {
+                        provide_context(method);
+                        additional_context();
+                    };
+                    router = if matches!(listing.mode(), SsrMode::Static(_)) {
+                        router.route(
+                            path,
+                            handle_static_route(
+                                additional_context_and_method.clone(),
+                                app_fn.clone(),
+                                listing.regenerate.clone(),
+                            ),
+                        )
+                    } else {
+                        router
                         .route(
                             path,
                             match mode {
@@ -1679,7 +1715,8 @@ where
                                 }
                             },
                         )
-                };
+                    };
+                }
             }
         }
 
@@ -1737,22 +1774,39 @@ impl LeptosRoutes for &mut ServiceConfig {
         }
 
         // register routes defined in Leptos's Router
+        let mut registered = paths
+            .iter()
+            .filter(|p| !p.exclude)
+            .map(|p| p.path.clone())
+            .collect::<HashSet<_>>();
+
         for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
             let mode = listing.mode();
+            let aliases: Vec<String> = if matches!(mode, SsrMode::Static(_)) {
+                Vec::new()
+            } else {
+                route_path_aliases(path)
+                    .into_iter()
+                    .filter(|alias| registered.insert(alias.clone()))
+                    .collect()
+            };
 
             for method in listing.methods() {
-                if matches!(listing.mode(), SsrMode::Static(_)) {
-                    router = router.route(
-                        path,
-                        handle_static_route(
-                            additional_context.clone(),
-                            app_fn.clone(),
-                            listing.regenerate.clone(),
-                        ),
-                    )
-                } else {
-                    router = router.route(
+                for path in std::iter::once(path)
+                    .chain(aliases.iter().map(String::as_str))
+                {
+                    if matches!(listing.mode(), SsrMode::Static(_)) {
+                        router = router.route(
+                            path,
+                            handle_static_route(
+                                additional_context.clone(),
+                                app_fn.clone(),
+                                listing.regenerate.clone(),
+                            ),
+                        )
+                    } else {
+                        router = router.route(
                             path,
                             match mode {
                                 SsrMode::OutOfOrder => {
@@ -1787,6 +1841,7 @@ impl LeptosRoutes for &mut ServiceConfig {
                                 }
                             },
                         );
+                    }
                 }
             }
         }
@@ -2028,5 +2083,35 @@ mod tests {
         let req = test::TestRequest::get().uri("/").to_request();
         let resp = test::call_service(&app, req).await;
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn aliases_add_trailing_slash_match() {
+        use super::route_path_aliases;
+
+        assert_eq!(route_path_aliases("/foo"), vec!["/foo/".to_owned()]);
+        assert_eq!(
+            route_path_aliases("/foo/{id}"),
+            vec!["/foo/{id}/".to_owned()]
+        );
+    }
+
+    #[test]
+    fn aliases_ignore_slash_terminated_paths() {
+        use super::route_path_aliases;
+
+        assert!(route_path_aliases("/").is_empty());
+        assert!(route_path_aliases("/foo/").is_empty());
+    }
+
+    #[test]
+    fn aliases_handle_wildcard_routes() {
+        use super::route_path_aliases;
+
+        assert_eq!(
+            route_path_aliases("/foo/{rest:.*}"),
+            vec!["/foo".to_owned()]
+        );
+        assert!(route_path_aliases("/{any:.*}").is_empty());
     }
 }

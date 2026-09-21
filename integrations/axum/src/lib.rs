@@ -768,8 +768,20 @@ where
     use std::collections::HashMap;
     let by_path: HashMap<String, AxumRouteListing> = {
         let mut map = HashMap::with_capacity(paths.len());
+        let aliases = paths
+            .iter()
+            .filter(|listing| !matches!(listing.mode(), SsrMode::Static(_)))
+            .flat_map(|listing| {
+                route_path_aliases(listing.path())
+                    .into_iter()
+                    .map(|alias| (alias, listing.clone()))
+            })
+            .collect::<Vec<_>>();
         for listing in paths {
             map.entry(listing.path().to_owned()).or_insert(listing);
+        }
+        for (alias, listing) in aliases {
+            map.entry(alias).or_insert(listing);
         }
         map
     };
@@ -2241,7 +2253,6 @@ impl AxumPath for Vec<PathSegment> {
     fn to_axum_path(&self) -> String {
         let mut path = String::new();
         for segment in self.iter() {
-            // TODO trailing slash handling
             let raw = segment.as_raw_str();
             if !raw.is_empty() && !raw.starts_with('/') {
                 path.push('/');
@@ -2271,6 +2282,27 @@ impl AxumPath for Vec<PathSegment> {
             }
         }
         path
+    }
+}
+
+// `leptos_router` allows a single trailing slash when matching any route, which
+// Axum does not. As a result, we need to register extra trailing-slash possibilities
+// for routes that would otherwise 404 from the Actix router but be valid Leptos routes.
+//
+// See https://github.com/leptos-rs/leptos/issues/4034.
+fn route_path_aliases(path: &str) -> Vec<String> {
+    if let Some(idx) = path.rfind("/{*") {
+        let prefix = &path[..idx];
+        return if prefix.is_empty() {
+            vec!["/".to_owned()]
+        } else {
+            vec![prefix.to_owned(), format!("{prefix}/")]
+        };
+    }
+    if path.ends_with('/') {
+        Vec::new()
+    } else {
+        vec![format!("{path}/")]
     }
 }
 
@@ -2357,36 +2389,55 @@ where
         }
 
         // register router paths
+        let mut registered = paths
+            .iter()
+            .filter(|p| !p.exclude)
+            .map(|p| p.path.clone())
+            .collect::<HashSet<_>>();
+
         for listing in paths.iter().filter(|p| !p.exclude) {
             let path = listing.path();
 
-            for method in listing.methods() {
-                let cx_with_state = cx_with_state.clone();
-                let cx_with_state_and_method = move || {
-                    provide_context(method);
-                    cx_with_state();
-                };
-                router = if matches!(listing.mode(), SsrMode::Static(_)) {
-                    #[cfg(feature = "default")]
-                    {
-                        router.route(
-                            path,
-                            get(handle_static_route(
-                                cx_with_state_and_method.clone(),
-                                app_fn.clone(),
-                                listing.regenerate.clone(),
-                            )),
-                        )
-                    }
-                    #[cfg(not(feature = "default"))]
-                    {
-                        panic!(
-                            "Static routes are not currently supported on \
-                             WASM32 server targets."
-                        );
-                    }
+            let aliases: Vec<String> =
+                if matches!(listing.mode(), SsrMode::Static(_)) {
+                    Vec::new()
                 } else {
-                    router.route(
+                    route_path_aliases(path)
+                        .into_iter()
+                        .filter(|alias| registered.insert(alias.clone()))
+                        .collect()
+                };
+
+            for method in listing.methods() {
+                for path in std::iter::once(path)
+                    .chain(aliases.iter().map(String::as_str))
+                {
+                    let cx_with_state = cx_with_state.clone();
+                    let cx_with_state_and_method = move || {
+                        provide_context(method);
+                        cx_with_state();
+                    };
+                    router = if matches!(listing.mode(), SsrMode::Static(_)) {
+                        #[cfg(feature = "default")]
+                        {
+                            router.route(
+                                path,
+                                get(handle_static_route(
+                                    cx_with_state_and_method.clone(),
+                                    app_fn.clone(),
+                                    listing.regenerate.clone(),
+                                )),
+                            )
+                        }
+                        #[cfg(not(feature = "default"))]
+                        {
+                            panic!(
+                                "Static routes are not currently supported on \
+                                 WASM32 server targets."
+                            );
+                        }
+                    } else {
+                        router.route(
                         path,
                         match listing.mode() {
                             SsrMode::OutOfOrder => {
@@ -2445,7 +2496,8 @@ where
                             _ => unreachable!()
                         },
                     )
-                };
+                    };
+                }
             }
         }
 
@@ -2466,20 +2518,44 @@ where
         T: 'static,
     {
         let mut router = self;
+        let mut registered = paths
+            .iter()
+            .filter(|p| !p.exclude)
+            .map(|p| p.path.clone())
+            .collect::<HashSet<_>>();
+
         for listing in paths.iter().filter(|p| !p.exclude) {
+            let aliases: Vec<String> =
+                if matches!(listing.mode(), SsrMode::Static(_)) {
+                    Vec::new()
+                } else {
+                    route_path_aliases(listing.path())
+                        .into_iter()
+                        .filter(|alias| registered.insert(alias.clone()))
+                        .collect()
+                };
+
             for method in listing.methods() {
-                router = router.route(
-                    listing.path(),
-                    match method {
-                        leptos_router::Method::Get => get(handler.clone()),
-                        leptos_router::Method::Post => post(handler.clone()),
-                        leptos_router::Method::Put => put(handler.clone()),
-                        leptos_router::Method::Delete => {
-                            delete(handler.clone())
-                        }
-                        leptos_router::Method::Patch => patch(handler.clone()),
-                    },
-                );
+                for path in std::iter::once(listing.path())
+                    .chain(aliases.iter().map(String::as_str))
+                {
+                    router = router.route(
+                        path,
+                        match method {
+                            leptos_router::Method::Get => get(handler.clone()),
+                            leptos_router::Method::Post => {
+                                post(handler.clone())
+                            }
+                            leptos_router::Method::Put => put(handler.clone()),
+                            leptos_router::Method::Delete => {
+                                delete(handler.clone())
+                            }
+                            leptos_router::Method::Patch => {
+                                patch(handler.clone())
+                            }
+                        },
+                    );
+                }
             }
         }
         router
@@ -2922,5 +2998,52 @@ mod tests {
         assert!(cache.get(&"/post/0".to_string()).is_none());
         // a recently-inserted entry is still present
         assert!(cache.get(&format!("/post/{}", capacity + 9)).is_some());
+    }
+
+    #[test]
+    fn aliases_add_trailing_slash_match() {
+        assert_eq!(route_path_aliases("/foo"), vec!["/foo/".to_owned()]);
+        assert_eq!(
+            route_path_aliases("/foo/{id}"),
+            vec!["/foo/{id}/".to_owned()]
+        );
+    }
+
+    #[test]
+    fn aliases_ignore_slash_terminated_paths() {
+        assert!(route_path_aliases("/").is_empty());
+        assert!(route_path_aliases("/foo/").is_empty());
+    }
+
+    #[test]
+    fn aliases_handle_wildcard_routes() {
+        assert_eq!(
+            route_path_aliases("/foo/{*rest}"),
+            vec!["/foo".to_owned(), "/foo/".to_owned()]
+        );
+        assert_eq!(route_path_aliases("/{*any}"), vec!["/".to_owned()]);
+    }
+
+    fn test_listing(path: &str) -> AxumRouteListing {
+        AxumRouteListing::new(
+            path.into(),
+            SsrMode::OutOfOrder,
+            [leptos_router::Method::Get],
+            vec![],
+        )
+    }
+
+    #[test]
+    fn aliases_dont_create_overlapping_routes() {
+        use axum::Router;
+
+        // axum will panic if we register overlapping routes
+        let _app = Router::new().leptos_routes_with_handler(
+            ["/foo", "/foo/", "/bar/{*rest}", "/bar"]
+                .into_iter()
+                .map(test_listing)
+                .collect(),
+            get(|| async { "route" }),
+        );
     }
 }
