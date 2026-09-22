@@ -101,9 +101,40 @@ impl<E, T> From<E> for Targeted<E, T> {
 }
 
 /// Creates an [`Attribute`] that will add an event listener to an element.
+#[cfg(not(erase_components))]
 pub fn on<E, F>(event: E, cb: F) -> On<E, F>
 where
     F: FnMut(E::EventType) + 'static,
+    E: EventDescriptor + Send + 'static,
+    E::EventType: 'static,
+    E::EventType: From<crate::renderer::types::Event>,
+{
+    On {
+        event,
+        #[cfg(feature = "reactive_graph")]
+        owner: reactive_graph::owner::Owner::current().unwrap_or_default(),
+        cb: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(cb)),
+    }
+}
+
+/// Creates an [`Attribute`] that will add an event listener to an element.
+#[cfg(erase_components)]
+pub fn on<E, F>(event: E, cb: F) -> On<E, Box<dyn FnMut(E::EventType)>>
+where
+    F: FnMut(E::EventType) + 'static,
+    E: EventDescriptor + Send + 'static,
+    E::EventType: 'static,
+    E::EventType: From<crate::renderer::types::Event>,
+{
+    on_erased(event, Box::new(cb))
+}
+
+#[cfg(erase_components)]
+fn on_erased<E>(
+    event: E,
+    cb: Box<dyn FnMut(E::EventType)>,
+) -> On<E, Box<dyn FnMut(E::EventType)>>
+where
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     E::EventType: From<crate::renderer::types::Event>,
@@ -130,7 +161,14 @@ where
     E::EventType: 'static,
     E::EventType: From<crate::renderer::types::Event>,
 {
-    on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
+    #[cfg(erase_components)]
+    {
+        on_erased(event, Box::new(move |ev: E::EventType| cb(ev.into())))
+    }
+    #[cfg(not(erase_components))]
+    {
+        on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
+    }
 }
 
 /// An [`Attribute`] that adds an event listener to an element.

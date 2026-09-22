@@ -6,6 +6,8 @@ use reactive_graph::{
     traits::{Set, SignalOrFn},
 };
 use std::hash::Hash;
+#[cfg(erase_components)]
+use tachys::view::any_view::{AnyView, IntoMaybeErased};
 use tachys::{
     reactive_graph::OwnedView,
     view::keyed::{SerializableKey, keyed},
@@ -136,12 +138,30 @@ where
     // a) the reactive owner for each row will not be cleared when the whole list updates
     // b) context provided in each row will not wipe out the others
     let parent = Owner::current().expect("no reactive owner");
-    let children = move |_, child| {
-        let owner = parent.with(Owner::new);
-        let view = owner.with(|| children(child));
-        (drop, OwnedView::new_with_owner(view, owner))
-    };
-    move || keyed(each.run(), key.clone(), children.clone())
+    #[cfg(erase_components)]
+    {
+        move || {
+            let children = children.clone();
+            let parent = parent.clone();
+            let view_fn: Box<
+                dyn Fn(usize, T) -> (fn(usize), OwnedView<AnyView>) + Send,
+            > = Box::new(move |_, child| {
+                let owner = parent.with(Owner::new);
+                let view = owner.with(|| children(child).into_maybe_erased());
+                (drop as fn(usize), OwnedView::new_with_owner(view, owner))
+            });
+            keyed(each.run(), key.clone(), view_fn)
+        }
+    }
+    #[cfg(not(erase_components))]
+    {
+        let children = move |_, child| {
+            let owner = parent.with(Owner::new);
+            let view = owner.with(|| children(child));
+            (drop, OwnedView::new_with_owner(view, owner))
+        };
+        move || keyed(each.run(), key.clone(), children.clone())
+    }
 }
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -210,16 +230,45 @@ where
     // a) the reactive owner for each row will not be cleared when the whole list updates
     // b) context provided in each row will not wipe out the others
     let parent = Owner::current().expect("no reactive owner");
-    let children = move |index, child| {
-        let owner = parent.with(Owner::new);
-        let (index, set_index) = ArcRwSignal::new(index).split();
-        let view = owner.with(|| children(index.into(), child));
-        (
-            move |index| set_index.set(index),
-            OwnedView::new_with_owner(view, owner),
-        )
-    };
-    move || keyed(each.run(), key.clone(), children.clone())
+    #[cfg(erase_components)]
+    {
+        move || {
+            let children = children.clone();
+            let parent = parent.clone();
+            let view_fn: Box<
+                dyn Fn(
+                        usize,
+                        T,
+                    )
+                        -> (Box<dyn Fn(usize) + Send>, OwnedView<AnyView>)
+                    + Send,
+            > = Box::new(move |index, child| {
+                let owner = parent.with(Owner::new);
+                let (index, set_index) = ArcRwSignal::new(index).split();
+                let view = owner
+                    .with(|| children(index.into(), child).into_maybe_erased());
+                (
+                    Box::new(move |index| set_index.set(index))
+                        as Box<dyn Fn(usize) + Send>,
+                    OwnedView::new_with_owner(view, owner),
+                )
+            });
+            keyed(each.run(), key.clone(), view_fn)
+        }
+    }
+    #[cfg(not(erase_components))]
+    {
+        let children = move |index, child| {
+            let owner = parent.with(Owner::new);
+            let (index, set_index) = ArcRwSignal::new(index).split();
+            let view = owner.with(|| children(index.into(), child));
+            (
+                move |index| set_index.set(index),
+                OwnedView::new_with_owner(view, owner),
+            )
+        };
+        move || keyed(each.run(), key.clone(), children.clone())
+    }
 }
 
 /*

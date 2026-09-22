@@ -2,7 +2,7 @@ use crate::{IntoView, children::ViewFn};
 use leptos_macro::component;
 use reactive_graph::traits::Get;
 use std::{marker::PhantomData, sync::Arc};
-use tachys::either::Either;
+use tachys::{either::Either, view::any_view::IntoMaybeErased};
 
 /// Like `<Show>` but for `Option`. This is a shortcut for
 ///
@@ -107,7 +107,7 @@ where
 
         getter
             .run()
-            .map(move |t| Either::Left(children(t)))
+            .map(move |t| Either::Left(children(t).into_maybe_erased()))
             .unwrap_or_else(move || Either::Right(fallback.run()))
     }
 }
