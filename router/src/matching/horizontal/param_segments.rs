@@ -123,9 +123,9 @@ impl<T: AsPath> PossibleRouteMatch for ParamSegment<T> {
 /// # })().unwrap();
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct WildcardSegment<T : AsPath>(pub T);
+pub struct WildcardSegment<T: AsPath>(pub T);
 
-impl<T : AsPath> PossibleRouteMatch for WildcardSegment<T> {
+impl<T: AsPath> PossibleRouteMatch for WildcardSegment<T> {
     fn optional(&self) -> bool {
         false
     }
@@ -164,9 +164,9 @@ impl<T : AsPath> PossibleRouteMatch for WildcardSegment<T> {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OptionalParamSegment<T : AsPath>(pub T);
+pub struct OptionalParamSegment<T: AsPath>(pub T);
 
-impl<T : AsPath> PossibleRouteMatch for OptionalParamSegment<T> {
+impl<T: AsPath> PossibleRouteMatch for OptionalParamSegment<T> {
     fn optional(&self) -> bool {
         true
     }
