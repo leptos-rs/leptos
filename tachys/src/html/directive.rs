@@ -227,9 +227,9 @@ impl<T, D, P> ToTemplate for Directive<T, D, P> {
 /// A directive is just syntactic sugar for
 ///
 /// ```ignore
-/// let node_ref = create_node_ref();
+/// let node_ref = NodeRef::new();
 ///
-/// create_effect(move |_| {
+/// Effect::new(move |_| {
 ///     if let Some(el) = node_ref.get() {
 ///         directive_func(el, possibly_some_param);
 ///     }

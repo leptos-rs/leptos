@@ -158,8 +158,8 @@ pub fn RecoveryPage() -> impl IntoView {
     let recovery_flow = create_local_resource(|| (), |_| init_recovery_flow());
     let recovery = Action::<ProcessRecovery, _>::server();
 
-    let recovery_resp = create_rw_signal(None::<Result<ViewableRecoveryFlow, ServerFnError>>);
-    create_effect(move |_| {
+    let recovery_resp = RwSignal::new(None::<Result<ViewableRecoveryFlow, ServerFnError>>);
+    Effect::new(move |_| {
         if let Some(resp) = recovery.value().get() {
             recovery_resp.set(Some(resp))
         }
@@ -171,7 +171,7 @@ pub fn RecoveryPage() -> impl IntoView {
             recovery_flow.get()
         }
     });
-    let body = create_rw_signal(HashMap::new());
+    let body = RwSignal::new(HashMap::new());
     view! {
         <Suspense fallback=||view!{}>
             <ErrorBoundary fallback=|errors|view!{<ErrorTemplate errors/>}>
