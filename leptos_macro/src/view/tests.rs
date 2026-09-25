@@ -1,7 +1,7 @@
 //! Locality tests for `view!` diagnostics.
 //!
-//! These assert two things the previous `emit_error!`/`abort!` approach had no
-//! way to guarantee or check:
+//! These assert two things ad-hoc `emit_error!`/`abort!` calls had no way to
+//! guarantee or check:
 //!
 //! * **Locality** – a diagnostic underlines the specific offending token, not
 //!   the whole `view!` invocation (which is what `Span::call_site()` does).
@@ -11,12 +11,29 @@
 //! The span→source mapping relies on `proc-macro2`'s `span-locations` feature,
 //! enabled for the test build in `Cargo.toml`.
 
-use super::diagnostics::{self, Diagnostic, MAX_DIAGNOSTICS};
+use crate::diagnostics::{Errors, MAX_DIAGNOSTICS};
 use proc_macro2::{Span, TokenStream};
 use std::str::FromStr;
 
+/// A single reported error, split into its parts for easy assertions.
+struct Diagnostic {
+    span: Span,
+    message: String,
+}
+
+/// Split a (possibly combined) `syn::Error` into its individual diagnostics.
+fn split(error: syn::Error) -> Vec<Diagnostic> {
+    error
+        .into_iter()
+        .map(|error| Diagnostic {
+            span: error.span(),
+            message: error.to_string(),
+        })
+        .collect()
+}
+
 /// Lower `src` exactly the way the `view!` macro does and return the
-/// diagnostics it records, without emitting them.
+/// diagnostics it reports.
 fn diagnostics_for(src: &str) -> Vec<Diagnostic> {
     let tokens = TokenStream::from_str(src).expect("test input must tokenize");
     let config = rstml::ParserConfig::default().recover_block(true);
@@ -24,10 +41,10 @@ fn diagnostics_for(src: &str) -> Vec<Diagnostic> {
     let (mut nodes, _parse_errors) =
         parser.parse_recoverable(tokens).split_vec();
 
-    let (_output, diagnostics) = diagnostics::collect(|| {
-        super::render_view(&mut nodes, None, None, false)
-    });
-    diagnostics
+    super::render_view(&mut nodes, None, None, false)
+        .err()
+        .map(split)
+        .unwrap_or_default()
 }
 
 /// Assert that `span` starts exactly where `needle` begins in `src` (first
@@ -78,6 +95,7 @@ fn missing_required_prop_error_points_at_component() {
     let tokens = TokenStream::from_str(src).unwrap();
     let (mut nodes, _) = super::parse_nodes(tokens);
     let output = super::render_view(&mut nodes, None, None, false)
+        .expect("lowering should not error")
         .expect("component should lower");
 
     let build_span = find_ident_span(&output, "build")
@@ -145,6 +163,7 @@ fn incomplete_component_tag_recovers_props_builder() {
     );
 
     let output = super::render_view(&mut nodes, None, None, false)
+        .expect("lowering should not error")
         .expect("recovered nodes should lower")
         .to_string();
     assert!(
@@ -182,12 +201,12 @@ fn complete_view_is_untouched_by_recovery() {
 
 #[test]
 fn duplicate_diagnostics_are_collapsed() {
-    let (_, diagnostics) = diagnostics::collect(|| {
-        let span = Span::call_site();
-        diagnostics::error(span, "same message");
-        diagnostics::error(span, "same message"); // exact duplicate
-        diagnostics::error(span, "different message");
-    });
+    let span = Span::call_site();
+    let mut errors = Errors::default();
+    errors.push(syn::Error::new(span, "same message"));
+    errors.push(syn::Error::new(span, "same message")); // exact duplicate
+    errors.push(syn::Error::new(span, "different message"));
+    let diagnostics = split(errors.finish(Ok(())).unwrap_err());
 
     assert_eq!(
         diagnostics.len(),
@@ -199,12 +218,12 @@ fn duplicate_diagnostics_are_collapsed() {
 #[test]
 fn diagnostics_are_capped() {
     let overflow = 5;
-    let (_, diagnostics) = diagnostics::collect(|| {
-        for i in 0..(MAX_DIAGNOSTICS + overflow) {
-            // Distinct messages so de-dup doesn't interfere with the cap.
-            diagnostics::error(Span::call_site(), format!("error {i}"));
-        }
-    });
+    let mut errors = Errors::default();
+    for i in 0..(MAX_DIAGNOSTICS + overflow) {
+        // Distinct messages so de-dup doesn't interfere with the cap.
+        errors.push(syn::Error::new(Span::call_site(), format!("error {i}")));
+    }
+    let diagnostics = split(errors.finish(Ok(())).unwrap_err());
 
     // `MAX_DIAGNOSTICS` real errors plus one summary.
     assert_eq!(diagnostics.len(), MAX_DIAGNOSTICS + 1);

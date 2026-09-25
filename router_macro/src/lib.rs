@@ -5,7 +5,6 @@
 #![deny(missing_docs)]
 
 use proc_macro::{TokenStream, TokenTree};
-use proc_macro_error2::{abort, proc_macro_error, set_dummy};
 use proc_macro2::Span;
 use quote::{ToTokens, format_ident, quote};
 use syn::{
@@ -46,16 +45,22 @@ const RFC3986_PCHAR_OTHER: [char; 12] =
 /// assert_eq!(path, output);
 /// ```
 /// [`Route`]: https://docs.rs/leptos_router/latest/leptos_router/components/fn.Route.html
-#[proc_macro_error2::proc_macro_error]
 #[proc_macro]
 pub fn path(tokens: TokenStream) -> TokenStream {
+    path_impl(tokens)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+fn path_impl(tokens: TokenStream) -> syn::Result<proc_macro2::TokenStream> {
     let mut parser = SegmentParser::new(tokens);
-    parser.parse_all();
+    parser.parse_all()?;
     let segments = Segments {
         span: parser.span,
         segments: parser.segments,
     };
-    segments.into_token_stream().into()
+    segments.ensure_valid()?;
+    Ok(segments.into_token_stream())
 }
 
 struct Segments {
@@ -90,18 +95,18 @@ impl SegmentParser {
 }
 
 impl SegmentParser {
-    pub fn parse_all(&mut self) {
+    pub fn parse_all(&mut self) -> syn::Result<()> {
         let mut parsed = false;
         for input in self.input.by_ref() {
             match input {
                 TokenTree::Literal(lit) => {
                     if parsed {
                         let span: Span = lit.span().into();
-                        abort!(
+                        return Err(syn::Error::new(
                             span,
                             "`path!` accepts a single string literal; use \
-                             `concat!` to build one from several pieces"
-                        );
+                             `concat!` to build one from several pieces",
+                        ));
                     }
                     parsed = true;
 
@@ -112,17 +117,20 @@ impl SegmentParser {
                     // characters as part of the text.
                     let lit_str: syn::LitStr =
                         syn::parse(TokenStream::from(TokenTree::Literal(lit)))
-                            .unwrap_or_else(|e| {
-                                abort!(
+                            .map_err(|e| {
+                                syn::Error::new(
                                     e.span(),
-                                    "`path!` expects a string literal"
+                                    "`path!` expects a string literal",
                                 )
-                            });
+                            })?;
                     self.span = lit_str.span();
                     let value = lit_str.value();
 
                     if value.contains("//") {
-                        abort!(self.span, "Consecutive '/' is not allowed");
+                        return Err(syn::Error::new(
+                            self.span,
+                            "Consecutive '/' is not allowed",
+                        ));
                     }
                     Self::parse_str(
                         &mut self.segments,
@@ -134,14 +142,15 @@ impl SegmentParser {
                 }
                 other => {
                     let span: Span = other.span().into();
-                    abort!(
+                    return Err(syn::Error::new(
                         span,
                         "`path!` expects a string literal, e.g. \
-                         `path!(\"/users/:id\")`"
-                    );
+                         `path!(\"/users/:id\")`",
+                    ));
                 }
             }
         }
+        Ok(())
     }
 
     pub fn parse_str(segments: &mut Vec<Segment>, current_str: &str) {
@@ -178,33 +187,39 @@ impl Segment {
                 }))
     }
 
-    fn ensure_valid(&self, span: Span) {
+    fn ensure_valid(&self, span: Span) -> syn::Result<()> {
         match self {
-            Self::Wildcard(s) if !Self::is_valid(s) => {
-                abort!(span, "Invalid wildcard segment: {}", s)
-            }
-            Self::Static(s) if !Self::is_valid(s) => {
-                abort!(span, "Invalid static segment: {}", s)
-            }
-            Self::Param(s) if !Self::is_valid(s) => {
-                abort!(span, "Invalid param segment: {}", s)
-            }
-            _ => (),
+            Self::Wildcard(s) if !Self::is_valid(s) => Err(syn::Error::new(
+                span,
+                format!("Invalid wildcard segment: {s}"),
+            )),
+            Self::Static(s) if !Self::is_valid(s) => Err(syn::Error::new(
+                span,
+                format!("Invalid static segment: {s}"),
+            )),
+            Self::Param(s) if !Self::is_valid(s) => Err(syn::Error::new(
+                span,
+                format!("Invalid param segment: {s}"),
+            )),
+            _ => Ok(()),
         }
     }
 }
 
 impl Segments {
-    fn ensure_valid(&self) {
+    fn ensure_valid(&self) -> syn::Result<()> {
         if let Some((_last, segments)) = self.segments.split_last()
             && let Some(Segment::Wildcard(s)) =
                 segments.iter().find(|s| matches!(s, Segment::Wildcard(_)))
         {
-            abort!(self.span, "Wildcard must be at end: {}", s)
+            return Err(syn::Error::new(
+                self.span,
+                format!("Wildcard must be at end: {s}"),
+            ));
         }
-        for segment in &self.segments {
-            segment.ensure_valid(self.span);
-        }
+        self.segments
+            .iter()
+            .try_for_each(|segment| segment.ensure_valid(self.span))
     }
 }
 
@@ -230,7 +245,6 @@ impl ToTokens for Segment {
 
 impl ToTokens for Segments {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        self.ensure_valid();
         match self.segments.as_slice() {
             [] => tokens.extend(quote! { () }),
             [segment] => tokens.extend(quote! { (#segment,) }),
@@ -283,29 +297,39 @@ impl ToTokens for Segments {
 /// [`impl LazyRoute`]: https://docs.rs/leptos_router/latest/leptos_router/trait.LazyRoute.html
 /// [`lazy`]: https://docs.rs/leptos_macro/latest/leptos_macro/macro.lazy.html
 #[proc_macro_attribute]
-#[proc_macro_error]
 pub fn lazy_route(
     args: proc_macro::TokenStream,
     s: TokenStream,
 ) -> TokenStream {
-    lazy_route_impl(args, s)
+    let dummy = proc_macro2::TokenStream::from(s.clone());
+    lazy_route_impl(args, s).unwrap_or_else(|error| {
+        let error = error.into_compile_error();
+        // Preserve the annotated item after the diagnostic to avoid follow-up
+        // errors caused by definitions disappearing during macro expansion.
+        quote! {
+            #error
+            #dummy
+        }
+        .into()
+    })
 }
 
 fn lazy_route_impl(
     _args: proc_macro::TokenStream,
     s: TokenStream,
-) -> TokenStream {
-    set_dummy(s.clone().into());
-
-    let mut im = syn::parse::<ItemImpl>(s.clone()).unwrap_or_else(|e| {
-        abort!(e.span(), "`lazy_route` can only be used on an `impl` block")
-    });
+) -> syn::Result<TokenStream> {
+    let mut im = syn::parse::<ItemImpl>(s.clone()).map_err(|e| {
+        syn::Error::new(
+            e.span(),
+            "`lazy_route` can only be used on an `impl` block",
+        )
+    })?;
     if im.trait_.is_none() {
-        abort!(
+        return Err(syn::Error::new(
             im.span(),
             "`lazy_route` can only be used on an `impl LazyRoute for ...` \
-             block"
-        )
+             block",
+        ));
     }
 
     let self_ty = im.self_ty.clone();
@@ -314,7 +338,12 @@ fn lazy_route_impl(
             path: Path { segments, .. },
             ..
         }) => segments.last().unwrap().ident.to_string(),
-        _ => abort!(self_ty.span(), "only path types are supported"),
+        _ => {
+            return Err(syn::Error::new(
+                self_ty.span(),
+                "only path types are supported",
+            ));
+        }
     };
     let lazy_view_ident =
         Ident::new(&format!("__{ty_name_to_snake}_View"), im.self_ty.span());
@@ -337,9 +366,9 @@ fn lazy_route_impl(
             }
             .into(),
         )
-        .unwrap_or_else(|e| {
-            abort!(e.span(), "could not parse preload item impl")
-        }),
+        .map_err(|e| {
+            syn::Error::new(e.span(), "could not parse preload item impl")
+        })?,
     );
 
     let item = im.items.iter_mut().find_map(|item| match item {
@@ -354,29 +383,39 @@ fn lazy_route_impl(
     });
 
     match item {
-        None => abort!(
+        None => Err(syn::Error::new(
             im.span(),
-            "`#[lazy_route]` requires a `view` method on the impl block"
-        ),
+            "`#[lazy_route]` requires a `view` method on the impl block",
+        )),
         Some(fun) => {
             if let Some(a) = fun.sig.asyncness {
-                abort!(a.span(), "`view` method should not be async")
+                return Err(syn::Error::new(
+                    a.span(),
+                    "`view` method should not be async",
+                ));
             }
             if fun.sig.inputs.len() != 1 {
-                abort!(
+                return Err(syn::Error::new(
                     fun.sig.inputs.span(),
-                    "`view` must take exactly one argument (`this: Self`)"
-                )
+                    "`view` must take exactly one argument (`this: Self`)",
+                ));
             }
             fun.sig.asyncness = Some(Default::default());
 
             let first_arg = match fun.sig.inputs.first_mut() {
                 Some(FnArg::Typed(arg)) => arg,
-                Some(other) => abort!(
-                    other.span(),
-                    "this must be a typed argument like `this: Self`"
-                ),
-                None => abort!(fun.sig.span(), "must have an argument"),
+                Some(other) => {
+                    return Err(syn::Error::new(
+                        other.span(),
+                        "this must be a typed argument like `this: Self`",
+                    ));
+                }
+                None => {
+                    return Err(syn::Error::new(
+                        fun.sig.span(),
+                        "must have an argument",
+                    ));
+                }
             };
 
             // Preserve the user's binding pattern (`mut this`, `Self { .. }`,
@@ -401,7 +440,7 @@ fn lazy_route_impl(
                 }),
             );
 
-            quote! {
+            Ok(quote! {
                 #[allow(non_snake_case)]
                 #[::leptos::lazy(fallible)]
                 fn #lazy_view_ident(
@@ -415,7 +454,7 @@ fn lazy_route_impl(
 
                 #im
             }
-            .into()
+            .into())
         }
     }
 }

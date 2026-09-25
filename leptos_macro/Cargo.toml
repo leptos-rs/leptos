@@ -20,7 +20,6 @@ cfg-if = { workspace = true, default-features = true }
 html-escape = { workspace = true, default-features = true }
 itertools = { workspace = true, default-features = true }
 prettyplease = { workspace = true, default-features = true }
-proc-macro-error2 = { default-features = false, workspace = true }
 proc-macro2 = { workspace = true, default-features = true }
 quote = { workspace = true, default-features = true }
 syn = { features = ["full"], workspace = true, default-features = true }

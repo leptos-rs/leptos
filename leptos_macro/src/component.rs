@@ -1,4 +1,7 @@
-use crate::stable_hash::fnv1a_64;
+use crate::{
+    diagnostics::{Errors, message_with_help},
+    stable_hash::fnv1a_64,
+};
 use attribute_derive::FromAttr;
 use convert_case::{
     Case::{Pascal, Snake},
@@ -7,7 +10,6 @@ use convert_case::{
 use convert_case_extras::is_case;
 use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
-use proc_macro_error2::abort;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::{ToTokens, TokenStreamExt, format_ident, quote, quote_spanned};
 use syn::{
@@ -19,6 +21,7 @@ use syn::{
 };
 
 pub struct Model {
+    validation_error: Option<syn::Error>,
     is_transparent: bool,
     is_lazy: bool,
     island: Option<String>,
@@ -38,16 +41,30 @@ impl Parse for Model {
 
         convert_impl_trait_to_generic(&mut item.sig);
 
-        let docs = Docs::new(&item.attrs);
+        let (docs, mut validation_error) = match Docs::new(&item.attrs) {
+            Ok(docs) => (docs, None),
+            Err(error) => (Docs(Vec::new()), Some(error)),
+        };
         let unknown_attrs = UnknownAttrs::new(&item.attrs);
 
-        let props = item
-            .sig
-            .inputs
-            .clone()
-            .into_iter()
-            .map(Prop::new)
-            .collect::<Vec<_>>();
+        let props = if validation_error.is_none() {
+            match item
+                .sig
+                .inputs
+                .clone()
+                .into_iter()
+                .map(Prop::new)
+                .collect::<syn::Result<Vec<_>>>()
+            {
+                Ok(props) => props,
+                Err(error) => {
+                    validation_error = Some(error);
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        };
 
         // We need to remove the `#[doc = ""]` and `#[builder(_)]`
         // attrs from the function signature
@@ -67,6 +84,7 @@ impl Parse for Model {
         });
 
         Ok(Self {
+            validation_error,
             is_transparent: false,
             is_lazy: false,
             island: None,
@@ -137,9 +155,17 @@ pub fn convert_from_snake_case(name: &Ident) -> Ident {
     }
 }
 
-impl ToTokens for Model {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
+impl Model {
+    pub(crate) fn expand(
+        mut self,
+        errors: &mut Errors,
+    ) -> syn::Result<TokenStream> {
+        if let Some(error) = self.validation_error.take() {
+            return Err(error);
+        }
+
         let Self {
+            validation_error: _,
             is_transparent,
             is_lazy,
             island,
@@ -150,7 +176,7 @@ impl ToTokens for Model {
             props,
             body,
             ret,
-        } = self;
+        } = &self;
         let is_island = island.is_some();
 
         let no_props = props.is_empty();
@@ -163,14 +189,14 @@ impl ToTokens for Model {
                     _ => None,
                 });
             if let Some(semi) = ends_semi {
-                proc_macro_error2::emit_error!(
+                errors.push(syn::Error::new(
                     semi.span(),
                     "A component that ends with a `view!` macro followed by a \
                      semicolon will return (), an empty view. This is usually \
                      an accident, not intentional, so we prevent it. If you’d \
                      like to return (), you can do it it explicitly by \
-                     returning () as the last item from the component."
-                );
+                     returning () as the last item from the component.",
+                ));
             }
         }
 
@@ -194,7 +220,7 @@ impl ToTokens for Model {
                 || (!is_island_with_children && !props.is_empty()));
 
         let prop_builder_fields =
-            prop_builder_fields(vis, props, is_island_with_other_props);
+            prop_builder_fields(vis, props, is_island_with_other_props)?;
         let props_serializer = if is_island_with_other_props {
             let fields = prop_serializer_fields(vis, props);
             quote! {
@@ -214,7 +240,7 @@ impl ToTokens for Model {
             name.span(),
         );
 
-        let component_fn_prop_docs = generate_component_fn_prop_docs(props);
+        let component_fn_prop_docs = generate_component_fn_prop_docs(props)?;
         let docs_and_prop_docs = if component_fn_prop_docs.is_empty() {
             // Avoid generating an empty doc line in case the component has no doc and no props.
             quote! {
@@ -623,7 +649,7 @@ impl ToTokens for Model {
             }
         };
 
-        tokens.append_all(output)
+        Ok(output)
     }
 }
 
@@ -739,18 +765,17 @@ struct Prop {
 }
 
 impl Prop {
-    fn new(arg: FnArg) -> Self {
+    fn new(arg: FnArg) -> syn::Result<Self> {
         let typed = if let FnArg::Typed(ty) = arg {
             ty
         } else {
-            abort!(arg, "receiver not allowed in `fn`");
+            return Err(syn::Error::new_spanned(
+                arg,
+                "receiver not allowed in `fn`",
+            ));
         };
 
-        let prop_opts =
-            PropOpt::from_attributes(&typed.attrs).unwrap_or_else(|e| {
-                // TODO: replace with `.unwrap_or_abort()` once https://gitlab.com/CreepySkeleton/proc-macro-error/-/issues/17 is fixed
-                abort!(e.span(), e.to_string());
-            });
+        let prop_opts = PropOpt::from_attributes(&typed.attrs)?;
 
         let name = match *typed.pat {
             Pat::Ident(i) => {
@@ -766,38 +791,37 @@ impl Prop {
                     i
                 }
             }
-            Pat::Struct(_) | Pat::Tuple(_) | Pat::TupleStruct(_) => {
-                if let Some(name) = &prop_opts.name {
-                    PatIdent {
-                        attrs: vec![],
-                        by_ref: None,
-                        mutability: None,
-                        ident: Ident::new(name, typed.pat.span()),
-                        subpat: None,
-                    }
-                } else {
-                    abort!(
-                        typed.pat,
+            pat @ (Pat::Struct(_) | Pat::Tuple(_) | Pat::TupleStruct(_)) => {
+                let Some(name) = prop_opts.name.as_deref() else {
+                    return Err(syn::Error::new_spanned(
+                        pat,
                         "destructured props must be given a name e.g. \
-                         #[prop(name = \"data\")]"
-                    );
+                         #[prop(name = \"data\")]",
+                    ));
+                };
+                PatIdent {
+                    attrs: vec![],
+                    by_ref: None,
+                    mutability: None,
+                    ident: Ident::new(name, pat.span()),
+                    subpat: None,
                 }
             }
-            _ => {
-                abort!(
-                    typed.pat,
+            pat => {
+                return Err(syn::Error::new_spanned(
+                    pat,
                     "only `prop: bool` style types are allowed within the \
-                     `#[component]` macro"
-                );
+                     `#[component]` macro",
+                ));
             }
         };
 
-        Self {
-            docs: Docs::new(&typed.attrs),
+        Ok(Self {
+            docs: Docs::new(&typed.attrs)?,
             prop_opts,
             name,
             ty: *typed.ty,
-        }
+        })
     }
 }
 
@@ -817,7 +841,7 @@ impl ToTokens for Docs {
 }
 
 impl Docs {
-    pub fn new(attrs: &[Attribute]) -> Self {
+    pub fn new(attrs: &[Attribute]) -> syn::Result<Self> {
         #[derive(Debug, Copy, Clone, PartialEq, Eq)]
         enum ViewCodeFenceState {
             Outside,
@@ -895,15 +919,20 @@ impl Docs {
                     return None;
                 }
 
-                let Some(val) = value_to_string(&attr.value) else {
-                    abort!(
-                        attr,
-                        "expected string literal in value of doc comment"
-                    );
-                };
-
-                Some((val, attr.path.span()))
+                Some(
+                    value_to_string(&attr.value)
+                        .map(|val| (val, attr.path.span()))
+                        .ok_or_else(|| {
+                            syn::Error::new_spanned(
+                                attr,
+                                "expected string literal in value of doc \
+                                 comment",
+                            )
+                        }),
+                )
             })
+            .collect::<syn::Result<Vec<_>>>()?
+            .into_iter()
             .flat_map(map)
             .collect_vec();
 
@@ -916,7 +945,7 @@ impl Docs {
             attrs.push((format!("{quote_ws}{quotes}"), Span::call_site()))
         }
 
-        Self(attrs)
+        Ok(Self(attrs))
     }
 
     pub fn padded(&self) -> TokenStream {
@@ -1051,13 +1080,12 @@ impl TypedBuilderOpts<'_> {
     }
 }
 
-impl ToTokens for TypedBuilderOpts<'_> {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
+impl TypedBuilderOpts<'_> {
+    fn expand(&self) -> syn::Result<TokenStream> {
         if self.marker {
-            tokens.append_all(quote! {
+            return Ok(quote! {
                 #[builder(default, setter(skip))]
             });
-            return;
         }
 
         let default = if let Some(v) = &self.default_with_value {
@@ -1085,7 +1113,7 @@ impl ToTokens for TypedBuilderOpts<'_> {
                     },
                 }
             } else {
-                let ty = unwrap_option(self.ty);
+                let ty = unwrap_option(self.ty)?;
                 quote! {
                     fn transform<__IntoReactiveValueMarker>(value: impl ::leptos::prelude::IntoReactiveValue<#ty, __IntoReactiveValueMarker>) -> Option<#ty> {
                         Some(value.into_reactive_value())
@@ -1108,7 +1136,7 @@ impl ToTokens for TypedBuilderOpts<'_> {
             quote! {}
         };
 
-        tokens.append_all(output);
+        Ok(output)
     }
 }
 
@@ -1116,7 +1144,7 @@ fn prop_builder_fields(
     vis: &Visibility,
     props: &[Prop],
     is_island_with_other_props: bool,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     props
         .iter()
         .map(|prop| {
@@ -1129,9 +1157,10 @@ fn prop_builder_fields(
 
             let PatIdent { ident, by_ref, .. } = &name;
 
-            let builder_attrs = TypedBuilderOpts::from_opts(prop_opts, ty);
+            let builder_attrs =
+                TypedBuilderOpts::from_opts(prop_opts, ty).expand()?;
 
-            let builder_docs = prop_to_doc(prop, PropDocStyle::Inline);
+            let builder_docs = prop_to_doc(prop, PropDocStyle::Inline)?;
 
             // Children and markers won't need documentation in many cases
             let allow_missing_docs = if prop_opts.marker || ident == "children"
@@ -1148,14 +1177,14 @@ fn prop_builder_fields(
                 quote!()
             };
 
-            quote! {
+            Ok(quote! {
                 #docs
                 #builder_docs
                 #builder_attrs
                 #allow_missing_docs
                 #serde_skip
                 #vis #by_ref #ident: #ty,
-            }
+            })
         })
         .collect()
 }
@@ -1201,7 +1230,7 @@ fn prop_names(props: &[Prop]) -> TokenStream {
         .collect()
 }
 
-fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
+fn generate_component_fn_prop_docs(props: &[Prop]) -> syn::Result<TokenStream> {
     let required_prop_docs = props
         .iter()
         .filter(|Prop { prop_opts, .. }| {
@@ -1211,7 +1240,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
         })
         .filter(|prop| !prop.prop_opts.marker)
         .map(|p| prop_to_doc(p, PropDocStyle::List))
-        .collect::<TokenStream>();
+        .collect::<syn::Result<TokenStream>>()?;
 
     let optional_prop_docs = props
         .iter()
@@ -1222,7 +1251,7 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
         })
         .filter(|prop| !prop.prop_opts.marker)
         .map(|p| prop_to_doc(p, PropDocStyle::List))
-        .collect::<TokenStream>();
+        .collect::<syn::Result<TokenStream>>()?;
 
     let required_prop_docs = if !required_prop_docs.is_empty() {
         quote! {
@@ -1242,10 +1271,10 @@ fn generate_component_fn_prop_docs(props: &[Prop]) -> TokenStream {
         quote! {}
     };
 
-    quote! {
+    Ok(quote! {
         #required_prop_docs
         #optional_prop_docs
-    }
+    })
 }
 
 pub fn is_option(ty: &Type) -> bool {
@@ -1264,9 +1293,8 @@ pub fn is_option(ty: &Type) -> bool {
     }
 }
 
-pub fn unwrap_option(ty: &Type) -> Type {
-    const STD_OPTION_MSG: &str =
-        "make sure you're not shadowing the `std::option::Option` type that \
+pub fn unwrap_option(ty: &Type) -> syn::Result<Type> {
+    const STD_OPTION_MSG: &str = "make sure you're not shadowing the `std::option::Option` type that \
          is automatically imported from the standard prelude";
 
     if let Type::Path(TypePath {
@@ -1282,14 +1310,16 @@ pub fn unwrap_option(ty: &Type) -> Type {
         && let [GenericArgument::Type(ty)] =
             &args.iter().collect::<Vec<_>>()[..]
     {
-        return ty.clone();
+        return Ok(ty.clone());
     }
 
-    abort!(
+    Err(syn::Error::new_spanned(
         ty,
-        "`Option` must be `std::option::Option`";
-        help = STD_OPTION_MSG
-    );
+        message_with_help(
+            "`Option` must be `std::option::Option`",
+            STD_OPTION_MSG,
+        ),
+    ))
 }
 
 #[derive(Clone, Copy)]
@@ -1306,10 +1336,10 @@ fn prop_to_doc(
         prop_opts,
     }: &Prop,
     style: PropDocStyle,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
     let ty = if (prop_opts.optional || prop_opts.strip_option) && is_option(ty)
     {
-        unwrap_option(ty)
+        unwrap_option(ty)?
     } else {
         ty.to_owned()
     };
@@ -1344,10 +1374,10 @@ fn prop_to_doc(
 
             let arg_user_docs = docs.padded();
 
-            quote! {
+            Ok(quote! {
                 #[doc = #arg_ty_doc]
                 #arg_user_docs
-            }
+            })
         }
         PropDocStyle::Inline => {
             let arg_ty_doc = LitStr::new(
@@ -1369,9 +1399,9 @@ fn prop_to_doc(
                 name.ident.span(),
             );
 
-            quote! {
+            Ok(quote! {
                 #[builder(setter(doc = #arg_ty_doc))]
-            }
+            })
         }
     }
 }

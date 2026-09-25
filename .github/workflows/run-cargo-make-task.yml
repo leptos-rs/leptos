@@ -125,7 +125,7 @@ jobs:
           max_attempts: 3
           timeout_minutes: 30
           retry_wait_seconds: 15
-          command: cargo binstall trunk --no-confirm
+          command: cargo binstall trunk --locked --no-confirm
       - name: Print Trunk Version
         if: contains(inputs.directory, 'examples')
         uses: nick-fields/retry@v4
@@ -136,7 +136,7 @@ jobs:
           command: trunk --version
       - name: Install Node.js
         if: contains(inputs.directory, 'examples')
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 20
       - name: Install pnpm

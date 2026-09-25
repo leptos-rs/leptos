@@ -375,9 +375,15 @@ where
         let mut hashed_items =
             FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
         let mut rendered_items = Vec::with_capacity(capacity);
+        // SSR creates all items, then renders them to HTML;
+        // hydration needs to create all items, then hydrate them
+        // See https://github.com/leptos-rs/leptos/issues/4881
+        let mut views = Vec::with_capacity(capacity);
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
-            let (set_index, view) = (self.view_fn)(index, item);
+            views.push((self.view_fn)(index, item));
+        }
+        for (set_index, view) in views {
             let item = view.hydrate::<FROM_SERVER>(cursor, position);
             rendered_items.push(Some((set_index, item)));
         }
@@ -414,9 +420,12 @@ where
         let mut hashed_items =
             FxIndexSet::with_capacity_and_hasher(capacity, Default::default());
         let mut rendered_items = Vec::with_capacity(capacity);
+        let mut views = Vec::with_capacity(capacity);
         for (index, item) in items.enumerate() {
             hashed_items.insert((self.key_fn)(&item));
-            let (set_index, view) = (self.view_fn)(index, item);
+            views.push((self.view_fn)(index, item));
+        }
+        for (set_index, view) in views {
             let item = view.hydrate_async(cursor, position).await;
             rendered_items.push(Some((set_index, item)));
         }
