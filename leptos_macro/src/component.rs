@@ -1294,7 +1294,8 @@ pub fn is_option(ty: &Type) -> bool {
 }
 
 pub fn unwrap_option(ty: &Type) -> syn::Result<Type> {
-    const STD_OPTION_MSG: &str = "make sure you're not shadowing the `std::option::Option` type that \
+    const STD_OPTION_MSG: &str =
+        "make sure you're not shadowing the `std::option::Option` type that \
          is automatically imported from the standard prelude";
 
     if let Type::Path(TypePath {
