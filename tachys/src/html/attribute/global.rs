@@ -111,7 +111,11 @@ where
     E::EventType: From<crate::renderer::types::Event>,
     F: FnMut(E::EventType) + 'static,
 {
+    #[cfg(not(erase_components))]
     type Output = <Self as AddAnyAttr>::Output<On<E, F>>;
+    #[cfg(erase_components)]
+    type Output =
+        <Self as AddAnyAttr>::Output<On<E, Box<dyn FnMut(E::EventType)>>>;
 
     fn on(self, event: E, cb: F) -> Self::Output {
         self.add_any_attr(on(event, cb))

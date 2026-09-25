@@ -4,7 +4,7 @@ use crate::{
 };
 use leptos_macro::component;
 use reactive_graph::{computed::ArcMemo, traits::Get, wrappers::read::Signal};
-use tachys::either::Either;
+use tachys::{either::Either, view::any_view::IntoMaybeErased};
 
 /// Includes its children in the DOM if and only if `when` is `true`.
 ///
@@ -76,7 +76,7 @@ where
     let children = children.into_inner();
 
     move || match memoized_when.get() {
-        true => Either::Left(children()),
+        true => Either::Left(children().into_maybe_erased()),
         false => Either::Right(fallback.run()),
     }
 }

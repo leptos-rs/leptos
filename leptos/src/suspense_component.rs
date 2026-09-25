@@ -22,6 +22,8 @@ use std::{
     sync::{Arc, Mutex},
     task::Poll,
 };
+#[cfg(erase_components)]
+use tachys::view::any_view::IntoMaybeErased;
 use tachys::{
     either::Either,
     html::attribute::{Attribute, any_attribute::AnyAttribute},
@@ -124,6 +126,9 @@ where
                 .unwrap_or_else(|| (false, Default::default()))
         };
         let fallback = fallback.run();
+        #[cfg(erase_components)]
+        let children = children.into_inner()().into_maybe_erased();
+        #[cfg(not(erase_components))]
         let children = children.into_inner()();
         let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
         provide_context(SuspenseContext::new(tasks.clone()));

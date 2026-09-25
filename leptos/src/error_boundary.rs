@@ -17,6 +17,8 @@ use std::{
     mem,
     sync::{Arc, Mutex},
 };
+#[cfg(erase_components)]
+use tachys::view::any_view::{AnyView, IntoMaybeErased};
 use tachys::{
     html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
@@ -109,8 +111,21 @@ where
     let children = owner.with(|| {
         provide_context(Arc::clone(&hook));
         provide_context(suspended_children.clone());
-        children.into_inner()()
+        #[cfg(erase_components)]
+        {
+            children.into_inner()().into_maybe_erased()
+        }
+        #[cfg(not(erase_components))]
+        {
+            children.into_inner()()
+        }
     });
+
+    #[cfg(erase_components)]
+    let mut fallback = fallback;
+    #[cfg(erase_components)]
+    let fallback: Box<dyn FnMut(ArcRwSignal<Errors>) -> AnyView + Send> =
+        Box::new(move |errors| fallback(errors).into_maybe_erased());
 
     OwnedView::new_with_owner(
         ErrorBoundaryView {

@@ -16,6 +16,8 @@ use reactive_graph::{
 use slotmap::{DefaultKey, SlotMap};
 use std::sync::Arc;
 use tachys::reactive_graph::OwnedView;
+#[cfg(erase_components)]
+use tachys::view::any_view::IntoMaybeErased;
 
 /// If any [`Resource`](crate::prelude::Resource) is read in the `children` of this
 /// component, it will show the `fallback` while they are loading. Once all are resolved,
@@ -107,6 +109,9 @@ where
                 .unwrap_or_else(|| (false, Default::default()))
         };
         let fallback = fallback.run();
+        #[cfg(erase_components)]
+        let children = children.into_inner()().into_maybe_erased();
+        #[cfg(not(erase_components))]
         let children = children.into_inner()();
         let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
         provide_context(SuspenseContext::new(tasks.clone()));
