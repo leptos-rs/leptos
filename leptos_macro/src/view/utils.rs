@@ -1,7 +1,7 @@
 use proc_macro2::Ident;
 use quote::format_ident;
 use rstml::node::{KeyedAttribute, NodeName};
-use syn::{spanned::Spanned, ExprPath};
+use syn::{ExprPath, spanned::Spanned};
 
 pub fn filter_prefixed_attrs<'a, A>(attrs: A, prefix: &str) -> Vec<Ident>
 where

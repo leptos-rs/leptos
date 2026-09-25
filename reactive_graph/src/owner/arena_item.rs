@@ -1,6 +1,6 @@
 use super::{
+    LocalStorage, OWNER, Storage, SyncStorage,
     arena::{Arena, NodeId},
-    LocalStorage, Storage, SyncStorage, OWNER,
 };
 use crate::traits::{Dispose, IntoInner, IsDisposed};
 use send_wrapper::SendWrapper;

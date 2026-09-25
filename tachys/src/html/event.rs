@@ -1,7 +1,7 @@
 use crate::{
     html::attribute::{
-        maybe_next_attr_erasure_macros::next_attr_combine, Attribute,
-        NamedAttributeKey,
+        Attribute, NamedAttributeKey,
+        maybe_next_attr_erasure_macros::next_attr_combine,
     },
     renderer::{CastFrom, RemoveEventHandler, Rndr},
     view::{Position, ToTemplate},
@@ -69,7 +69,6 @@ impl<E, T> Targeted<E, T> {
     pub fn target(&self) -> T
     where
         T: CastFrom<crate::renderer::types::Element>,
-
         crate::renderer::types::Event: From<E>,
         E: Clone,
     {
@@ -102,9 +101,40 @@ impl<E, T> From<E> for Targeted<E, T> {
 }
 
 /// Creates an [`Attribute`] that will add an event listener to an element.
+#[cfg(not(erase_components))]
 pub fn on<E, F>(event: E, cb: F) -> On<E, F>
 where
     F: FnMut(E::EventType) + 'static,
+    E: EventDescriptor + Send + 'static,
+    E::EventType: 'static,
+    E::EventType: From<crate::renderer::types::Event>,
+{
+    On {
+        event,
+        #[cfg(feature = "reactive_graph")]
+        owner: reactive_graph::owner::Owner::current().unwrap_or_default(),
+        cb: (!cfg!(feature = "ssr")).then(|| SendWrapper::new(cb)),
+    }
+}
+
+/// Creates an [`Attribute`] that will add an event listener to an element.
+#[cfg(erase_components)]
+pub fn on<E, F>(event: E, cb: F) -> On<E, Box<dyn FnMut(E::EventType)>>
+where
+    F: FnMut(E::EventType) + 'static,
+    E: EventDescriptor + Send + 'static,
+    E::EventType: 'static,
+    E::EventType: From<crate::renderer::types::Event>,
+{
+    on_erased(event, Box::new(cb))
+}
+
+#[cfg(erase_components)]
+fn on_erased<E>(
+    event: E,
+    cb: Box<dyn FnMut(E::EventType)>,
+) -> On<E, Box<dyn FnMut(E::EventType)>>
+where
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
     E::EventType: From<crate::renderer::types::Event>,
@@ -129,10 +159,16 @@ where
         + 'static,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-
     E::EventType: From<crate::renderer::types::Event>,
 {
-    on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
+    #[cfg(erase_components)]
+    {
+        on_erased(event, Box::new(move |ev: E::EventType| cb(ev.into())))
+    }
+    #[cfg(not(erase_components))]
+    {
+        on(event, Box::new(move |ev: E::EventType| cb(ev.into())))
+    }
 }
 
 /// An [`Attribute`] that adds an event listener to an element.
@@ -268,7 +304,6 @@ where
     F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-
     E::EventType: From<crate::renderer::types::Event>,
 {
     const MIN_LENGTH: usize = 0;
@@ -322,10 +357,10 @@ where
     #[inline(always)]
     fn rebuild(self, state: &mut Self::State) {
         let (el, prev_cleanup) = state;
-        if let Some(prev) = prev_cleanup.take() {
-            if let Some(remove) = prev.into_inner() {
-                remove();
-            }
+        if let Some(prev) = prev_cleanup.take()
+            && let Some(remove) = prev.into_inner()
+        {
+            remove();
         }
         *prev_cleanup = Some(if E::CAPTURE {
             self.attach_capture(el)
@@ -368,7 +403,6 @@ where
     F: EventCallback<E::EventType>,
     E: EventDescriptor + Send + 'static,
     E::EventType: 'static,
-
     E::EventType: From<crate::renderer::types::Event>,
 {
     next_attr_output_type!(Self, NewAttr);
@@ -608,7 +642,7 @@ generate_event_types! {
   animation start: AnimationEvent,
   aux click: MouseEvent,
   before input: InputEvent,
-  before toggle: Event, // web_sys does not include `ToggleEvent`
+  before toggle: ToggleEvent,
   #[does_not_bubble]
   blur: FocusEvent,
   #[does_not_bubble]
@@ -719,7 +753,7 @@ generate_event_types! {
   #[does_not_bubble]
   time update: Event,
   #[does_not_bubble]
-  toggle: Event,
+  toggle: ToggleEvent,
   touch cancel: TouchEvent,
   touch end: TouchEvent,
   touch move: TouchEvent,
@@ -771,7 +805,7 @@ generate_event_types! {
 // Export `web_sys` event types
 use super::{
     attribute::{
-        maybe_next_attr_erasure_macros::next_attr_output_type, NextAttribute,
+        NextAttribute, maybe_next_attr_erasure_macros::next_attr_output_type,
     },
     element::HasElementType,
 };

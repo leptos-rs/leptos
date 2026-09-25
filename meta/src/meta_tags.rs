@@ -1,10 +1,9 @@
 use crate::register;
 use leptos::{
-    component,
+    IntoView, component,
     prelude::{CustomAttribute, GlobalAttributes},
     tachys::html::element::meta,
     text_prop::TextProp,
-    IntoView,
 };
 
 /// Injects an [`HTMLMetaElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMetaElement) into the document

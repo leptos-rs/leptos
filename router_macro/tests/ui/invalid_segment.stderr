@@ -1,0 +1,5 @@
+error: Invalid static segment: ^
+ --> tests/ui/invalid_segment.rs:4:19
+  |
+4 |     let _ = path!("/foo/^/");
+  |                   ^^^^^^^^^

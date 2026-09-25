@@ -1,4 +1,7 @@
-use crate::diagnostics::{message_with_help, Errors};
+use crate::{
+    diagnostics::{Errors, message_with_help},
+    stable_hash::fnv1a_64,
+};
 use attribute_derive::FromAttr;
 use convert_case::{
     Case::{Pascal, Snake},
@@ -8,14 +11,13 @@ use convert_case_extras::is_case;
 use itertools::Itertools;
 use leptos_hot_reload::parsing::value_to_string;
 use proc_macro2::{Ident, Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens, TokenStreamExt};
-use std::hash::DefaultHasher;
+use quote::{ToTokens, TokenStreamExt, format_ident, quote, quote_spanned};
 use syn::{
-    parse::Parse, parse_quote, spanned::Spanned, token::Colon,
-    visit_mut::VisitMut, AngleBracketedGenericArguments, Attribute, FnArg,
-    GenericArgument, GenericParam, Item, ItemFn, LitStr, Meta, Pat, PatIdent,
-    Path, PathArguments, ReturnType, Signature, Stmt, Type, TypeImplTrait,
-    TypeParam, TypePath, Visibility,
+    AngleBracketedGenericArguments, Attribute, FnArg, GenericArgument,
+    GenericParam, Item, ItemFn, LitStr, Meta, Pat, PatIdent, Path,
+    PathArguments, ReturnType, Signature, Stmt, Type, TypeImplTrait, TypeParam,
+    TypePath, Visibility, parse::Parse, parse_quote, spanned::Spanned,
+    token::Colon, visit_mut::VisitMut,
 };
 
 pub struct Model {
@@ -102,25 +104,23 @@ impl Parse for Model {
 fn maybe_modify_return_type(ret: &mut ReturnType) {
     #[cfg(feature = "__internal_erase_components")]
     {
-        if let ReturnType::Type(_, ty) = ret {
-            if let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref() {
-                // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
-                if bounds.iter().any(|bound| {
-                    if let syn::TypeParamBound::Trait(trait_bound) = bound {
-                        if trait_bound.path.segments.iter().any(
-                            |path_segment| {
-                                path_segment.ident == "MatchNestedRoutes"
-                            },
-                        ) {
-                            return true;
-                        }
-                    }
-                    false
-                }) {
-                    *ty = parse_quote!(
-                        ::leptos_router::any_nested_route::AnyNestedRoute
-                    );
+        if let ReturnType::Type(_, ty) = ret
+            && let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref()
+        {
+            // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
+            if bounds.iter().any(|bound| {
+                if let syn::TypeParamBound::Trait(trait_bound) = bound
+                    && trait_bound.path.segments.iter().any(|path_segment| {
+                        path_segment.ident == "MatchNestedRoutes"
+                    })
+                {
+                    return true;
                 }
+                false
+            }) {
+                *ty = parse_quote!(
+                    ::leptos_router::any_nested_route::AnyNestedRoute
+                );
             }
         }
     }
@@ -317,12 +317,9 @@ impl Model {
 
         let component_id = name.to_string();
         let hydrate_fn_name = is_island.then(|| {
-            use std::hash::{Hash, Hasher};
-
-            let mut hasher = DefaultHasher::new();
-            island.hash(&mut hasher);
-            let caller = hasher.finish() as usize;
-            Ident::new(&format!("{component_id}_{caller:?}"), name.span())
+            let caller: u64 =
+                fnv1a_64(island.as_deref().unwrap_or_default().as_bytes());
+            Ident::new(&format!("{component_id}_{caller:016x}"), name.span())
         });
 
         let island_serialize_props = if is_island_with_other_props {
@@ -996,10 +993,10 @@ impl UnknownAttrs {
         let attrs = attrs
             .iter()
             .filter_map(|attr| {
-                if attr.path().is_ident("doc") {
-                    if let Meta::NameValue(_) = &attr.meta {
-                        return None;
-                    }
+                if attr.path().is_ident("doc")
+                    && let Meta::NameValue(_) = &attr.meta
+                {
+                    return None;
                 }
 
                 if is_lint_attr(attr) {
@@ -1305,21 +1302,16 @@ pub fn unwrap_option(ty: &Type) -> syn::Result<Type> {
         path: Path { segments, .. },
         ..
     }) = ty
+        && let [first] = &segments.iter().collect::<Vec<_>>()[..]
+        && first.ident == "Option"
+        && let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+            args,
+            ..
+        }) = &first.arguments
+        && let [GenericArgument::Type(ty)] =
+            &args.iter().collect::<Vec<_>>()[..]
     {
-        if let [first] = &segments.iter().collect::<Vec<_>>()[..] {
-            if first.ident == "Option" {
-                if let PathArguments::AngleBracketed(
-                    AngleBracketedGenericArguments { args, .. },
-                ) = &first.arguments
-                {
-                    if let [GenericArgument::Type(ty)] =
-                        &args.iter().collect::<Vec<_>>()[..]
-                    {
-                        return Ok(ty.clone());
-                    }
-                }
-            }
-        }
+        return Ok(ty.clone());
     }
 
     Err(syn::Error::new_spanned(

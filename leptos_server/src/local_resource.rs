@@ -1,7 +1,7 @@
 use reactive_graph::{
     computed::{
-        suspense::LocalResourceNotifier, ArcAsyncDerived, AsyncDerived,
-        AsyncDerivedFuture,
+        ArcAsyncDerived, AsyncDerived, AsyncDerivedFuture,
+        suspense::LocalResourceNotifier,
     },
     graph::{
         AnySource, AnySubscriber, ReactiveNode, Source, Subscriber,
@@ -10,8 +10,8 @@ use reactive_graph::{
     owner::use_context,
     send_wrapper_ext::SendOption,
     signal::{
-        guards::{AsyncPlain, Mapped, ReadGuard},
         ArcRwSignal, RwSignal,
+        guards::{AsyncPlain, Mapped, ReadGuard},
     },
     traits::{
         DefinedAt, IsDisposed, Notify, ReadUntracked, Track, UntrackableGuard,
@@ -19,7 +19,7 @@ use reactive_graph::{
     },
 };
 use std::{
-    future::{pending, Future, IntoFuture},
+    future::{Future, IntoFuture, pending},
     ops::{Deref, DerefMut},
     panic::Location,
 };

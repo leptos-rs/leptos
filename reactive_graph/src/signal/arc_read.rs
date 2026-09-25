@@ -103,7 +103,7 @@ impl<T> Eq for ArcReadSignal<T> {}
 
 impl<T> Hash for ArcReadSignal<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        std::ptr::hash(&Arc::as_ptr(&self.value), state);
+        std::ptr::hash(Arc::as_ptr(&self.value), state);
     }
 }
 

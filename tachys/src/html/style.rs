@@ -1,14 +1,14 @@
 use super::attribute::{
-    maybe_next_attr_erasure_macros::next_attr_output_type, Attribute,
-    NextAttribute,
+    Attribute, NextAttribute,
+    maybe_next_attr_erasure_macros::next_attr_output_type,
 };
 #[cfg(all(feature = "nightly", rustc_nightly))]
 use crate::view::static_types::Static;
 use crate::{
     html::attribute::{
-        maybe_next_attr_erasure_macros::next_attr_combine, NamedAttributeKey,
+        NamedAttributeKey, maybe_next_attr_erasure_macros::next_attr_combine,
     },
-    renderer::{dom::CssStyleDeclaration, Rndr},
+    renderer::{Rndr, dom::CssStyleDeclaration},
     view::{Position, ToTemplate},
 };
 use std::{future::Future, sync::Arc};

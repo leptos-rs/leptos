@@ -1,0 +1,5 @@
+error: Invalid param segment:
+ --> tests/ui/empty_param.rs:4:19
+  |
+4 |     let _ = path!("/:");
+  |                   ^^^^

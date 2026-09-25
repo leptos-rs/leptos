@@ -3,12 +3,14 @@ use leptos_macro::component;
 use reactive_graph::{
     owner::Owner,
     signal::{ArcRwSignal, ReadSignal},
-    traits::Set,
+    traits::{Set, SignalOrFn},
 };
 use std::hash::Hash;
+#[cfg(erase_components)]
+use tachys::view::any_view::{AnyView, IntoMaybeErased};
 use tachys::{
     reactive_graph::OwnedView,
-    view::keyed::{keyed, SerializableKey},
+    view::keyed::{SerializableKey, keyed},
 };
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -119,7 +121,7 @@ pub fn For<IF, I, T, EF, N, KF, K>(
     children: EF,
 ) -> impl IntoView
 where
-    IF: Fn() -> I + Send + 'static,
+    IF: SignalOrFn<Output = I> + Send + 'static,
     I: IntoIterator<Item = T> + Send + 'static,
     EF: Fn(T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
@@ -136,12 +138,30 @@ where
     // a) the reactive owner for each row will not be cleared when the whole list updates
     // b) context provided in each row will not wipe out the others
     let parent = Owner::current().expect("no reactive owner");
-    let children = move |_, child| {
-        let owner = parent.with(Owner::new);
-        let view = owner.with(|| children(child));
-        (drop, OwnedView::new_with_owner(view, owner))
-    };
-    move || keyed(each(), key.clone(), children.clone())
+    #[cfg(erase_components)]
+    {
+        move || {
+            let children = children.clone();
+            let parent = parent.clone();
+            let view_fn: Box<
+                dyn Fn(usize, T) -> (fn(usize), OwnedView<AnyView>) + Send,
+            > = Box::new(move |_, child| {
+                let owner = parent.with(Owner::new);
+                let view = owner.with(|| children(child).into_maybe_erased());
+                (drop as fn(usize), OwnedView::new_with_owner(view, owner))
+            });
+            keyed(each.run(), key.clone(), view_fn)
+        }
+    }
+    #[cfg(not(erase_components))]
+    {
+        let children = move |_, child| {
+            let owner = parent.with(Owner::new);
+            let view = owner.with(|| children(child));
+            (drop, OwnedView::new_with_owner(view, owner))
+        };
+        move || keyed(each.run(), key.clone(), children.clone())
+    }
 }
 
 /// Iterates over children and displays them, keyed by the `key` function given.
@@ -193,7 +213,7 @@ pub fn ForEnumerate<IF, I, T, EF, N, KF, K>(
     children: EF,
 ) -> impl IntoView
 where
-    IF: Fn() -> I + Send + 'static,
+    IF: SignalOrFn<Output = I> + Send + 'static,
     I: IntoIterator<Item = T> + Send + 'static,
     EF: Fn(ReadSignal<usize>, T) -> N + Send + Clone + 'static,
     N: IntoView + 'static,
@@ -210,16 +230,45 @@ where
     // a) the reactive owner for each row will not be cleared when the whole list updates
     // b) context provided in each row will not wipe out the others
     let parent = Owner::current().expect("no reactive owner");
-    let children = move |index, child| {
-        let owner = parent.with(Owner::new);
-        let (index, set_index) = ArcRwSignal::new(index).split();
-        let view = owner.with(|| children(index.into(), child));
-        (
-            move |index| set_index.set(index),
-            OwnedView::new_with_owner(view, owner),
-        )
-    };
-    move || keyed(each(), key.clone(), children.clone())
+    #[cfg(erase_components)]
+    {
+        move || {
+            let children = children.clone();
+            let parent = parent.clone();
+            let view_fn: Box<
+                dyn Fn(
+                        usize,
+                        T,
+                    )
+                        -> (Box<dyn Fn(usize) + Send>, OwnedView<AnyView>)
+                    + Send,
+            > = Box::new(move |index, child| {
+                let owner = parent.with(Owner::new);
+                let (index, set_index) = ArcRwSignal::new(index).split();
+                let view = owner
+                    .with(|| children(index.into(), child).into_maybe_erased());
+                (
+                    Box::new(move |index| set_index.set(index))
+                        as Box<dyn Fn(usize) + Send>,
+                    OwnedView::new_with_owner(view, owner),
+                )
+            });
+            keyed(each.run(), key.clone(), view_fn)
+        }
+    }
+    #[cfg(not(erase_components))]
+    {
+        let children = move |index, child| {
+            let owner = parent.with(Owner::new);
+            let (index, set_index) = ArcRwSignal::new(index).split();
+            let view = owner.with(|| children(index.into(), child));
+            (
+                move |index| set_index.set(index),
+                OwnedView::new_with_owner(view, owner),
+            )
+        };
+        move || keyed(each.run(), key.clone(), children.clone())
+    }
 }
 
 /*
@@ -282,3 +331,48 @@ mod tests {
     }
 }
  */
+
+#[cfg(feature = "ssr")]
+#[cfg(test)]
+mod signal_or_fn_tests {
+    use crate::prelude::*;
+    use leptos_macro::view;
+    use tachys::{html::element::HtmlElement, prelude::ElementChild};
+
+    #[test]
+    fn for_accepts_bare_signal_each() {
+        Owner::new().with(|| {
+            let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
+            let list: View<HtmlElement<_, _, _>> = view! {
+                <ol>
+                    <For each=values key=|i| *i let:i>
+                        <li>{i}</li>
+                    </For>
+                </ol>
+            };
+            assert_eq!(
+                list.to_html(),
+                "<ol><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><!></\
+                 ol>"
+            );
+        });
+    }
+
+    #[test]
+    fn for_still_accepts_closure_each() {
+        Owner::new().with(|| {
+            let values = RwSignal::new(vec![1, 2, 3]);
+            let list: View<HtmlElement<_, _, _>> = view! {
+                <ol>
+                    <For each=move || values.get() key=|i| *i let:i>
+                        <li>{i}</li>
+                    </For>
+                </ol>
+            };
+            assert_eq!(
+                list.to_html(),
+                "<ol><li>1</li><li>2</li><li>3</li><!></ol>"
+            );
+        });
+    }
+}
