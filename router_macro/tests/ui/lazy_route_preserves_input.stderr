@@ -1,0 +1,5 @@
+error: `view` method should not be async
+  --> tests/ui/lazy_route_preserves_input.rs:14:5
+   |
+14 |     async fn view(_this: Self) {}
+   |     ^^^^^

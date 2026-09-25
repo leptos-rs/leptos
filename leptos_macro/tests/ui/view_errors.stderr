@@ -1,0 +1,11 @@
+error: Self-closing elements like <input> cannot have children.
+ --> tests/ui/view_errors.rs:5:10
+  |
+5 |         <input>"first"</input>
+  |          ^^^^^
+
+error: Self-closing elements like <img> cannot have children.
+ --> tests/ui/view_errors.rs:6:10
+  |
+6 |         <img>"second"</img>
+  |          ^^^
