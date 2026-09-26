@@ -1,6 +1,6 @@
 use super::attribute::{
-    maybe_next_attr_erasure_macros::next_attr_output_type, Attribute,
-    NamedAttributeKey, NextAttribute,
+    Attribute, NamedAttributeKey, NextAttribute,
+    maybe_next_attr_erasure_macros::next_attr_output_type,
 };
 use crate::{
     html::attribute::maybe_next_attr_erasure_macros::next_attr_combine,

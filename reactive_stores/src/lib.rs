@@ -243,8 +243,8 @@ use or_poisoned::OrPoisoned;
 use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
-        guards::{Plain, ReadGuard, WriteGuard},
         ArcTrigger,
+        guards::{Plain, ReadGuard, WriteGuard},
     },
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Track,
@@ -273,6 +273,7 @@ mod patch;
 mod path;
 #[cfg(feature = "serde")]
 mod serde;
+mod signal_or_fn;
 #[cfg(feature = "slotmap")]
 mod slotmap;
 mod store_field;
@@ -858,8 +859,8 @@ mod tests {
         traits::{Read, ReadUntracked, Set, Track, Update, Write},
     };
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
 
     pub async fn tick() {
@@ -1396,6 +1397,41 @@ mod tests {
         tick().await;
 
         assert_eq!(combined_count.load(Ordering::Relaxed), 3);
+    }
+
+    #[tokio::test]
+    async fn writing_unkeyed_element_does_not_notify_sibling() {
+        _ = any_spawner::Executor::init_tokio();
+
+        let element0_count = Arc::new(AtomicUsize::new(0));
+        let element1_count = Arc::new(AtomicUsize::new(0));
+
+        let store = Store::new(data());
+
+        Effect::new_sync({
+            let element0_count = Arc::clone(&element0_count);
+            move |_| {
+                store.todos().at_unkeyed(0).track();
+                element0_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        Effect::new_sync({
+            let element1_count = Arc::clone(&element1_count);
+            move |_| {
+                store.todos().at_unkeyed(1).track();
+                element1_count.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+
+        tick().await;
+        assert_eq!(element0_count.load(Ordering::Relaxed), 1);
+        assert_eq!(element1_count.load(Ordering::Relaxed), 1);
+
+        // writing element 0 should notify element 0's observer but NOT element 1's
+        *store.todos().at_unkeyed(0).write() = Todo::new("changed");
+        tick().await;
+        assert_eq!(element0_count.load(Ordering::Relaxed), 2);
+        assert_eq!(element1_count.load(Ordering::Relaxed), 1);
     }
 
     #[tokio::test]

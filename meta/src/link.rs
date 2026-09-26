@@ -1,7 +1,7 @@
 use crate::register;
 use leptos::{
-    component, oco::Oco, prelude::GlobalAttributes,
-    tachys::html::element::link, IntoView,
+    IntoView, component, oco::Oco, prelude::GlobalAttributes,
+    tachys::html::element::link,
 };
 
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document

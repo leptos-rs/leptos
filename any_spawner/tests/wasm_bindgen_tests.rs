@@ -3,8 +3,8 @@
 use any_spawner::Executor;
 use futures::channel::oneshot;
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 use wasm_bindgen_test::*;
 

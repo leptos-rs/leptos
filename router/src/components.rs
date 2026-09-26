@@ -3,6 +3,8 @@ pub use super::{form::*, link::*};
 use crate::location::RequestUrl;
 pub use crate::nested_router::Outlet;
 use crate::{
+    ChooseView, MatchNestedRoutes, NestedRoute, PossibleRouteMatch, RouteDefs,
+    SsrMode,
     flat_router::FlatRoutesView,
     hooks::{use_matched, use_navigate},
     location::{
@@ -11,13 +13,11 @@ use crate::{
     navigate::NavigateOptions,
     nested_router::NestedRoutesView,
     resolve_path::resolve_path,
-    ChooseView, MatchNestedRoutes, NestedRoute, PossibleRouteMatch, RouteDefs,
-    SsrMode,
 };
 use either_of::EitherOf3;
 use leptos::{children, prelude::*};
 use reactive_graph::{
-    owner::{provide_context, use_context, Owner},
+    owner::{Owner, provide_context, use_context},
     signal::ArcRwSignal,
     traits::{GetUntracked, ReadUntracked, Set},
     wrappers::write::SignalSetter,
@@ -548,8 +548,8 @@ define_protected_parent_route!(crate::any_nested_route::AnyNestedRoute);
 define_protected_parent_route!(NestedRoute<Segments, Children, (), impl Fn() -> AnyView + Send + Clone>);
 
 /// Redirects the user to a new URL, whether on the client side or on the server
-/// side. If rendered on the server, this sets a `302` status code and sets a `Location`
-/// header. If rendered in the browser, it uses client-side navigation to redirect.
+/// side. If rendered on the server, this sets a `302` status code if `permanent` is false or a `301` if `permanent` is true,
+/// and sets a `Location` header. If rendered in the browser, it uses client-side navigation to redirect.
 /// In either case, it resolves the route relative to the current route. (To use
 /// an absolute path, prefix it with `/`).
 ///
@@ -568,6 +568,13 @@ pub fn Redirect<P>(
     #[prop(optional)]
     #[allow(unused)]
     options: Option<NavigateOptions>,
+    /// Permanent redirect
+    ///
+    /// Only used on the server side to set a `301` if `permanent` is true
+    /// or a `302` if `permanent` is false (`false` by default)
+    #[prop(optional)]
+    #[allow(unused)]
+    permanent: bool,
 ) where
     P: core::fmt::Display + 'static,
 {
@@ -576,11 +583,10 @@ pub fn Redirect<P>(
 
     // redirect on the server
     if let Some(redirect_fn) = use_context::<ServerRedirectFunction>() {
-        (redirect_fn.f)(&resolve_path(
-            "",
-            &path,
-            Some(&use_matched().get_untracked()),
-        ));
+        (redirect_fn.f)(
+            &resolve_path("", &path, Some(&use_matched().get_untracked())),
+            permanent,
+        );
     }
     // redirect on the client
     else {
@@ -603,12 +609,13 @@ pub fn Redirect<P>(
     }
 }
 
+type ServerRedirectDynFunction = dyn Fn(&str, bool) + Send + Sync;
 /// Wrapping type for a function provided as context to allow for
 /// server-side redirects. See [`provide_server_redirect`]
 /// and [`Redirect`].
 #[derive(Clone)]
 pub struct ServerRedirectFunction {
-    f: Arc<dyn Fn(&str) + Send + Sync>,
+    f: Arc<ServerRedirectDynFunction>,
 }
 
 impl core::fmt::Debug for ServerRedirectFunction {
@@ -617,10 +624,16 @@ impl core::fmt::Debug for ServerRedirectFunction {
     }
 }
 
-/// Provides a function that can be used to redirect the user to another
-/// absolute path, on the server. This should set a `302` status code and an
-/// appropriate `Location` header.
-pub fn provide_server_redirect(handler: impl Fn(&str) + Send + Sync + 'static) {
+/// Provides a function that can be used to redirect the user to another absolute path, on the server.
+/// The passed function takes 2 arguments:
+/// - `path` (`&str`): the path to redirect the client to
+/// - `permanent` (`bool`): indicate if this is a permanent redirect
+///
+/// The passed function should set a `302` status code if `permanent` is false, or a `301` status code if `permanent` is true,
+/// and set an appropriate `Location` header.
+pub fn provide_server_redirect(
+    handler: impl Fn(&str, bool) + Send + Sync + 'static,
+) {
     provide_context(ServerRedirectFunction {
         f: Arc::new(handler),
     })
@@ -649,7 +662,15 @@ pub fn RoutingProgress(
     const INCREMENT_EVERY_MS: f32 = 5.0;
     let expected_increments =
         max_time.as_secs_f32() / (INCREMENT_EVERY_MS / 1000.0);
-    let percent_per_increment = 100.0 / expected_increments;
+    // `max_time` is optional and defaults to `Duration::ZERO`, which would make
+    // `expected_increments` zero and `100.0 / 0.0` evaluate to `inf` (and then
+    // `NaN`), producing `width: NaN%`. Fill the bar in a single increment when
+    // no positive `max_time` was provided.
+    let percent_per_increment = if expected_increments > 0.0 {
+        100.0 / expected_increments
+    } else {
+        100.0
+    };
 
     let (is_showing, set_is_showing) = signal(false);
     let (progress, set_progress) = signal(0.0);
@@ -658,7 +679,7 @@ pub fn RoutingProgress(
         move |prev: Option<Option<IntervalHandle>>| {
             if is_routing.get() && !is_showing.get() {
                 set_is_showing.set(true);
-                set_interval_with_handle(
+                set_interval(
                     move || {
                         set_progress.update(|n| *n += percent_per_increment);
                     },
@@ -670,7 +691,7 @@ pub fn RoutingProgress(
                 prev?
             } else {
                 set_progress.set(100.0);
-                set_timeout(
+                _ = set_timeout(
                     move || {
                         set_progress.set(0.0);
                         set_is_showing.set(false);
@@ -686,7 +707,7 @@ pub fn RoutingProgress(
     ));
 
     view! {
-        <Show when=move || is_showing.get() fallback=|| ()>
+        <Show when=is_showing>
             <progress min="0" max="100" value=move || progress.get()></progress>
         </Show>
     }

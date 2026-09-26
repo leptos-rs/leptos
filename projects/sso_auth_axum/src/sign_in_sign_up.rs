@@ -1,4 +1,11 @@
-use super::*;
+use leptos::prelude::*;
+use leptos_router::params::Params;
+use leptos_router::{
+    hooks::{use_navigate, use_query},
+    NavigateOptions,
+};
+
+use crate::{Email, ExpiresIn};
 
 #[cfg(feature = "ssr")]
 pub mod ssr_imports {
@@ -45,9 +52,9 @@ pub async fn google_sso() -> Result<String, ServerFnError> {
 
 #[component]
 pub fn SignIn() -> impl IntoView {
-    let g_auth = Action::<GoogleSso, _>::server();
+    let g_auth = ServerAction::<GoogleSso>::new();
 
-    create_effect(move |_| {
+    Effect::new(move || {
         if let Some(Ok(redirect)) = g_auth.value().get() {
             window().location().set_href(&redirect).unwrap();
         }
@@ -61,7 +68,7 @@ pub fn SignIn() -> impl IntoView {
       align-items: center;
       ">
         <div> {"Sign Up Sign In"} </div>
-        <button style="display:flex;"  on:click=move|_| g_auth.dispatch(GoogleSso{})>
+        <button style="display:flex;" on:click=move |_| { g_auth.dispatch(GoogleSso {}); }>
         <svg style="width:2rem;" version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" xmlns:xlink="http://www.w3.org/1999/xlink" style="display: block;">
           <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
           <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
@@ -163,13 +170,13 @@ pub struct OAuthParams {
 
 #[component]
 pub fn HandleGAuth() -> impl IntoView {
-    let handle_g_auth_redirect = Action::<HandleGAuthRedirect, _>::server();
+    let handle_g_auth_redirect = ServerAction::<HandleGAuthRedirect>::new();
 
     let query = use_query::<OAuthParams>();
-    let navigate = leptos_router::use_navigate();
+    let navigate = use_navigate();
     let rw_email = expect_context::<Email>().0;
     let rw_expires_in = expect_context::<ExpiresIn>().0;
-    create_effect(move |_| {
+    Effect::new(move || {
         if let Some(Ok((email, expires_in))) =
             handle_g_auth_redirect.value().get()
         {
@@ -179,7 +186,7 @@ pub fn HandleGAuth() -> impl IntoView {
         }
     });
 
-    create_effect(move |_| {
+    Effect::new(move || {
         if let Ok(OAuthParams { code, state }) = query.get_untracked() {
             handle_g_auth_redirect.dispatch(HandleGAuthRedirect {
                 provided_csrf: state.unwrap(),
@@ -204,8 +211,8 @@ pub async fn logout() -> Result<(), ServerFnError> {
 
 #[component]
 pub fn LogOut() -> impl IntoView {
-    let log_out = create_server_action::<Logout>();
+    let log_out = ServerAction::<Logout>::new();
     view! {
-        <button on:click=move|_|log_out.dispatch(Logout{})>{"log out"}</button>
+        <button on:click=move |_| { log_out.dispatch(Logout {}); }>"log out"</button>
     }
 }

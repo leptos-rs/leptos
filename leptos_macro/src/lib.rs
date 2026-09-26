@@ -11,9 +11,9 @@
 use component::DummyModel;
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenTree};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::str::FromStr;
-use syn::{spanned::Spanned, token::Pub, Visibility};
+use syn::{Visibility, spanned::Spanned, token::Pub};
 
 mod params;
 mod view;
@@ -24,6 +24,7 @@ mod lazy;
 mod memo;
 mod slice;
 mod slot;
+mod stable_hash;
 
 /// The `view` macro uses RSX (like JSX, but Rust!) It follows most of the
 /// same rules as HTML, with the following differences:
@@ -343,10 +344,7 @@ fn view_macro_impl(
             .chain(tokens)
             .collect()
     };
-    let config = rstml::ParserConfig::default().recover_block(true);
-    let parser = rstml::Parser::new(config);
-    let (mut nodes, errors) = parser.parse_recoverable(tokens).split_vec();
-    let errors = errors.into_iter().map(|e| e.emit_as_expr_tokens());
+    let (mut nodes, errors) = view::parse_nodes(tokens);
     let nodes_output = view::render_view(
         &mut nodes,
         global_class.as_ref(),
@@ -361,7 +359,7 @@ fn view_macro_impl(
         {
             #[allow(unused_braces)]
             {
-                #(#errors;)*
+                #errors
                 #nodes_output
             }
         }
@@ -409,12 +407,32 @@ fn include_view_impl(
             "the only supported argument is a string literal",
         )
     })?;
-    let file = std::fs::read_to_string(file_name.value()).map_err(|_| {
-        syn::Error::new(Span::call_site(), "could not open file")
+    let file = std::fs::read_to_string(file_name.value()).map_err(|e| {
+        syn::Error::new(
+            Span::call_site(),
+            format!("could not open file `{}`: {e}", file_name.value()),
+        )
     })?;
     let tokens = proc_macro2::TokenStream::from_str(&file)
         .map_err(|e| syn::Error::new(Span::call_site(), e))?;
-    view_macro_impl(tokens.into(), false)
+    let view = view_macro_impl(tokens.into(), false)?;
+
+    // Register the included file in Cargo's recompilation graph. Like
+    // `read_to_string` above, the path is resolved relative to the crate
+    // root (the proc-macro's working directory), which is `CARGO_MANIFEST_DIR`
+    // in the consuming crate; absolute paths are passed through unchanged.
+    let tracked_path = if std::path::Path::new(&file_name.value()).is_absolute()
+    {
+        quote! { #file_name }
+    } else {
+        quote! { concat!(env!("CARGO_MANIFEST_DIR"), "/", #file_name) }
+    };
+    Ok(quote! {
+        {
+            const _: &[u8] = include_bytes!(#tracked_path);
+            #view
+        }
+    })
 }
 
 /// Annotates a function so that it can be used with your template as a Leptos `<Component/>`.
@@ -725,7 +743,7 @@ fn component_macro(
     let mut dummy = syn::parse::<DummyModel>(s.clone());
     let parse_result = syn::parse::<component::Model>(s);
 
-    if let (Ok(ref mut unexpanded), Ok(model)) = (&mut dummy, parse_result) {
+    if let (Ok(unexpanded), Ok(model)) = (&mut dummy, parse_result) {
         let mut errors = diagnostics::Errors::default();
         let expanded = model
             .is_transparent(is_transparent)
@@ -997,6 +1015,7 @@ pub fn server(args: proc_macro::TokenStream, s: TokenStream) -> TokenStream {
         s.into(),
         Some(syn::parse_quote!(::leptos::server_fn)),
         option_env!("SERVER_FN_PREFIX").unwrap_or("/api"),
+        None,
         None,
         None,
     ) {

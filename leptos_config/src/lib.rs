@@ -6,6 +6,7 @@ use crate::errors::LeptosConfigError;
 use config::{Case, Config, File, FileFormat};
 use std::{
     env::VarError,
+    fmt::Display,
     fs,
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -227,7 +228,7 @@ impl LeptosOptions {
                 None => None,
             },
             reload_ws_protocol: ws_from_str(
-                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
+                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "auto")?.as_str(),
             )?,
             not_found_path: env_w_default("LEPTOS_NOT_FOUND_PATH", "/404")?
                 .into(),
@@ -301,6 +302,7 @@ pub const ENV_PROD_KEY_LONG: &str = "production";
 /// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum Env {
     PROD,
     #[default]
@@ -392,20 +394,23 @@ impl<'de> serde::Deserialize<'de> for Env {
 #[derive(
     Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default,
 )]
+#[non_exhaustive]
 pub enum ReloadWSProtocol {
-    #[default]
     WS,
     WSS,
+    #[default]
+    Auto,
 }
 
 fn ws_from_str(input: &str) -> Result<ReloadWSProtocol, LeptosConfigError> {
     let sanitized = input.to_lowercase();
     match sanitized.as_ref() {
+        "auto" => Ok(ReloadWSProtocol::Auto),
         "ws" | "WS" => Ok(ReloadWSProtocol::WS),
         "wss" | "WSS" => Ok(ReloadWSProtocol::WSS),
         _ => Err(LeptosConfigError::EnvVarError(format!(
-            "{input} is not a supported websocket protocol. Use only `ws` or \
-             `wss`.",
+            "{input} is not a supported websocket protocol. Use only `auto`, \
+             `ws` or `wss`.",
         ))),
     }
 }
@@ -437,6 +442,16 @@ impl TryFrom<String> for ReloadWSProtocol {
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
         ws_from_str(s.as_str())
+    }
+}
+
+impl Display for ReloadWSProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReloadWSProtocol::WS => f.write_str("ws"),
+            ReloadWSProtocol::WSS => f.write_str("wss"),
+            ReloadWSProtocol::Auto => f.write_str("auto"),
+        }
     }
 }
 

@@ -1,13 +1,13 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parse::{Parse, ParseStream, Parser},
-    punctuated::Punctuated,
-    token::Comma,
     Attribute, Error, ExprClosure, Field, Fields, GenericParam, Generics,
     Ident, Index, Meta, Result, Token, Type, TypeParam, Variant, Visibility,
     WhereClause,
+    parse::{Parse, ParseStream, Parser},
+    punctuated::Punctuated,
+    token::Comma,
 };
 
 #[proc_macro_derive(Store, attributes(store))]
@@ -508,7 +508,11 @@ fn variant_to_tokens(
             tokens.extend(fields
                 .named
                 .iter()
-                .map(|field| {
+                .enumerate()
+                .map(|(field_idx, field)| {
+                    // Give each field of the variant a distinct path segment so
+                    // writing one field does not wake subscribers of a sibling.
+                    let segment = field_idx;
                     let field_ident = field.ident.as_ref().unwrap();
                     let field_ty = &field.ty;
                     let combined_ident = Ident::new(
@@ -528,7 +532,7 @@ fn variant_to_tokens(
                                 if matches {
                                     Some(#library_path::Subfield::new(
                                         self,
-                                        0.into(),
+                                        #segment.into(),
                                         |prev| {
                                             match prev {
                                                 #name::#orig_ident { #field_ident, .. } => Some(#field_ident),
@@ -587,6 +591,7 @@ fn variant_to_tokens(
                 .iter()
                 .enumerate()
                 .map(|(idx, field)| {
+                    let segment = idx;
                     let field_ident = idx;
                     let field_ty = &field.ty;
                     let combined_ident = Ident::new(
@@ -611,7 +616,7 @@ fn variant_to_tokens(
                                 if matches {
                                     Some(#library_path::Subfield::new(
                                         self,
-                                        0.into(),
+                                        #segment.into(),
                                         |prev| {
                                             match prev {
                                                 #name::#orig_ident(#(#ignore_before)* this, #(#ignore_after)*) => Some(this),
@@ -651,13 +656,8 @@ struct PatchModel {
 }
 
 enum PatchModelTy {
-    Struct {
-        fields: Vec<Field>,
-    },
-    #[allow(dead_code)]
-    Enum {
-        variants: Vec<Variant>,
-    },
+    Struct { fields: Vec<Field> },
+    Enum { variants: Vec<Variant> },
 }
 
 impl Parse for PatchModel {
@@ -683,17 +683,9 @@ impl Parse for PatchModel {
 
                 PatchModelTy::Struct { fields }
             }
-            syn::Data::Enum(_e) => {
-                return Err(Error::new(
-                    Span::call_site(),
-                    "only structs can be used with `Patch`",
-                ));
-
-                // TODO: support enums later on
-                // PatchModelTy::Enum {
-                //     variants: e.variants.into_iter().collect(),
-                // }
-            }
+            syn::Data::Enum(e) => PatchModelTy::Enum {
+                variants: e.variants.into_iter().collect(),
+            },
             _ => {
                 return Err(Error::new(
                     Span::call_site(),
@@ -715,9 +707,9 @@ impl PatchModel {
         let library_path = quote! { reactive_stores };
         let PatchModel { name, generics, ty } = &self;
 
-        let fields = match ty {
+        let body = match ty {
             PatchModelTy::Struct { fields } => {
-                fields.iter().enumerate().map(|(idx, field)| {
+                let fields = fields.iter().enumerate().map(|(idx, field)| {
                     let Field {
                         attrs, ident, ..
                     } = &field;
@@ -726,15 +718,27 @@ impl PatchModel {
                         None => Either::Right(Index::from(idx)),
                     };
                     let closure = parse_patch_closure(attrs)?;
-                    let keyed = parse_store_modes(attrs)?
-                        .unwrap_or_default()
+                    let modes = parse_store_modes(attrs)?.unwrap_or_default();
+                    // A field marked `#[store(skip)]` is opted out of store-field
+                    // generation; it must also be opted out of patching, so the
+                    // field's type need not implement `PatchField`.
+                    let skip = modes
+                        .iter()
+                        .any(|mode| matches!(mode, SubfieldMode::Skip));
+                    let keyed = modes
                         .into_iter()
                         .find_map(|subfield| match subfield {
                             SubfieldMode::Keyed(closure, _ty) => Some(closure),
                             SubfieldMode::Skip => None,
                         });
 
-                    Ok(if let Some(closure) = closure {
+                    Ok(if skip {
+                        // leave the field untouched; only keep the running
+                        // path segment aligned for the following fields.
+                        quote! {
+                            new_path.replace_last(#idx + 1);
+                        }
+                    } else if let Some(closure) = closure {
                         let params = closure.inputs;
                         let body = closure.body;
                         quote! {
@@ -787,10 +791,113 @@ impl PatchModel {
                             new_path.replace_last(#idx + 1);
                         }
                     })
-                }).collect::<Result<Vec<_>>>()?
+                }).collect::<Result<Vec<_>>>()?;
+                quote! {
+                    let mut new_path = path.clone();
+                    new_path.push(0);
+                    #(#fields)*
+                }
             }
-            PatchModelTy::Enum { variants: _ } => {
-                unreachable!("not implemented currently")
+            PatchModelTy::Enum { variants } => {
+                // Number every variant field with its index within the
+                // variant, mirroring the numbering used by the `Store`
+                // derive, so that `notify` targets the same triggers the
+                // field accessors subscribe to.
+                let arms = variants.iter().map(|variant| {
+                    let Variant { ident, fields, .. } = variant;
+                    match fields {
+                        Fields::Unit => {
+                            // same variant, no payload: nothing to patch
+                            quote! {
+                                (#name::#ident, #name::#ident) => {}
+                            }
+                        }
+                        Fields::Named(named) => {
+                            let self_binds = named.named.iter().map(|f| {
+                                let id = f.ident.as_ref().unwrap();
+                                let bind = Ident::new(&format!("self_{id}"), id.span());
+                                quote! { #id: #bind }
+                            });
+                            let new_binds = named.named.iter().map(|f| {
+                                let id = f.ident.as_ref().unwrap();
+                                let bind = Ident::new(&format!("new_{id}"), id.span());
+                                quote! { #id: #bind }
+                            });
+                            let patches = named.named.iter().enumerate().map(|(i, f)| {
+                                let id = f.ident.as_ref().unwrap();
+                                let self_bind = Ident::new(&format!("self_{id}"), id.span());
+                                let new_bind = Ident::new(&format!("new_{id}"), id.span());
+                                let segment = i;
+                                let advance = if i == 0 {
+                                    quote! { new_path.push(#segment); }
+                                } else {
+                                    quote! { new_path.replace_last(#segment); }
+                                };
+                                quote! {
+                                    #advance
+                                    #library_path::PatchField::patch_field(
+                                        #self_bind, #new_bind, &new_path, notify, keys,
+                                    );
+                                }
+                            });
+                            quote! {
+                                (
+                                    #name::#ident { #(#self_binds),* },
+                                    #name::#ident { #(#new_binds),* },
+                                ) => {
+                                    let mut new_path = path.clone();
+                                    #(#patches)*
+                                }
+                            }
+                        }
+                        Fields::Unnamed(unnamed) => {
+                            let self_binds = (0..unnamed.unnamed.len()).map(|i| {
+                                Ident::new(&format!("self_{i}"), Span::call_site())
+                            });
+                            let new_binds = (0..unnamed.unnamed.len()).map(|i| {
+                                Ident::new(&format!("new_{i}"), Span::call_site())
+                            });
+                            let patches = (0..unnamed.unnamed.len()).map(|i| {
+                                let self_bind = Ident::new(&format!("self_{i}"), Span::call_site());
+                                let new_bind = Ident::new(&format!("new_{i}"), Span::call_site());
+                                let segment = i;
+                                let advance = if i == 0 {
+                                    quote! { new_path.push(#segment); }
+                                } else {
+                                    quote! { new_path.replace_last(#segment); }
+                                };
+                                quote! {
+                                    #advance
+                                    #library_path::PatchField::patch_field(
+                                        #self_bind, #new_bind, &new_path, notify, keys,
+                                    );
+                                }
+                            });
+                            quote! {
+                                (
+                                    #name::#ident( #(#self_binds),* ),
+                                    #name::#ident( #(#new_binds),* ),
+                                ) => {
+                                    let mut new_path = path.clone();
+                                    #(#patches)*
+                                }
+                            }
+                        }
+                    }
+                }).collect::<Vec<_>>();
+
+                quote! {
+                    match (&mut *self, new) {
+                        #(#arms)*
+                        // discriminant changed: replace the whole value and
+                        // notify the enum's own path, which wakes subscribers of
+                        // every variant accessor (they track `this` on this path).
+                        (this, new) => {
+                            *this = new;
+                            notify(path);
+                        }
+                    }
+                }
             }
         };
 
@@ -811,9 +918,7 @@ impl PatchModel {
                     notify: &mut dyn FnMut(&#library_path::StorePath),
                     keys: Option<&#library_path::KeyMap>,
                 ) {
-                    let mut new_path = path.clone();
-                    new_path.push(0);
-                    #(#fields)*
+                    #body
                 }
             }
         })
@@ -836,9 +941,20 @@ fn parse_patch_closure(attrs: &[Attribute]) -> Result<Option<ExprClosure>> {
     let closures = Punctuated::<ExprClosure, Comma>::parse_terminated
         .parse2(list.tokens.clone())
         .map_err(|error| Error::new_spanned(list, error))?;
-    let closure = closures.first().cloned().ok_or_else(|| {
-        Error::new(Span::call_site(), "should have ONE closure")
+    let mut iter = closures.iter();
+    let closure = iter.next().cloned().ok_or_else(|| {
+        Error::new_spanned(
+            list,
+            "expected one closure, as in `#[patch(|this, new| ...)]`",
+        )
     })?;
+    if let Some(extra) = iter.next() {
+        return Err(Error::new_spanned(
+            extra,
+            "expected exactly one closure in `#[patch(...)]`, but found more \
+             than one",
+        ));
+    }
     if closure.inputs.len() != 2 {
         return Err(Error::new_spanned(
             &closure.inputs,

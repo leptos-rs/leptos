@@ -1,3 +1,4 @@
+//! Defines [`Oco<'a, T>`], an "Owned Clones Once" smart pointer,
 //! which is used to store immutable references to values.
 //! This is useful for storing, for example, strings.
 //!
@@ -32,14 +33,14 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     borrow::{Borrow, Cow},
-    ffi::{CStr, OsStr},
+    ffi::{CStr, CString, OsStr, OsString},
     fmt,
     hash::Hash,
     ops::{Add, Deref},
-    path::Path,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -329,13 +330,53 @@ where
     }
 }
 
-impl<T: ?Sized> Default for Oco<'_, T>
-where
-    T: ToOwned,
-    T::Owned: Default,
-{
+// `Default` is specialised per unsized target so that the empty value
+// can be served from `'static` borrow without allocation. The blanket
+// `impl<T: ToOwned> Default for Oco<'_, T>` was removed because it
+// returned `Oco::Owned(T::Owned::default())` and forced an `O(n)`
+// upgrade on the first `.clone()` even though every empty value has
+// a `&'static` representation.
+
+impl Default for Oco<'_, str> {
+    /// Returns an empty [`Oco::Borrowed`] string with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
     fn default() -> Self {
-        Oco::Owned(T::Owned::default())
+        Oco::Borrowed("")
+    }
+}
+
+impl<T> Default for Oco<'_, [T]>
+where
+    [T]: ToOwned,
+{
+    /// Returns an empty [`Oco::Borrowed`] slice with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
+    fn default() -> Self {
+        Oco::Borrowed(&[])
+    }
+}
+
+impl Default for Oco<'_, CStr> {
+    /// Returns an empty [`Oco::Borrowed`] C string with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
+    fn default() -> Self {
+        Oco::Borrowed(c"")
+    }
+}
+
+impl Default for Oco<'_, OsStr> {
+    /// Returns an empty [`Oco::Borrowed`] OS string with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
+    fn default() -> Self {
+        Oco::Borrowed(OsStr::new(""))
+    }
+}
+
+impl Default for Oco<'_, Path> {
+    /// Returns an empty [`Oco::Borrowed`] path with `'static` lifetime.
+    /// No allocation, and subsequent `.clone()` calls are `O(1)`.
+    fn default() -> Self {
+        Oco::Borrowed(Path::new(""))
     }
 }
 
@@ -442,12 +483,44 @@ where
     }
 }
 
-impl<T: ?Sized> From<Box<T>> for Oco<'_, T>
+// `From<Box<T>>` is provided for the standard unsized targets (`str`,
+// `[T]`, `CStr`, `OsStr`, `Path`) and always materialises into
+// [`Oco::Owned`], matching [`From<String>`] and [`From<Vec<T>>`]. Each
+// conversion reuses the boxed allocation as the corresponding owned
+// value (zero extra payload copy) and lets the user opt into
+// reference-counting explicitly via [`Oco::clone_inplace`] when
+// sharing is desired.
+
+impl From<Box<str>> for Oco<'_, str> {
+    fn from(v: Box<str>) -> Self {
+        Oco::Owned(String::from(v))
+    }
+}
+
+impl<T> From<Box<[T]>> for Oco<'_, [T]>
 where
-    T: ToOwned,
+    [T]: ToOwned<Owned = Vec<T>>,
 {
-    fn from(v: Box<T>) -> Self {
-        Oco::Counted(v.into())
+    fn from(v: Box<[T]>) -> Self {
+        Oco::Owned(Vec::from(v))
+    }
+}
+
+impl From<Box<CStr>> for Oco<'_, CStr> {
+    fn from(v: Box<CStr>) -> Self {
+        Oco::Owned(CString::from(v))
+    }
+}
+
+impl From<Box<OsStr>> for Oco<'_, OsStr> {
+    fn from(v: Box<OsStr>) -> Self {
+        Oco::Owned(OsString::from(v))
+    }
+}
+
+impl From<Box<Path>> for Oco<'_, Path> {
+    fn from(v: Box<Path>) -> Self {
+        Oco::Owned(PathBuf::from(v))
     }
 }
 
@@ -554,24 +627,91 @@ impl_slice_eq!(['a, 'b, T: PartialEq] (where [T]: ToOwned), Oco<'a, [T]>, Cow<'b
 impl<'b> Add<&'b str> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
+    /// Concatenates `self` and `rhs` into a new `Oco<'static, str>`.
+    ///
+    /// In the general case this allocates a fresh `String`; the
+    /// `'static` lifetime on the output refers to that freshly owned
+    /// buffer, not to borrowed `'static` input. Fast-paths that avoid
+    /// the allocation:
+    ///
+    /// - both sides empty → returns `Oco::Borrowed("")`.
+    /// - `rhs` empty and `self` is [`Oco::Counted`] or [`Oco::Owned`] →
+    ///   returns `self` unchanged.
     fn add(self, rhs: &'b str) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs)
+        match (self.is_empty(), rhs.is_empty()) {
+            (true, true) => Oco::Borrowed(""),
+            (false, true) => match self {
+                Oco::Counted(l) => Oco::Counted(l),
+                Oco::Owned(l) => Oco::Owned(l),
+                Oco::Borrowed(l) => Oco::Owned(l.to_string()),
+            },
+            _ => Oco::Owned(String::from(self) + rhs),
+        }
     }
 }
 
 impl<'b> Add<Cow<'b, str>> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
+    /// Concatenates `self` and `rhs` into a new `Oco<'static, str>`.
+    ///
+    /// In the general case this allocates a fresh `String`; the
+    /// `'static` lifetime on the output refers to that freshly owned
+    /// buffer, not to borrowed `'static` input. Fast-paths that avoid
+    /// the allocation:
+    ///
+    /// - both sides empty → returns `Oco::Borrowed("")`.
+    /// - `rhs` empty and `self` is [`Oco::Counted`] or [`Oco::Owned`] →
+    ///   returns `self` unchanged.
+    /// - `self` empty and `rhs` is [`Cow::Owned`] → returns `rhs`'s
+    ///   `String` wrapped in [`Oco::Owned`].
     fn add(self, rhs: Cow<'b, str>) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs.as_ref())
+        match (self.is_empty(), rhs.is_empty()) {
+            (true, true) => Oco::Borrowed(""),
+            (false, true) => match self {
+                Oco::Counted(l) => Oco::Counted(l),
+                Oco::Owned(l) => Oco::Owned(l),
+                Oco::Borrowed(l) => Oco::Owned(l.to_string()),
+            },
+            (true, false) => match rhs {
+                Cow::Owned(r) => Oco::Owned(r),
+                Cow::Borrowed(r) => Oco::Owned(r.to_string()),
+            },
+            (false, false) => Oco::Owned(String::from(self) + rhs.as_ref()),
+        }
     }
 }
 
 impl<'b> Add<Oco<'b, str>> for Oco<'_, str> {
     type Output = Oco<'static, str>;
 
+    /// Concatenates `self` and `rhs` into a new `Oco<'static, str>`.
+    ///
+    /// In the general case this allocates a fresh `String`; the
+    /// `'static` lifetime on the output refers to that freshly owned
+    /// buffer, not to borrowed `'static` input. Fast-paths that avoid
+    /// the allocation:
+    ///
+    /// - both sides empty → returns `Oco::Borrowed("")`.
+    /// - `rhs` empty and `self` is [`Oco::Counted`] or [`Oco::Owned`] →
+    ///   returns `self` unchanged.
+    /// - `self` empty and `rhs` is [`Oco::Counted`] or [`Oco::Owned`] →
+    ///   returns `rhs` unchanged.
     fn add(self, rhs: Oco<'b, str>) -> Self::Output {
-        Oco::Owned(String::from(self) + rhs.as_ref())
+        match (self.is_empty(), rhs.is_empty()) {
+            (true, true) => Oco::Borrowed(""),
+            (false, true) => match self {
+                Oco::Counted(l) => Oco::Counted(l),
+                Oco::Owned(l) => Oco::Owned(l),
+                Oco::Borrowed(l) => Oco::Owned(l.to_string()),
+            },
+            (true, false) => match rhs {
+                Oco::Counted(r) => Oco::Counted(r),
+                Oco::Owned(r) => Oco::Owned(r),
+                Oco::Borrowed(r) => Oco::Owned(r.to_string()),
+            },
+            (false, false) => Oco::Owned(String::from(self) + rhs.as_ref()),
+        }
     }
 }
 
@@ -588,12 +728,19 @@ impl<'a, T> Deserialize<'a> for Oco<'static, T>
 where
     T: ?Sized + ToOwned + 'a,
     T::Owned: DeserializeOwned,
+    Arc<T>: From<T::Owned>,
 {
+    /// Deserializes into the [`Oco::Counted`] variant so that the first
+    /// `.clone()` after deserialization is `O(1)` rather than `O(n)`. The
+    /// owned value produced by the deserializer is moved straight into an
+    /// `Arc<T>` (zero extra copy of the payload for `str`, `[T]`, and any
+    /// sized `T` that satisfies `Arc<T>: From<T::Owned>`).
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'a>,
     {
-        <T::Owned>::deserialize(deserializer).map(Oco::Owned)
+        <T::Owned>::deserialize(deserializer)
+            .map(|v| Oco::Counted(Arc::from(v)))
     }
 }
 
@@ -653,6 +800,80 @@ mod tests {
     }
 
     #[test]
+    fn add_two_empty_should_return_borrowed_empty_without_allocating() {
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + "";
+        assert!(result.is_borrowed());
+        assert_eq!(result, "");
+
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + Cow::Borrowed("");
+        assert!(result.is_borrowed());
+
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + Oco::<str>::Borrowed("");
+        assert!(result.is_borrowed());
+    }
+
+    #[test]
+    fn add_empty_rhs_to_counted_should_preserve_arc() {
+        let arc: Arc<str> = Arc::from("hello");
+        let s: Oco<str> = Oco::Counted(Arc::clone(&arc));
+        let result = s + "";
+        match result {
+            Oco::Counted(rc) => assert!(Arc::ptr_eq(&rc, &arc)),
+            other => panic!("expected Counted, got {other:?}"),
+        }
+
+        let s: Oco<str> = Oco::Counted(Arc::clone(&arc));
+        let result = s + Oco::<str>::Borrowed("");
+        match result {
+            Oco::Counted(rc) => assert!(Arc::ptr_eq(&rc, &arc)),
+            other => panic!("expected Counted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn add_empty_rhs_to_owned_should_preserve_buffer() {
+        let s: Oco<str> = Oco::Owned("hello".to_string());
+        let ptr = s.as_str().as_ptr();
+        let result = s + "";
+        match result {
+            Oco::Owned(string) => {
+                assert_eq!(string.as_str().as_ptr(), ptr);
+                assert_eq!(string, "hello");
+            }
+            other => panic!("expected Owned, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn add_empty_self_to_counted_oco_should_preserve_arc() {
+        let arc: Arc<str> = Arc::from("world");
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + Oco::Counted(Arc::clone(&arc));
+        match result {
+            Oco::Counted(rc) => assert!(Arc::ptr_eq(&rc, &arc)),
+            other => panic!("expected Counted, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn add_empty_self_to_owned_cow_should_preserve_buffer() {
+        let owned = String::from("world");
+        let ptr = owned.as_str().as_ptr();
+        let s: Oco<str> = Oco::Borrowed("");
+        let result = s + Cow::Owned(owned);
+        match result {
+            Oco::Owned(string) => {
+                assert_eq!(string.as_str().as_ptr(), ptr);
+                assert_eq!(string, "world");
+            }
+            other => panic!("expected Owned, got {other:?}"),
+        }
+    }
+
+    #[test]
     fn as_str_should_return_a_str() {
         let s: Oco<str> = Oco::Borrowed("hello");
         assert_eq!(s.as_str(), "hello");
@@ -669,21 +890,44 @@ mod tests {
     }
 
     #[test]
-    fn default_for_str_should_return_an_empty_string() {
+    fn default_for_str_should_return_an_empty_borrowed_string() {
         let s: Oco<str> = Default::default();
         assert!(s.is_empty());
+        assert!(
+            s.is_borrowed(),
+            "default Oco<str> should be Borrowed for zero-alloc cheap clones"
+        );
     }
 
     #[test]
-    fn default_for_slice_should_return_an_empty_slice() {
+    fn default_for_slice_should_return_an_empty_borrowed_slice() {
         let s: Oco<[i32]> = Default::default();
         assert!(s.is_empty());
+        assert!(
+            s.is_borrowed(),
+            "default Oco<[T]> should be Borrowed for zero-alloc cheap clones"
+        );
     }
 
     #[test]
-    fn default_for_any_option_should_return_none() {
-        let s: Oco<Option<i32>> = Default::default();
-        assert!(s.is_none());
+    fn default_for_c_str_should_return_an_empty_borrowed_c_str() {
+        let s: Oco<CStr> = Default::default();
+        assert!(s.to_bytes().is_empty());
+        assert!(s.is_borrowed());
+    }
+
+    #[test]
+    fn default_for_os_str_should_return_an_empty_borrowed_os_str() {
+        let s: Oco<OsStr> = Default::default();
+        assert!(s.is_empty());
+        assert!(s.is_borrowed());
+    }
+
+    #[test]
+    fn default_for_path_should_return_an_empty_borrowed_path() {
+        let s: Oco<Path> = Default::default();
+        assert_eq!(s.as_os_str(), "");
+        assert!(s.is_borrowed());
     }
 
     #[test]
@@ -713,8 +957,8 @@ mod tests {
     }
 
     #[test]
-    fn cloned_inplace_borrowed_str_should_make_borrowed_str_and_remain_borrowed(
-    ) {
+    fn cloned_inplace_borrowed_str_should_make_borrowed_str_and_remain_borrowed()
+     {
         let mut s: Oco<str> = Oco::Borrowed("hello");
         assert!(s.clone_inplace().is_borrowed());
         assert!(s.is_borrowed());
@@ -739,5 +983,78 @@ mod tests {
         let s: Oco<str> = serde_json::from_str("\"bar\"")
             .expect("should deserialize from string");
         assert_eq!(s, Oco::from(String::from("bar")));
+    }
+
+    #[test]
+    fn deserialization_produces_counted_variant() {
+        let s: Oco<str> = serde_json::from_str("\"hello\"")
+            .expect("should deserialize from string");
+        assert!(
+            s.is_counted(),
+            "deserialized Oco should be Counted so first clone is O(1)"
+        );
+        let s2 = s.clone();
+        assert!(s2.is_counted());
+        assert!(s.is_counted());
+    }
+
+    #[test]
+    fn from_box_str_should_produce_owned_consistent_with_string() {
+        let boxed: Box<str> = "hello".into();
+        let o1: Oco<'_, str> = boxed.into();
+        assert!(o1.is_owned());
+
+        let owned: String = "hello".to_owned();
+        let o2: Oco<'_, str> = owned.into();
+        assert!(o2.is_owned());
+
+        assert_eq!(o1, o2);
+    }
+
+    #[test]
+    fn from_box_slice_should_produce_owned_consistent_with_vec() {
+        let boxed: Box<[i32]> = vec![1, 2, 3].into_boxed_slice();
+        let o1: Oco<'_, [i32]> = boxed.into();
+        assert!(o1.is_owned());
+
+        let v: Vec<i32> = vec![1, 2, 3];
+        let o2: Oco<'_, [i32]> = v.into();
+        assert!(o2.is_owned());
+
+        assert_eq!(o1, o2);
+    }
+
+    #[test]
+    fn deserialization_produces_counted_variant_for_slice() {
+        let s: Oco<[i32]> = serde_json::from_str("[1,2,3]")
+            .expect("should deserialize from slice");
+        assert!(s.is_counted());
+        assert_eq!(s.as_slice(), &[1, 2, 3]);
+    }
+
+    #[test]
+    fn serde_round_trip_lands_on_counted_for_every_input_variant() {
+        // All three input variants serialise to the same on-wire form,
+        // and deserialisation lands on `Counted`. After a round trip the
+        // observed variant is therefore stable: code branching on
+        // `is_counted()` keeps working regardless of which variant the
+        // value started in.
+        for input in [
+            Oco::<str>::Borrowed("hello"),
+            Oco::<str>::Owned("hello".to_string()),
+            Oco::<str>::Counted(Arc::from("hello")),
+        ] {
+            let wire =
+                serde_json::to_string(&input).expect("serialize should work");
+            assert_eq!(wire, "\"hello\"");
+
+            let out: Oco<'static, str> =
+                serde_json::from_str(&wire).expect("deserialize should work");
+            assert_eq!(out, input);
+            assert!(
+                out.is_counted(),
+                "round-trip should always land on Counted"
+            );
+        }
     }
 }

@@ -51,6 +51,14 @@ async fn i_select_the_following_links(
     Ok(())
 }
 
+#[when(regex = "^wasm chunk requests (fail|succeed again)$")]
+async fn wasm_chunk_requests(world: &mut AppWorld, mode: String) -> Result<()> {
+    let client = &world.client;
+    action::set_wasm_chunks_blocked(client, mode == "fail").await?;
+
+    Ok(())
+}
+
 #[when("I wait for a second")]
 async fn i_wait_for_a_second(world: &mut AppWorld) -> Result<()> {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;

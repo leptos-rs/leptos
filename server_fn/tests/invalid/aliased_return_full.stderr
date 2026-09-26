@@ -20,13 +20,8 @@ help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
 note: required by a bound in `server_fn::ServerFn::Client`
   --> src/lib.rs
    |
-   |       type Client: Client<
-   |  __________________^
-   | |         Self::Error,
-   | |         Self::InputStreamError,
-   | |         Self::OutputStreamError,
-   | |     >;
-   | |_____^ required by this bound in `ServerFn::Client`
+   |     type Client: Client<Self::Error, Self::InputStreamError, Self::OutputStreamError>;
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::Client`
    = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
@@ -54,13 +49,13 @@ note: required by a bound in `server_fn::ServerFn::Protocol`
    |
    |       type Protocol: Protocol<
    |  ____________________^
-   | |         Self,
-   | |         Self::Output,
-   | |         Self::Client,
+   | |             Self,
+   | |             Self::Output,
+   | |             Self::Client,
 ...  |
-   | |         Self::OutputStreamError,
-   | |     >;
-   | |_____^ required by this bound in `ServerFn::Protocol`
+   | |             Self::OutputStreamError,
+   | |         >;
+   | |_________^ required by this bound in `ServerFn::Protocol`
    = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied

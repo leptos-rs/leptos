@@ -1,11 +1,11 @@
 use super::{
-    add_attr::AddAnyAttr, MarkBranch, Mountable, Position, PositionState,
-    Render, RenderHtml,
+    MarkBranch, Mountable, Position, PositionState, Render, RenderFlags,
+    RenderHtml, add_attr::AddAnyAttr,
 };
 use crate::{
     html::attribute::{
-        any_attribute::AnyAttribute, Attribute, NamedAttributeKey,
-        NextAttribute,
+        Attribute, NamedAttributeKey, NextAttribute,
+        any_attribute::AnyAttribute,
     },
     hydration::Cursor,
     ssr::StreamBuilder,
@@ -312,23 +312,16 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         match self {
             Either::Left(left) => {
-                if mark_branches && escape {
+                if flags.mark_branches && flags.escape {
                     buf.open_branch("0");
                 }
-                left.to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
-                if mark_branches && escape {
+                left.to_html_with_buf(buf, position, flags, extra_attrs);
+                if flags.mark_branches && flags.escape {
                     buf.close_branch("0");
                     if *position == Position::NextChildAfterText {
                         *position = Position::NextChild;
@@ -336,17 +329,11 @@ where
                 }
             }
             Either::Right(right) => {
-                if mark_branches && escape {
+                if flags.mark_branches && flags.escape {
                     buf.open_branch("1");
                 }
-                right.to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
-                if mark_branches && escape {
+                right.to_html_with_buf(buf, position, flags, extra_attrs);
+                if flags.mark_branches && flags.escape {
                     buf.close_branch("1");
                     if *position == Position::NextChildAfterText {
                         *position = Position::NextChild;
@@ -360,25 +347,23 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
     {
         match self {
             Either::Left(left) => {
-                if mark_branches && escape {
+                if flags.mark_branches && flags.escape {
                     buf.open_branch("0");
                 }
                 left.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buf,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 );
-                if mark_branches && escape {
+                if flags.mark_branches && flags.escape {
                     buf.close_branch("0");
                     if *position == Position::NextChildAfterText {
                         *position = Position::NextChild;
@@ -386,17 +371,16 @@ where
                 }
             }
             Either::Right(right) => {
-                if mark_branches && escape {
+                if flags.mark_branches && flags.escape {
                     buf.open_branch("1");
                 }
                 right.to_html_async_with_buf::<OUT_OF_ORDER>(
                     buf,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 );
-                if mark_branches && escape {
+                if flags.mark_branches && flags.escape {
                     buf.close_branch("1");
                     if *position == Position::NextChildAfterText {
                         *position = Position::NextChild;
@@ -587,30 +571,17 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         if self.show_b {
             self.b
                 .expect("rendering B to HTML without filling it")
-                .to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
+                .to_html_with_buf(buf, position, flags, extra_attrs);
         } else {
             self.a
                 .expect("rendering A to HTML without filling it")
-                .to_html_with_buf(
-                    buf,
-                    position,
-                    escape,
-                    mark_branches,
-                    extra_attrs,
-                );
+                .to_html_with_buf(buf, position, flags, extra_attrs);
         }
     }
 
@@ -618,8 +589,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -630,8 +600,7 @@ where
                 .to_html_async_with_buf::<OUT_OF_ORDER>(
                     buf,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 );
         } else {
@@ -640,8 +609,7 @@ where
                 .to_html_async_with_buf::<OUT_OF_ORDER>(
                     buf,
                     position,
-                    escape,
-                    mark_branches,
+                    flags,
                     extra_attrs,
                 );
         }
@@ -912,17 +880,16 @@ macro_rules! tuples {
                     self,
                     buf: &mut String,
                     position: &mut Position,
-                    escape: bool,
-                    mark_branches: bool,
+                    flags: RenderFlags,
                     extra_attrs: Vec<AnyAttribute>
                 ) {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
-                            if mark_branches && escape {
+                            if flags.mark_branches && flags.escape {
                                 buf.open_branch(stringify!($ty));
                             }
-                            this.to_html_with_buf(buf, position, escape, mark_branches, extra_attrs);
-                            if mark_branches && escape {
+                            this.to_html_with_buf(buf, position, flags, extra_attrs);
+                            if flags.mark_branches && flags.escape {
                                 buf.close_branch(stringify!($ty));
                                 if *position == Position::NextChildAfterText {
                                     *position = Position::NextChild;
@@ -936,19 +903,18 @@ macro_rules! tuples {
                     self,
                     buf: &mut StreamBuilder,
                     position: &mut Position,
-                    escape: bool,
-                    mark_branches: bool,
+                    flags: RenderFlags,
                     extra_attrs: Vec<AnyAttribute>
                 ) where
                     Self: Sized,
                 {
                     match self {
                         $([<EitherOf $num>]::$ty(this) => {
-                            if mark_branches && escape {
+                            if flags.mark_branches && flags.escape {
                                 buf.open_branch(stringify!($ty));
                             }
-                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, escape, mark_branches, extra_attrs);
-                            if mark_branches && escape {
+                            this.to_html_async_with_buf::<OUT_OF_ORDER>(buf, position, flags, extra_attrs);
+                            if flags.mark_branches && flags.escape {
                                 buf.close_branch(stringify!($ty));
                                 if *position == Position::NextChildAfterText {
                                     *position = Position::NextChild;

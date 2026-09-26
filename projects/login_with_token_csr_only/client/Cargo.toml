@@ -8,8 +8,8 @@ publish = false
 api-boundary = { workspace = true }
 
 leptos = { path = "../../../leptos", features = ["csr"] }
-leptos_meta = { path = "../../../meta", features = ["csr"] }
-leptos_router = { path = "../../../router", features = ["csr"] }
+leptos_meta = { path = "../../../meta" }
+leptos_router = { path = "../../../router" }
 
 log = "0.4.22"
 console_error_panic_hook = "0.1.7"

@@ -1,6 +1,6 @@
 use leptos_config::{
-    get_config_from_env, get_config_from_file, get_config_from_str,
-    get_configuration, Env, LeptosOptions,
+    Env, LeptosOptions, get_config_from_env, get_config_from_file,
+    get_config_from_str, get_configuration,
 };
 use std::{fs::File, io::Write, net::SocketAddr, path::Path, str::FromStr};
 use tempfile::NamedTempFile;

@@ -20,6 +20,7 @@ pub mod prelude {
     pub use crate::{
         html::{
             attribute::{
+                IntoAttributeValue,
                 any_attribute::IntoAnyAttribute,
                 aria::AriaAttributes,
                 custom::CustomAttribute,
@@ -28,17 +29,16 @@ pub mod prelude {
                     OnAttribute, OnTargetAttribute, PropAttribute,
                     StyleAttribute,
                 },
-                IntoAttributeValue,
             },
             directive::DirectiveAttribute,
             element::{ElementChild, ElementExt, InnerHtmlAttribute},
             node_ref::NodeRefAttribute,
         },
-        renderer::{dom::Dom, Renderer},
+        renderer::{Renderer, dom::Dom},
         view::{
+            IntoRender, Mountable, Render, RenderHtml,
             add_attr::AddAnyAttr,
             any_view::{AnyView, IntoAny, IntoMaybeErased},
-            IntoRender, Mountable, Render, RenderHtml,
         },
     };
 }

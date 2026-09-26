@@ -1,9 +1,12 @@
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     prelude::Mountable,
     ssr::StreamBuilder,
-    view::{add_attr::AddAnyAttr, Position, PositionState, Render, RenderHtml},
+    view::{
+        Position, PositionState, Render, RenderFlags, RenderHtml,
+        add_attr::AddAnyAttr,
+    },
 };
 use reactive_graph::{computed::ScopedFuture, owner::Owner};
 use std::mem;
@@ -111,18 +114,12 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         self.owner.with(|| {
-            self.view.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            )
+            self.view
+                .to_html_with_buf(buf, position, flags, extra_attrs)
         });
     }
 
@@ -130,8 +127,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -140,8 +136,7 @@ where
             self.view.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             )
         });

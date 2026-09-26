@@ -1,7 +1,7 @@
 use super::{
+    ArcReadSignal,
     guards::{Plain, ReadGuard},
     subscriber_traits::AsSubscriberSet,
-    ArcReadSignal,
 };
 use crate::{
     graph::SubscriberSet,

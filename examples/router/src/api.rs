@@ -97,7 +97,7 @@ fn delay(
     duration: Duration,
 ) -> impl Future<Output = Result<(), Canceled>> + Send {
     let (tx, rx) = oneshot::channel();
-    set_timeout(
+    _ = set_timeout(
         move || {
             _ = tx.send(());
         },

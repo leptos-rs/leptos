@@ -118,6 +118,7 @@ where
     S::Error: Send + Sync + 'static,
 {
     /// Creates a new [`MultiAction`] which, when dispatched, will call the server function `S`.
+    #[track_caller]
     pub fn new() -> Self {
         Self {
             inner: MultiAction::new(|input: &S| {
