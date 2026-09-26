@@ -325,6 +325,7 @@ fn prop_to_doc(
 
     let file = syn::File {
         shebang: None,
+        frontmatter: None,
         attrs: vec![],
         items: vec![type_item],
     };
