@@ -64,15 +64,25 @@ enum AssetMode {
     /// Disables the serving of assets.
     #[default]
     Disable,
-    /// Serves the assets directory by using the [`ServeDir`] service created by [`serve_site_root_service`].
+    /// Serves the assets directory using the [`ServeDir`] service created by [`serve_site_root_service`].
     /// If the provided path is `"/"`, it will become part of the fallback service, otherwise a new router
     /// will be created to serve this.
     ///
     /// [`ServeDir`]: tower_http::services::ServeDir
     #[cfg(feature = "default")]
-    ServeDir(Cow<'static, str>),
+    Filesystem(Cow<'static, str>),
+    /// Serves the embedded assets using the [`ServeDir`] service with `EmbeddedSiteRoot` as the backend.
+    /// If the provided path is `"/"`, it will become part of the fallback service, otherwise a new router
+    /// will be created to serve this.
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    #[cfg(feature = "embed")]
+    Embed(Cow<'static, str>),
 }
 
+// The setup implementation uses these as intermediate values to define how the router will be set up with
+// the relevant services at the defined routes.  While the support of multiple routes are not exposed, this
+// could be handled in the future.
 #[cfg(any(feature = "default", feature = "embed"))]
 enum Site {
     #[cfg(feature = "default")]
@@ -201,7 +211,7 @@ impl<APP> RouterConfiguration<APP> {
             // TODO verify how this value may conflict with the setting defined in `serve_asset` as it may
             // remain in `"/"` but also be configured to something else.
             favicon_mode: ResourceMode::Filesystem,
-            serve_asset: AssetMode::ServeDir("/".into()),
+            serve_asset: AssetMode::Filesystem("/".into()),
             error_handler: true,
             site_root: NoEmbedSiteRoot,
         }
@@ -364,13 +374,13 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     /// `LEPTOS_SITE_ROOT` defined at runtime.
     ///
     /// If the provided path is `"/"`, the fallback service will be used instead, in conjunction with the
-    /// [`ErrorHandler`] service if it is also availabled.  Otherwise [`Router::route_service`] will be used
+    /// [`ErrorHandler`] service if it is also available.  Otherwise [`Router::route_service`] will be used
     /// to set this service up.
     pub fn enable_fs_leptos_site_root(
         self,
         path: impl Into<Cow<'static, str>>,
     ) -> Self {
-        self.serve_asset(AssetMode::ServeDir(path.into()))
+        self.serve_asset(AssetMode::Filesystem(path.into()))
     }
 
     /// Disable the routing of `LEPTOS_SITE_ROOT`.
@@ -437,6 +447,25 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     /// Disables the routing of `favicon.ico`
     pub fn disable_favicon(self) -> Self {
         self.favicon_mode(ResourceMode::Disable)
+    }
+}
+
+#[cfg(feature = "embed")]
+impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR>
+where
+    SR: Clone + Copy + Send + Sync + RustEmbed + 'static,
+{
+    /// Configure the base route for the `ServeDir` service with the `EmbeddedSiteRoot` backend for serving
+    /// of the embedded fiels.
+    ///
+    /// If the provided path is `"/"`, the fallback service will be used instead, in conjunction with the
+    /// [`ErrorHandler`] service if it is also available.  Otherwise [`Router::route_service`] will be used
+    /// to set this service up.
+    pub fn enable_embed_leptos_site_root(
+        self,
+        path: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        self.serve_asset(AssetMode::Embed(path.into()))
     }
 }
 
@@ -601,7 +630,7 @@ where
         let router = if let Some(error_handler) = error_handler {
             match self.serve_asset {
                 #[cfg(feature = "default")]
-                AssetMode::ServeDir(path) if path == "/" => router
+                AssetMode::Filesystem(path) if path == "/" => router
                     .fallback_service(
                         builder.service(
                             serve_site_root_service(&leptos_options)
@@ -609,7 +638,7 @@ where
                         ),
                     ),
                 #[cfg(feature = "default")]
-                AssetMode::ServeDir(path) => router
+                AssetMode::Filesystem(path) => router
                     .nest(
                         &path,
                         Router::new().route_service(
@@ -621,23 +650,67 @@ where
                         ),
                     )
                     .fallback_service(error_handler),
+                #[cfg(feature = "embed")]
+                AssetMode::Embed(path) if path == "/" => router
+                    .fallback_service(
+                        builder.service(
+                            ServeDir::with_backend(
+                                "/",
+                                EmbeddedSiteRoot::new(self.site_root),
+                            )
+                            .fallback(error_handler),
+                        ),
+                    ),
+                #[cfg(feature = "embed")]
+                AssetMode::Embed(path) => router
+                    .nest(
+                        &path,
+                        Router::new().route_service(
+                            "/{*path}",
+                            builder.service(
+                                ServeDir::with_backend(
+                                    "/",
+                                    EmbeddedSiteRoot::new(self.site_root),
+                                )
+                                .fallback(error_handler.clone()),
+                            ),
+                        ),
+                    )
+                    .fallback_service(error_handler),
                 AssetMode::Disable => router.fallback_service(error_handler),
             }
         } else {
             match self.serve_asset {
                 #[cfg(feature = "default")]
-                AssetMode::ServeDir(path) if path == "/" => router
+                AssetMode::Filesystem(path) if path == "/" => router
                     .fallback_service(
                         builder
                             .service(serve_site_root_service(&leptos_options)),
                     ),
                 #[cfg(feature = "default")]
-                AssetMode::ServeDir(path) => router.nest(
+                AssetMode::Filesystem(path) => router.nest(
                     &path,
                     Router::new().route_service(
                         "/{*path}",
                         builder
                             .service(serve_site_root_service(&leptos_options)),
+                    ),
+                ),
+                #[cfg(feature = "embed")]
+                AssetMode::Embed(path) if path == "/" => router
+                    .fallback_service(builder.service(ServeDir::with_backend(
+                        "/",
+                        EmbeddedSiteRoot::new(self.site_root),
+                    ))),
+                #[cfg(feature = "embed")]
+                AssetMode::Embed(path) => router.nest(
+                    &path,
+                    Router::new().route_service(
+                        "/{*path}",
+                        builder.service(ServeDir::with_backend(
+                            "/",
+                            EmbeddedSiteRoot::new(self.site_root),
+                        )),
                     ),
                 ),
                 AssetMode::Disable => router,
