@@ -774,6 +774,54 @@ async fn conf_default_embed_site_pkg() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
+async fn conf_default_embed_leptos_site_root() -> anyhow::Result<()> {
+    // Ensure that the service is started with a `LEPTOS_SITE_ROOT` pointed at some alternative location to
+    // break any inadvertent inclusion of some default `ServeDir` against the built root.
+    let site_root = TempDir::new()?;
+    let service = start_test_service_with_envs(
+        "service_mode",
+        "conf-default-embed-leptos-site-root",
+        vec![(
+            "LEPTOS_SITE_ROOT",
+            site_root.path().to_str().expect("valid utf8"),
+        )],
+    )
+    .await;
+
+    // Given that the whole site root is embedded, the pkg should be available where they are, given no
+    // conflicting embed configuration are added.
+    let res = service.get("/")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("Home Page"));
+    // should provide the two site artifacts.
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+
+    // The favicon is included.
+    assert_favicon_ico(&service).await?;
+    // The robots.txt is also encluded given the embedded site root is set as the fallback.
+    assert_robots_txt(&service).await?;
+
+    // The other paths won't be found and will not have the standard fallback error page as the default
+    // configuration does not set one up.
+    for path in ["/pkg/no_such_path", "/no_such_path_elsewhere"] {
+        let res = service.get(path)?.send().await?;
+        assert_eq!(
+            res.status(),
+            StatusCode::NOT_FOUND,
+            "{path} has a status code that wasn't a 404 Not Found",
+        );
+        assert_eq!(res.text().await?, "");
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn conf_default_embed_mixed_fs() -> anyhow::Result<()> {
     // This test purposefully configure the site_root elsewhere to serve some additional data.
     let site_root = TempDir::new()?;
