@@ -433,7 +433,6 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     }
 }
 
-#[cfg(feature = "default")]
 impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     /// Configure the [`AssetMode`] to seve the assets with.
     ///
@@ -444,6 +443,40 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
         self
     }
 
+    /// Configure the [`ResourceMode`] to serve the site pkg with.
+    ///
+    /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
+    /// provide the relevant routes to serve the JS/WASM bundle such that the application will be activated
+    /// on the client.
+    fn site_pkg_mode(mut self, v: ResourceMode) -> Self {
+        self.site_pkg_mode = v;
+        self
+    }
+
+    /// Configure how the `favicon.ico` is served.
+    fn favicon_mode(mut self, v: ResourceMode) -> Self {
+        self.favicon_mode = v;
+        self
+    }
+
+    /// Disable the routing of `LEPTOS_SITE_ROOT`.
+    pub fn disable_leptos_site_root(self) -> Self {
+        self.serve_asset(AssetMode::Disable)
+    }
+
+    /// Disables the routing of `LEPTOS_SITE_PKG` files.
+    pub fn disable_site_pkg(self) -> Self {
+        self.site_pkg_mode(ResourceMode::Disable)
+    }
+
+    /// Disables the routing of `favicon.ico`
+    pub fn disable_favicon(self) -> Self {
+        self.favicon_mode(ResourceMode::Disable)
+    }
+}
+
+#[cfg(feature = "default")]
+impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     /// Configure the base route for the `ServeDir` service that will provide the files found in
     /// `LEPTOS_SITE_ROOT` defined at runtime.
     ///
@@ -460,105 +493,19 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
         self.serve_asset(AssetMode::Filesystem(path.into()))
     }
 
-    /// Disable the routing of `LEPTOS_SITE_ROOT`.
-    pub fn disable_leptos_site_root(self) -> Self {
-        self.serve_asset(AssetMode::Disable)
-    }
-
-    /// Configure the [`ResourceMode`] to serve the site pkg with.
-    ///
-    /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
-    /// provide the relevant routes to serve the JS/WASM bundle such that the application will be activated
-    /// on the client.
-    fn site_pkg_mode(mut self, v: ResourceMode) -> Self {
-        self.site_pkg_mode = v;
-        self
-    }
-
     /// Enable the routing of files in the `LEPTOS_SITE_PKG` subdirectory within `LEPTOS_SITE_ROOT` by the
     /// [`ServeDir`] service set up at runtime on the relevant path on the filesystem.
     ///
     /// This is used to serve the JS/WASM bundle such that the application will be activated on the client.
     ///
     /// [`ServeDir`]: tower_http::services::ServeDir
-    #[cfg(feature = "default")]
     pub fn enable_fs_site_pkg(self) -> Self {
         self.site_pkg_mode(ResourceMode::Filesystem)
     }
 
-    // TODO See if just the site pkg may be included to avoid embedding the whole site root, i.e. this will
-    // ignore the embedding of `/favicon.ico`.  If so that should be documented here as the more advanced and
-    // optimized option.
-    /// Enable the routing of files in the `LEPTOS_SITE_PKG` subdirectory within the provided embedded site
-    /// root, which will be converted to a [`ServeDir`] service with it as the backend to be set up at
-    /// runtime.
-    ///
-    /// This is used to serve the JS/WASM bundle embedded in the server binary, such that the application will
-    /// be activated on the client.
-    ///
-    /// This may be used in conjunction with the other `enable_fs` prefixed configurations, such that
-    /// other additional data may be provided from the filesystem through the relevant `ServeDir` service that
-    /// will be set up.
-    ///
-    /// For the most common use cases (i.e. where the intent is to have only one source of files be embedded),
-    /// the more convenient methods to set this up may be through [`RouterConfiguration::embed`] or
-    /// [`RouterConfiguration::embed_with_assets`].  For complete details, including the caveats of enabling
-    /// the embedded site root, please refer to the documentation for those two constructors.
-    ///
-    /// This configuration will also supercede any previous [`.enable_embed_leptos_site_root`] method calls.
-    /// Currently only one set of `RustEmbed` contents is supported with this configuration.  If the site root
-    /// is to be of a different source from the site pkg, the embedded site root must be set up separately on
-    /// the resulting `Router` with the corresponding service.
-    ///
-    /// [`ServeDir`]: tower_http::services::ServeDir
-    /// [`.enable_embed_leptos_site_root`]: RouterConfiguration::enable_embed_leptos_site_root
-    #[cfg(feature = "embed")]
-    pub fn enable_embed_site_pkg<SR2>(
-        self,
-        site_root: SR2,
-    ) -> RouterConfiguration<APP, CX, SH, S, SR2>
-    where
-        SR2: Clone + Copy + Send + Sync + RustEmbed + 'static,
-    {
-        RouterConfiguration {
-            app_fn: self.app_fn,
-            shell: self.shell,
-            state: self.state,
-            extra_cx: self.extra_cx,
-            site_pkg_mode: ResourceMode::Embed,
-            favicon_mode: self.favicon_mode,
-            serve_asset: self.serve_asset,
-            error_handler: self.error_handler,
-            site_root,
-        }
-    }
-
-    /// Disables the routing of `LEPTOS_SITE_PKG` files.
-    pub fn disable_site_pkg(self) -> Self {
-        self.site_pkg_mode(ResourceMode::Disable)
-    }
-
-    /// Configure how the `favicon.ico` is served.
-    fn favicon_mode(mut self, v: ResourceMode) -> Self {
-        self.favicon_mode = v;
-        self
-    }
-
     /// Enable the routing of `favicon.ico` in the `LEPTOS_SITE_PKG` on the filesystem.
-    #[cfg(feature = "default")]
     pub fn enable_fs_favicon(self) -> Self {
         self.favicon_mode(ResourceMode::Filesystem)
-    }
-
-    /// Enable the routing of `favicon.ico` in the `LEPTOS_SITE_PKG` on the embedded site root.
-    #[cfg(feature = "embed")]
-    pub fn enable_embed_favicon(self) -> Self {
-        self.favicon_mode(ResourceMode::Embed)
-    }
-
-    /// Disables the routing of `favicon.ico`
-    pub fn disable_favicon(self) -> Self {
-        self.favicon_mode(ResourceMode::Disable)
     }
 }
 
@@ -617,6 +564,57 @@ where
         path: impl Into<Cow<'static, str>>,
     ) -> Self {
         self.serve_asset(AssetMode::Embed(path.into()))
+    }
+
+    // TODO See if just the site pkg may be included to avoid embedding the whole site root, i.e. this will
+    // ignore the embedding of `/favicon.ico`.  If so that should be documented here as the more advanced and
+    // optimized option.
+    /// Enable the routing of files in the `LEPTOS_SITE_PKG` subdirectory within the provided embedded site
+    /// root, which will be converted to a [`ServeDir`] service with it as the backend to be set up at
+    /// runtime.
+    ///
+    /// This is used to serve the JS/WASM bundle embedded in the server binary, such that the application will
+    /// be activated on the client.
+    ///
+    /// This may be used in conjunction with the other `enable_fs` prefixed configurations, such that
+    /// other additional data may be provided from the filesystem through the relevant `ServeDir` service that
+    /// will be set up.
+    ///
+    /// For the most common use cases (i.e. where the intent is to have only one source of files be embedded),
+    /// the more convenient methods to set this up may be through [`RouterConfiguration::embed`] or
+    /// [`RouterConfiguration::embed_with_assets`].  For complete details, including the caveats of enabling
+    /// the embedded site root, please refer to the documentation for those two constructors.
+    ///
+    /// This configuration will also supercede any previous [`.enable_embed_leptos_site_root`] method calls.
+    /// Currently only one set of `RustEmbed` contents is supported with this configuration.  If the site root
+    /// is to be of a different source from the site pkg, the embedded site root must be set up separately on
+    /// the resulting `Router` with the corresponding service.
+    ///
+    /// [`ServeDir`]: tower_http::services::ServeDir
+    /// [`.enable_embed_leptos_site_root`]: RouterConfiguration::enable_embed_leptos_site_root
+    pub fn enable_embed_site_pkg<SR2>(
+        self,
+        site_root: SR2,
+    ) -> RouterConfiguration<APP, CX, SH, S, SR2>
+    where
+        SR2: Clone + Copy + Send + Sync + RustEmbed + 'static,
+    {
+        RouterConfiguration {
+            app_fn: self.app_fn,
+            shell: self.shell,
+            state: self.state,
+            extra_cx: self.extra_cx,
+            site_pkg_mode: ResourceMode::Embed,
+            favicon_mode: self.favicon_mode,
+            serve_asset: self.serve_asset,
+            error_handler: self.error_handler,
+            site_root,
+        }
+    }
+
+    /// Enable the routing of `favicon.ico` in the `LEPTOS_SITE_PKG` on the embedded site root.
+    pub fn enable_embed_favicon(self) -> Self {
+        self.favicon_mode(ResourceMode::Embed)
     }
 }
 
@@ -774,7 +772,7 @@ where
         // While the one set up for `site_pkg_mode` may be used, it might not be configured and so
         // reusing that clone may be problematic; much easier to create one just for here; maybe refactor
         // this later when implementation is more settled.
-        #[cfg(feature = "default")]
+        #[cfg(any(feature = "default", feature = "embed"))]
         let builder = ServiceBuilder::new()
             .option_layer(extra_cx.map(LeptosContextLayer::new_with_context));
 
