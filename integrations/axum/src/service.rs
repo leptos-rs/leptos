@@ -26,10 +26,10 @@ use tower::{Layer, Service};
 /// with other tower services.
 ///
 /// The behavior of [`file_and_error_handler`] can be approximately replicated with the following by
-/// composing with the [`ServeDir`] service returned by [`site_pkg_dir_service`].
+/// composing with the [`ServeDir`] service returned by [`serve_site_root_service`].
 ///
 /// [`file_and_error_handler`]: crate::file_and_error_handler
-/// [`site_pkg_dir_service`]: crate::site_pkg_dir_service
+/// [`serve_site_root_service`]: crate::site_pkg_dir_service
 /// [`Service`]: tower::Service
 /// [`ServeDir`]: tower_http::services::ServeDir
 ///
@@ -67,8 +67,8 @@ use tower::{Layer, Service};
 ///     // .fallback(leptos_axum::file_and_error_handler(shell))
 ///     .fallback_service(
 ///         // please do take note that both `file_and_error_handler` and
-///         // `site_pkg_dir_service` require `feature = "default"`
-///         leptos_axum::site_pkg_dir_service(&leptos_options).fallback(
+///         // `serve_site_root_service` require `feature = "default"`
+///         leptos_axum::serve_site_root_service(&leptos_options).fallback(
 ///             leptos_axum::ErrorHandler::new(shell, leptos_options),
 ///         ),
 ///     );
@@ -338,3 +338,8 @@ where
         })
     }
 }
+
+#[cfg(feature = "embed")]
+mod embed;
+#[cfg(feature = "embed")]
+pub use embed::EmbeddedSiteRoot;
