@@ -15,6 +15,7 @@
 //!
 //! ## Features
 //! - `default`: supports running in a typical native Tokio/Axum environment
+//! - `embed`: support for embedding of leptos site root and/or pkg through `rust-embed`
 //! - `wasm`: with `default-features = false`, supports running in a JS Fetch-based
 //!   environment
 //!
