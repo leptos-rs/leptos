@@ -45,6 +45,7 @@ mod router {
         ConfEmbedWithSiteRootAtRoot,
         ConfEmbedWithSiteRootAssets,
         ConfDefaultEmbedSitePkg,
+        ConfDefaultEmbedLeptosSiteRoot,
         ConfDefaultEmbedMixedFs,
 
         LeptosOptionsCssBase,
@@ -295,14 +296,14 @@ mod router {
                     leptos_axum::RouterConfiguration::embed(SiteRoot)
                         .app(App)
                         .shell(shell)
-                        .enable_embed_leptos_site_root("/")
+                        .set_embed_leptos_site_root_path("/")
                         .state(leptos_options.clone()),
                 ),
                 Mode::ConfEmbedWithSiteRootAssets => Router::new().leptos_route_configure(
                     leptos_axum::RouterConfiguration::embed(SiteRoot)
                         .app(App)
                         .shell(shell)
-                        .enable_embed_leptos_site_root("/assets")
+                        .set_embed_leptos_site_root_path("/assets")
                         .state(leptos_options.clone()),
                 ),
                 Mode::ConfDefaultEmbedSitePkg => Router::new()
@@ -312,6 +313,14 @@ mod router {
                             .shell(shell)
                             .state(leptos_options.clone())
                             .enable_embed_site_pkg(SiteRoot),
+                    ),
+                Mode::ConfDefaultEmbedLeptosSiteRoot => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::default()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .enable_embed_leptos_site_root("/", SiteRoot),
                     ),
                 Mode::ConfDefaultEmbedMixedFs => Router::new()
                     .leptos_route_configure(
