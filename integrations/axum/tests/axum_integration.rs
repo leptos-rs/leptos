@@ -387,9 +387,9 @@ async fn conf_new_with_assets() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn conf_new_serve_asset_serve_dir() -> anyhow::Result<()> {
+async fn conf_new_fs_site_root_assets() -> anyhow::Result<()> {
     let service =
-        start_test_service("service_mode", "conf-new-serve-asset-serve-dir")
+        start_test_service("service_mode", "conf-new-fs-site-root-assets")
             .await;
     let res = service.get("/")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
@@ -512,9 +512,19 @@ async fn conf_new_with_assets_with_context() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn conf_embed() -> anyhow::Result<()> {
-    // FIXME this test may not pass as the front-end may finish compiling _after_ the backend, resulting
-    // in the backend not having the front-end files being included.
-    let service = start_test_service("service_mode", "conf-embed").await;
+    // Ensure that the service is started with a `LEPTOS_SITE_ROOT` pointed at some alternative location to
+    // break any inadvertent inclusion of some default `ServeDir` against the built root.
+    let site_root = TempDir::new()?;
+    let service = start_test_service_with_envs(
+        "service_mode",
+        "conf-embed",
+        vec![(
+            "LEPTOS_SITE_ROOT",
+            site_root.path().to_str().expect("valid utf8"),
+        )],
+    )
+    .await;
+
     let res = service.get("/")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
@@ -540,6 +550,47 @@ async fn conf_embed() -> anyhow::Result<()> {
     let res = service.get("/robots.txt")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(res.content_length().unwrap_or_default(), 0);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn conf_embed_with_site_root_at_root() -> anyhow::Result<()> {
+    // Ensure that the service is started with a `LEPTOS_SITE_ROOT` pointed at some alternative location to
+    // break any inadvertent inclusion of some default `ServeDir` against the built root.
+    let site_root = TempDir::new()?;
+    let service = start_test_service_with_envs(
+        "service_mode",
+        "conf-embed-with-site-root-at-root",
+        vec![(
+            "LEPTOS_SITE_ROOT",
+            site_root.path().to_str().expect("valid utf8"),
+        )],
+    )
+    .await;
+
+    let res = service.get("/")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(res.text().await?.contains("Home Page"));
+    // should provide the two site artifacts.
+    let res = service.get("/pkg/service_mode.js")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_ne!(res.content_length(), Some(0));
+    // no fallback rendering anywhere
+    let res = service.get("/pkg/no_such_path")?.send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length().unwrap_or_default(), 0);
+    let res = service.get("/no_such_path_elsewhere")?.send().await?;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    assert_eq!(res.content_length().unwrap_or_default(), 0);
+
+    // The favicon is included.
+    assert_favicon_ico(&service).await?;
+    // The robots.txt is also encluded given the embedded site root is set as the fallback.
+    assert_robots_txt(&service).await?;
 
     Ok(())
 }

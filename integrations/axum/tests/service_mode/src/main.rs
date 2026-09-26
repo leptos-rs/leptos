@@ -37,10 +37,11 @@ mod router {
         ConfDefaultWithErrorHandler,
         ConfNew,
         ConfNewWithAssets,
-        ConfNewServeAssetServeDir,
+        ConfNewFsSiteRootAssets,
         ConfNewWithAssetsWithContext,
 
         ConfEmbed,
+        ConfEmbedWithSiteRootAtRoot,
 
         LeptosOptionsCssBase,
     }
@@ -240,7 +241,7 @@ mod router {
                             .shell(shell)
                             .state(leptos_options.clone()),
                     ),
-                Mode::ConfNewServeAssetServeDir => Router::new()
+                Mode::ConfNewFsSiteRootAssets => Router::new()
                     .leptos_route_configure(
                         leptos_axum::RouterConfiguration::new()
                             .app(App)
@@ -278,6 +279,13 @@ mod router {
                     leptos_axum::RouterConfiguration::embed(SiteRoot)
                         .app(App)
                         .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfEmbedWithSiteRootAtRoot => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::embed(SiteRoot)
+                        .app(App)
+                        .shell(shell)
+                        .enable_embed_leptos_site_root("/")
                         .state(leptos_options.clone()),
                 ),
 
