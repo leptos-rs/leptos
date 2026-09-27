@@ -74,11 +74,14 @@ where
         };
         writer.untrack();
         let path = self.path_unkeyed().into_iter().collect::<StorePath>();
+        // Keep the notification identity even if an indexed ancestor moves
+        // after the writer is released.
+        let canonical_path = self.path().into_iter().collect::<StorePath>();
         // Establish the old-index mapping while holding the value lock. A
         // pre-lock refresh can be invalidated before the patch starts.
         if let Some(keys) = &keys {
             keys.update_field_keys(
-                self.path().into_iter().collect(),
+                canonical_path.clone(),
                 (&*writer).into_iter().map(self.key_fn).collect(),
             );
         }
@@ -98,16 +101,19 @@ where
         drop(writer);
 
         if structure_changed {
+            if let Some(keys) = &keys {
+                keys.notify_index_selection(&canonical_path);
+            }
             // Only notify `children` (not `this`) at the collection path, so that
             // individual keyed items — which track `this` on all ancestor paths —
             // are not spuriously notified when only the collection order has changed.
-            let trigger = self.get_trigger_unkeyed(path.clone());
+            let trigger = self.get_trigger(canonical_path.clone());
             trigger.children.notify();
 
-            let mut ancestor_path = path;
+            let mut ancestor_path = canonical_path;
             while !ancestor_path.is_empty() {
                 ancestor_path.pop();
-                let inner = self.get_trigger_unkeyed(ancestor_path.clone());
+                let inner = self.get_trigger(ancestor_path.clone());
                 inner.children.notify();
             }
         }

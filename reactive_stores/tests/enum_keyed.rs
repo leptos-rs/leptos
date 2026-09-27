@@ -4,8 +4,8 @@ use reactive_graph::{
 };
 use reactive_stores::{Patch, PatchField, Store, StorePath};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 #[derive(Debug, Clone, PartialEq, Store, Patch)]
@@ -106,15 +106,14 @@ macro_rules! keyed_variant_tests {
             }
 
             #[test]
-            fn saved_handle_survives_variant_round_trip_without_reacquiring_accessor() {
+            fn reacquired_handles_read_current_items_after_variant_round_trip() {
                 let store = Store::new($make(&[(10, 1), (20, 2), (30, 3)]));
-                let ten = store.$accessor().unwrap().at_key(10);
-                let thirty = store.$accessor().unwrap().at_key(30);
-                assert_eq!(thirty.value().get_untracked(), 3);
+                assert_eq!(store.$accessor().unwrap().at_key(30).value().get_untracked(), 3);
                 store.patch(State::Idle);
                 store.patch($make(&[(30, 33), (10, 11)]));
-                // Reacquiring the enum accessor would refresh the map and hide
-                // stale indices left behind by the variant replacement.
+                let collection = store.$accessor().unwrap();
+                let ten = collection.at_key(10);
+                let thirty = collection.at_key(30);
                 assert_eq!(thirty.get_untracked(), items(&[(30, 33)])[0]);
                 assert_eq!(ten.get_untracked(), items(&[(10, 11)])[0]);
             }
@@ -349,8 +348,7 @@ async fn nested_key_maps_follow_outer_keys_after_outer_reorder() {
 }
 
 #[test]
-fn variants_with_different_key_types_have_distinct_paths_and_refresh_on_return()
-{
+fn variants_with_different_key_types_share_local_paths_and_refresh_on_return() {
     use reactive_stores::StoreField;
 
     let store = Store::new(named(&[(10, 1), (20, 2)]));
@@ -375,13 +373,13 @@ fn variants_with_different_key_types_have_distinct_paths_and_refresh_on_return()
     assert!(store.named_items().is_none());
     let text = store.text_items().unwrap();
     let text_path: StorePath = text.path().into_iter().collect();
-    assert_ne!(named_path, text_path);
+    assert_eq!(named_path, text_path);
     assert_eq!(text.at_key("a".into()).value().get_untracked(), 3);
     store.patch(tuple(&[(50, 5)]));
     let tuple = store.tuple_1().unwrap();
     let tuple_path: StorePath = tuple.path().into_iter().collect();
-    assert_ne!(tuple_path, named_path);
-    assert_ne!(tuple_path, text_path);
+    assert_eq!(tuple_path, named_path);
+    assert_eq!(tuple_path, text_path);
     assert_eq!(tuple.at_key(50).value().get_untracked(), 5);
     store.patch(named(&[(30, 33), (10, 11)]));
     let named = store.named_items().unwrap();

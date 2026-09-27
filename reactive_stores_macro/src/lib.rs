@@ -1,13 +1,13 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{
-    parse::{Parse, ParseStream, Parser},
-    punctuated::Punctuated,
-    token::Comma,
     Attribute, Error, ExprClosure, Field, Fields, GenericParam, Generics,
     Ident, Index, Meta, Result, Token, Type, TypeParam, Variant, Visibility,
     WhereClause,
+    parse::{Parse, ParseStream, Parser},
+    punctuated::Punctuated,
+    token::Comma,
 };
 
 #[proc_macro_derive(Store, attributes(store))]
@@ -315,19 +315,13 @@ impl ModelTy {
                 .map(|fields| fields.into_iter().unzip()),
             ModelTy::Enum { variants } => variants
                 .iter()
-                .scan(0, |offset, variant| {
-                    let field_offset = *offset;
-                    // Include skipped fields so Store and Patch paths agree.
-                    *offset += variant.fields.len();
-                    Some((field_offset, variant))
-                })
-                .map(|(field_offset, variant)| {
+                .map(|variant| {
                     let Variant { ident, fields, .. } = variant;
 
                     Ok((
                         variant_to_tokens(
                             false,
-                            field_offset,
+                            variants,
                             library_path,
                             ident,
                             generics,
@@ -338,7 +332,7 @@ impl ModelTy {
                         )?,
                         variant_to_tokens(
                             true,
-                            field_offset,
+                            variants,
                             library_path,
                             ident,
                             generics,
@@ -453,10 +447,27 @@ fn field_to_tokens(
     })
 }
 
+fn enum_variant_to_tokens(
+    name: &Ident,
+    variants: &[Variant],
+    value: TokenStream,
+) -> TokenStream {
+    let arms = variants.iter().enumerate().map(|(ordinal, variant)| {
+        let ident = &variant.ident;
+        let pattern = match &variant.fields {
+            Fields::Named(_) => quote! { #name::#ident { .. } },
+            Fields::Unnamed(_) => quote! { #name::#ident(..) },
+            Fields::Unit => quote! { #name::#ident },
+        };
+        quote! { #pattern => #ordinal }
+    });
+    quote! { match #value { #(#arms,)* } }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn variant_to_tokens(
     include_body: bool,
-    field_offset: usize,
+    variants: &[Variant],
     library_path: &proc_macro2::TokenStream,
     ident: &Ident,
     _generics: &Generics,
@@ -465,6 +476,16 @@ fn variant_to_tokens(
     name: &Ident,
     fields: &Fields,
 ) -> Result<TokenStream> {
+    let variant = enum_variant_to_tokens(name, variants, quote! { &*reader });
+    let observe_variant = quote! {
+        if let Some(keys) = #library_path::StoreField::keys(&self) {
+            keys.observe_variant(
+                #library_path::StoreField::path(&self).into_iter().collect(),
+                #variant,
+            );
+        }
+    };
+
     // the method name will always be the snake_cased ident
     let orig_ident = &ident;
     let ident =
@@ -478,9 +499,11 @@ fn variant_to_tokens(
             if include_body {
                 quote! {
                     fn #ident(self) -> bool {
-                        match #library_path::StoreField::reader(&self) {
+                        let reader = #library_path::StoreField::reader(&self);
+                        #library_path::StoreField::track_self_and_ancestors(&self);
+                        match reader {
                             Some(reader) => {
-                                #library_path::StoreField::track_self_and_ancestors(&self);
+                                #observe_variant
                                 matches!(&*reader, #name::#orig_ident)
                             },
                             None => false
@@ -500,9 +523,11 @@ fn variant_to_tokens(
             let mut tokens = if include_body {
                 quote! {
                     fn #ident(self) -> bool {
-                        match #library_path::StoreField::reader(&self) {
+                        let reader = #library_path::StoreField::reader(&self);
+                        #library_path::StoreField::track_self_and_ancestors(&self);
+                        match reader {
                             Some(reader) => {
-                                #library_path::StoreField::track_self_and_ancestors(&self);
+                                #observe_variant
                                 matches!(&*reader, #name::#orig_ident { .. })
                             },
                             None => false
@@ -521,7 +546,7 @@ fn variant_to_tokens(
                 .enumerate()
                 .map(|(idx, field)| {
                     let field_ident = field.ident.as_ref().unwrap();
-                    let path_idx = field_offset + idx;
+                    let path_idx = idx;
                     let Some((subfield_ty, constructor, key_arg)) =
                         enum_subfield_tokens(field, library_path, clear_generics, any_store_field, name)?
                     else {
@@ -535,10 +560,13 @@ fn variant_to_tokens(
                     Ok(if include_body {
                         quote! {
                             fn #combined_ident(self) -> Option<#subfield_ty> {
-                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 let reader = #library_path::StoreField::reader(&self);
+                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 let matches = reader
-                                    .map(|reader| matches!(&*reader, #name::#orig_ident { .. }))
+                                    .map(|reader| {
+                                        #observe_variant
+                                        matches!(&*reader, #name::#orig_ident { .. })
+                                    })
                                     .unwrap_or(false);
                                 if matches {
                                     let field: #subfield_ty = #constructor(
@@ -582,9 +610,11 @@ fn variant_to_tokens(
             let mut tokens = if include_body {
                 quote! {
                     fn #ident(self) -> bool {
-                        match #library_path::StoreField::reader(&self) {
+                        let reader = #library_path::StoreField::reader(&self);
+                        #library_path::StoreField::track_self_and_ancestors(&self);
+                        match reader {
                             Some(reader) => {
-                                #library_path::StoreField::track_self_and_ancestors(&self);
+                                #observe_variant
                                 matches!(&*reader, #name::#orig_ident { .. })
                             },
                             None => false
@@ -605,7 +635,7 @@ fn variant_to_tokens(
                 .enumerate()
                 .map(|(idx, field)| {
                     let field_ident = idx;
-                    let path_idx = field_offset + idx;
+                    let path_idx = idx;
                     let Some((subfield_ty, constructor, key_arg)) =
                         enum_subfield_tokens(field, library_path, clear_generics, any_store_field, name)?
                     else {
@@ -624,10 +654,13 @@ fn variant_to_tokens(
                     Ok(if include_body {
                         quote! {
                             fn #combined_ident(self) -> Option<#subfield_ty> {
-                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 let reader = #library_path::StoreField::reader(&self);
+                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 let matches = reader
-                                    .map(|reader| matches!(&*reader, #name::#orig_ident(..)))
+                                    .map(|reader| {
+                                        #observe_variant
+                                        matches!(&*reader, #name::#orig_ident(..))
+                                    })
                                     .unwrap_or(false);
                                 if matches {
                                     let field: #subfield_ty = #constructor(
@@ -790,13 +823,14 @@ impl PatchModel {
                 quote! { match new {} }
             }
             PatchModelTy::Enum { variants } => {
-                let mut next_field = 0;
+                let current_variant =
+                    enum_variant_to_tokens(name, variants, quote! { &*self });
+                let replacement_variant =
+                    enum_variant_to_tokens(name, variants, quote! { &*this });
                 let arms = variants
                     .iter()
                     .map(|variant| {
                         let ident = &variant.ident;
-                        let field_offset = next_field;
-                        next_field += variant.fields.len();
                         let mut old_bindings = Vec::new();
                         let mut new_bindings = Vec::new();
                         let mut patches = Vec::new();
@@ -812,7 +846,7 @@ impl PatchModel {
                             patches.push(patch_field_to_tokens(
                                 &library_path,
                                 field,
-                                field_offset + idx,
+                                idx,
                                 quote! { #old },
                                 quote! { #new },
                             )?);
@@ -845,7 +879,7 @@ impl PatchModel {
                         } else {
                             quote! {
                                 let mut new_path = path.clone();
-                                new_path.push(#field_offset);
+                                new_path.push(0);
                                 #(#patches)*
                             }
                         };
@@ -858,6 +892,9 @@ impl PatchModel {
                     Some(quote! {
                         (this, new) => {
                             *this = new;
+                            if let Some(keys) = keys {
+                                keys.observe_variant_unkeyed(path, #replacement_variant);
+                            }
                             #refresh
                             notify(path);
                         }
@@ -866,6 +903,9 @@ impl PatchModel {
                     None
                 };
                 quote! {
+                    if let Some(keys) = keys {
+                        keys.observe_variant_unkeyed(path, #current_variant);
+                    }
                     match (self, new) {
                         #(#arms,)*
                         #fallback
@@ -967,15 +1007,13 @@ fn patch_enum_refresh_to_tokens(
     library_path: &TokenStream,
     variants: &[Variant],
 ) -> Result<TokenStream> {
-    let mut next_field = 0usize;
     let mut arms = Vec::new();
     for variant in variants {
         let ident = &variant.ident;
         let mut bindings = Vec::new();
         let mut refreshes = Vec::new();
         for (idx, field) in variant.fields.iter().enumerate() {
-            let field_idx = next_field;
-            next_field += 1;
+            let field_idx = idx;
             if let Some((key_fn, key_ty)) =
                 parse_patch_key_closure(&field.attrs)?
             {

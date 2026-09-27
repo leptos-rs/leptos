@@ -132,17 +132,11 @@ where
     }
 
     #[track_caller]
-    fn track_field(&self) {
-        let mut full_path = self.path().into_iter().collect::<StorePath>();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
-
-        while !full_path.is_empty() {
-            full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
-            inner.this.track();
-        }
+    fn track_self_and_ancestors(&self) {
+        self.inner.track_self_and_ancestors();
+        self.get_trigger(self.path().into_iter().collect())
+            .this
+            .track();
     }
 }
 

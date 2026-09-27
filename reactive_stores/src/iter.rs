@@ -77,7 +77,7 @@ where
         self.inner
             .path()
             .into_iter()
-            .chain(iter::once(self.index.into()))
+            .chain(self.inner.index_path_segment(self.index, None))
     }
 
     fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
@@ -105,6 +105,7 @@ where
         if index >= inner.len() {
             return None;
         }
+        self.inner.index_path_segment(index, Some(&*inner))?;
         Some(MappedMutArc::new(
             inner,
             move |n| &n[index],
@@ -115,14 +116,15 @@ where
     fn writer(&self) -> Option<Self::Writer> {
         let mut parent = self.inner.writer()?;
         parent.untrack();
-        let triggers = self.triggers_for_current_path();
-        let inner = WriteGuard::new(triggers, parent);
         let index = self.index;
-        // See `reader`: the write guard holds the inner lock, so a single
-        // bounds check here is sufficient to keep the projection panic-free.
-        if index >= inner.len() {
+        // Prepare the canonical segment from the held guard before paths are
+        // used for notifications: acquiring a reader here would fail.
+        if index >= parent.len() {
             return None;
         }
+        self.inner.index_path_segment(index, Some(&*parent))?;
+        let triggers = self.triggers_for_current_path();
+        let inner = WriteGuard::new(triggers, parent);
         Some(MappedMutArc::new(
             inner,
             move |n| &n[index],
@@ -135,21 +137,12 @@ where
         self.inner.keys()
     }
 
-    fn track_field(&self) {
-        let mut full_path = self.path().into_iter().collect::<StorePath>();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
-
-        // tracks `this` for all ancestors: i.e., it will track any change that is made
-        // directly to one of its ancestors, but not a change made to a *child* of an ancestor
-        // (which would end up with every subfield tracking its own siblings, because they are
-        // children of its parent)
-        while !full_path.is_empty() {
-            full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
-            inner.this.track();
-        }
+    fn track_self_and_ancestors(&self) {
+        self.inner.track_self_and_ancestors();
+        self.inner.track_index_selection();
+        self.get_trigger(self.path().into_iter().collect())
+            .this
+            .track();
     }
 }
 
@@ -261,10 +254,8 @@ where
 
     #[track_caller]
     fn iter_unkeyed(self) -> StoreFieldIter<Inner, Prev> {
-        // reactively track changes to this field
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
+        // Include selection dependencies inherited from indexed ancestors.
+        self.track_field();
 
         // get the current length of the field by accessing slice
         let len = self.reader().map(|n| n.len()).unwrap_or(0);

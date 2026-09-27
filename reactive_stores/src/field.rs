@@ -81,6 +81,34 @@ where
             .unwrap_or_default()
     }
 
+    fn index_path_segment(
+        &self,
+        index: usize,
+        value: Option<&Self::Value>,
+    ) -> Option<StorePathSegment> {
+        self.inner
+            .try_get_value()
+            .and_then(|inner| inner.index_path_segment(index, value))
+    }
+
+    fn track_index_selection(&self) {
+        if let Some(inner) = self.inner.try_get_value() {
+            inner.track_index_selection();
+        }
+    }
+
+    fn track_self_and_ancestors(&self) {
+        if let Some(inner) = self.inner.try_get_value() {
+            inner.track_self_and_ancestors();
+        }
+    }
+
+    fn track_field(&self) {
+        if let Some(inner) = self.inner.try_get_value() {
+            inner.track_field();
+        }
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         self.inner.try_get_value().and_then(|inner| inner.reader())
     }
@@ -149,6 +177,27 @@ where
 {
     #[track_caller]
     fn from(value: Subfield<Inner, Prev, T>) -> Self {
+        Field {
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            inner: ArenaItem::new_with_storage(value.into()),
+        }
+    }
+}
+
+impl<Inner, Prev, K, T, S> From<KeyedSubfield<Inner, Prev, K, T>>
+    for Field<T, S>
+where
+    KeyedSubfield<Inner, Prev, K, T>: Clone,
+    K: Debug + Send + Sync + Eq + Hash + 'static,
+    T: KeyedIterable + 'static,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
+    Prev: 'static,
+    S: Storage<ArcField<T>>,
+{
+    #[track_caller]
+    fn from(value: KeyedSubfield<Inner, Prev, K, T>) -> Self {
         Field {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),

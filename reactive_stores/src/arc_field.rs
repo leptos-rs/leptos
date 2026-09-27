@@ -31,6 +31,9 @@ where
     defined_at: &'static Location<'static>,
     path: Arc<dyn Fn() -> StorePath + Send + Sync>,
     path_unkeyed: Arc<dyn Fn() -> StorePath + Send + Sync>,
+    index_path_segment: Arc<
+        dyn Fn(usize, Option<&T>) -> Option<StorePathSegment> + Send + Sync,
+    >,
     get_trigger: Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
     get_trigger_unkeyed:
         Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
@@ -39,6 +42,8 @@ where
         Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
     keys: Arc<dyn Fn() -> Option<KeyMap> + Send + Sync>,
     track_field: Arc<dyn Fn() + Send + Sync>,
+    track_self_and_ancestors: Arc<dyn Fn() + Send + Sync>,
+    track_index_selection: Arc<dyn Fn() + Send + Sync>,
     notify: Arc<dyn Fn() + Send + Sync>,
     is_disposed: Arc<dyn Fn() -> bool + Send + Sync>,
 }
@@ -120,6 +125,26 @@ impl<T> StoreField for ArcField<T> {
         (self.path_unkeyed)()
     }
 
+    fn index_path_segment(
+        &self,
+        index: usize,
+        value: Option<&Self::Value>,
+    ) -> Option<StorePathSegment> {
+        (self.index_path_segment)(index, value)
+    }
+
+    fn track_index_selection(&self) {
+        (self.track_index_selection)();
+    }
+
+    fn track_self_and_ancestors(&self) {
+        (self.track_self_and_ancestors)();
+    }
+
+    fn track_field(&self) {
+        (self.track_field)();
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         (self.read)().map(StoreFieldReader::new)
     }
@@ -141,6 +166,15 @@ where
     #[track_caller]
     fn from(value: Store<T, S>) -> Self {
         ArcField {
+            track_index_selection: Arc::new(move || {
+                value.track_index_selection()
+            }),
+            index_path_segment: Arc::new(move |index, collection| {
+                value.index_path_segment(index, collection)
+            }),
+            track_self_and_ancestors: Arc::new(move || {
+                value.track_self_and_ancestors()
+            }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: Arc::new(move || value.path().into_iter().collect()),
@@ -168,6 +202,20 @@ where
     #[track_caller]
     fn from(value: ArcStore<T>) -> Self {
         ArcField {
+            track_index_selection: Arc::new({
+                let value = value.clone();
+                move || value.track_index_selection()
+            }),
+            index_path_segment: Arc::new({
+                let value = value.clone();
+                move |index, collection| {
+                    value.index_path_segment(index, collection)
+                }
+            }),
+            track_self_and_ancestors: Arc::new({
+                let value = value.clone();
+                move || value.track_self_and_ancestors()
+            }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: Arc::new({
@@ -224,6 +272,20 @@ where
     #[track_caller]
     fn from(value: Subfield<Inner, Prev, T>) -> Self {
         ArcField {
+            track_index_selection: Arc::new({
+                let value = value.clone();
+                move || value.track_index_selection()
+            }),
+            index_path_segment: Arc::new({
+                let value = value.clone();
+                move |index, collection| {
+                    value.index_path_segment(index, collection)
+                }
+            }),
+            track_self_and_ancestors: Arc::new({
+                let value = value.clone();
+                move || value.track_self_and_ancestors()
+            }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: Arc::new({
@@ -279,6 +341,20 @@ where
     #[track_caller]
     fn from(value: DerefedField<Inner>) -> Self {
         ArcField {
+            track_index_selection: Arc::new({
+                let value = value.clone();
+                move || value.track_index_selection()
+            }),
+            index_path_segment: Arc::new({
+                let value = value.clone();
+                move |index, collection| {
+                    value.index_path_segment(index, collection)
+                }
+            }),
+            track_self_and_ancestors: Arc::new({
+                let value = value.clone();
+                move || value.track_self_and_ancestors()
+            }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: Arc::new({
@@ -335,6 +411,20 @@ where
     #[track_caller]
     fn from(value: AtIndex<Inner, Prev>) -> Self {
         ArcField {
+            track_index_selection: Arc::new({
+                let value = value.clone();
+                move || value.track_index_selection()
+            }),
+            index_path_segment: Arc::new({
+                let value = value.clone();
+                move |index, collection| {
+                    value.index_path_segment(index, collection)
+                }
+            }),
+            track_self_and_ancestors: Arc::new({
+                let value = value.clone();
+                move || value.track_self_and_ancestors()
+            }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: Arc::new({
@@ -396,6 +486,20 @@ where
     #[track_caller]
     fn from(value: AtKeyed<Inner, Prev, K, T>) -> Self {
         ArcField {
+            track_index_selection: Arc::new({
+                let value = value.clone();
+                move || value.track_index_selection()
+            }),
+            index_path_segment: Arc::new({
+                let value = value.clone();
+                move |index, collection| {
+                    value.index_path_segment(index, collection)
+                }
+            }),
+            track_self_and_ancestors: Arc::new({
+                let value = value.clone();
+                move || value.track_self_and_ancestors()
+            }),
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: Arc::new({
@@ -442,6 +546,75 @@ where
     }
 }
 
+impl<Inner, Prev, K, T> From<KeyedSubfield<Inner, Prev, K, T>> for ArcField<T>
+where
+    KeyedSubfield<Inner, Prev, K, T>: Clone,
+    K: Debug + Send + Sync + Eq + Hash + 'static,
+    T: KeyedIterable + 'static,
+    for<'a> &'a T: IntoIterator<Item = <T as KeyedIterable>::IterItem<'a>>,
+    Inner: StoreField<Value = Prev> + IsDisposed + Send + Sync + 'static,
+    Prev: 'static,
+{
+    #[track_caller]
+    fn from(value: KeyedSubfield<Inner, Prev, K, T>) -> Self {
+        ArcField {
+            track_index_selection: Arc::new({
+                let value = value.clone();
+                move || value.track_index_selection()
+            }),
+            #[cfg(any(debug_assertions, leptos_debuginfo))]
+            defined_at: Location::caller(),
+            path: Arc::new({
+                let value = value.clone();
+                move || value.path().into_iter().collect()
+            }),
+            path_unkeyed: Arc::new({
+                let value = value.clone();
+                move || value.path_unkeyed().into_iter().collect()
+            }),
+            index_path_segment: Arc::new({
+                let value = value.clone();
+                move |index, collection| {
+                    value.index_path_segment(index, collection)
+                }
+            }),
+            get_trigger: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger(path)
+            }),
+            get_trigger_unkeyed: Arc::new({
+                let value = value.clone();
+                move |path| value.get_trigger_unkeyed(path)
+            }),
+            read: Arc::new({
+                let value = value.clone();
+                move || value.reader().map(StoreFieldReader::new)
+            }),
+            write: Arc::new({
+                let value = value.clone();
+                move || value.writer().map(StoreFieldWriter::new)
+            }),
+            keys: Arc::new({
+                let value = value.clone();
+                move || value.keys()
+            }),
+            track_field: Arc::new({
+                let value = value.clone();
+                move || value.track_field()
+            }),
+            track_self_and_ancestors: Arc::new({
+                let value = value.clone();
+                move || value.track_self_and_ancestors()
+            }),
+            notify: Arc::new({
+                let value = value.clone();
+                move || value.notify()
+            }),
+            is_disposed: Arc::new(move || value.is_disposed()),
+        }
+    }
+}
+
 impl<T> Clone for ArcField<T> {
     fn clone(&self) -> Self {
         Self {
@@ -449,6 +622,11 @@ impl<T> Clone for ArcField<T> {
             defined_at: self.defined_at,
             path: self.path.clone(),
             path_unkeyed: self.path_unkeyed.clone(),
+            index_path_segment: Arc::clone(&self.index_path_segment),
+            track_index_selection: Arc::clone(&self.track_index_selection),
+            track_self_and_ancestors: Arc::clone(
+                &self.track_self_and_ancestors,
+            ),
             get_trigger: Arc::clone(&self.get_trigger),
             get_trigger_unkeyed: Arc::clone(&self.get_trigger_unkeyed),
             read: Arc::clone(&self.read),

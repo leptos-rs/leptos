@@ -4,8 +4,8 @@ use reactive_graph::{
 };
 use reactive_stores::{Patch, PatchField, Store, StorePath};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 #[derive(Debug, PartialEq, Store, Patch)]
@@ -39,14 +39,16 @@ fn matching_variants_only_notify_changed_fields() {
         title: "hello".into(),
         count: 1,
     };
-    assert!(patch_paths(
-        &mut state,
-        State::Ready {
-            title: "hello".into(),
-            count: 1
-        }
-    )
-    .is_empty());
+    assert!(
+        patch_paths(
+            &mut state,
+            State::Ready {
+                title: "hello".into(),
+                count: 1
+            }
+        )
+        .is_empty()
+    );
     assert_eq!(
         patch_paths(
             &mut state,
@@ -55,7 +57,7 @@ fn matching_variants_only_notify_changed_fields() {
                 count: 2
             }
         ),
-        vec![path(&[7, 3])]
+        vec![path(&[7, 1])]
     );
     assert_eq!(
         patch_paths(
@@ -65,7 +67,7 @@ fn matching_variants_only_notify_changed_fields() {
                 count: 2
             }
         ),
-        vec![path(&[7, 2])]
+        vec![path(&[7, 0])]
     );
     assert_eq!(
         state,
@@ -611,8 +613,8 @@ mod upstream_regressions {
     };
     use reactive_stores::{Patch, Store};
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
 
     #[derive(Debug, Clone, PartialEq, Patch, Store, Default)]

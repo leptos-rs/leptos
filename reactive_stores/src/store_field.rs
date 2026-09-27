@@ -71,7 +71,8 @@ pub trait StoreField: Sized {
     #[track_caller]
     fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger;
 
-    /// The path of this field (see [`StorePath`]).
+    /// The canonical path of this field (see [`StorePath`]). Keyed collection
+    /// items use their stable key segments, including when accessed by index.
     #[track_caller]
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment>;
 
@@ -82,20 +83,42 @@ pub trait StoreField: Sized {
         self.path()
     }
 
+    /// Resolves one collection index to its canonical path segment.
+    ///
+    /// A supplied value is borrowed from an already-held reader or writer and
+    /// must be used instead of acquiring another value lock. Without a value,
+    /// keyed fields may read the collection to refresh stale key metadata.
+    /// Ordinary collections keep positional segments.
+    #[doc(hidden)]
+    fn index_path_segment(
+        &self,
+        index: usize,
+        _value: Option<&Self::Value>,
+    ) -> Option<StorePathSegment> {
+        Some(index.into())
+    }
+
+    /// Tracks collection changes that can change the key selected by an index.
+    /// Ordinary positional collections need no additional dependency beyond
+    /// the item and ancestor triggers; keyed collections also track reorders.
+    #[doc(hidden)]
+    fn track_index_selection(&self) {}
+
     /// Reactively tracks this field.
     #[track_caller]
     fn track_field(&self) {
-        let path = self.path().into_iter().collect();
-        let trigger = self.get_trigger(path);
-        trigger.this.track();
-        trigger.children.track();
+        self.track_self_and_ancestors();
+        self.get_trigger(self.path().into_iter().collect())
+            .children
+            .track();
     }
 
     /// Tracks direct changes to this field and its ancestors, but not its children.
     ///
     /// Used by enum accessors to detect variant changes without subscribing to
     /// changes in the variant's payload. Ancestor tracking also detects replacement
-    /// of a containing value.
+    /// of a containing value. Index projections into keyed collections also
+    /// track collection changes so that a reorder can change the selected item.
     #[doc(hidden)]
     #[track_caller]
     fn track_self_and_ancestors(&self) {
@@ -181,7 +204,7 @@ where
 {
     type Value = T;
     type Reader = Plain<T>;
-    type Writer = WriteGuard<ArcTrigger, StoreWriteGuard<T>>;
+    type Writer = WriteGuard<Vec<ArcTrigger>, StoreWriteGuard<T>>;
 
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
@@ -212,10 +235,10 @@ where
 
     #[track_caller]
     fn writer(&self) -> Option<Self::Writer> {
-        let trigger = self.get_trigger(Default::default());
+        let triggers = self.triggers_for_current_path();
         let guard = UntrackedWriteGuard::try_new(Arc::clone(&self.value))?;
         Some(WriteGuard::new(
-            trigger.children,
+            triggers,
             StoreWriteGuard {
                 inner: guard,
                 keys: self.keys.clone(),
@@ -237,7 +260,7 @@ where
 {
     type Value = T;
     type Reader = Plain<T>;
-    type Writer = WriteGuard<ArcTrigger, StoreWriteGuard<T>>;
+    type Writer = <ArcStore<T> as StoreField>::Writer;
 
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {

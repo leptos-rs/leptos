@@ -4,7 +4,7 @@ use reactive_stores::{
     StorePathSegment,
 };
 use std::{
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     thread,
     time::Duration,
 };
@@ -146,6 +146,174 @@ fn uninitialized_direct_keyed_patch_after_parent_set() {
         items.at_key(20).get_untracked(),
         Item { id: 20, value: 222 }
     );
+}
+
+#[derive(Clone, Debug, PartialEq, Store)]
+struct Group {
+    id: usize,
+    #[store(key: usize = |item| item.id)]
+    items: Vec<Item>,
+}
+
+#[derive(Clone, Debug, PartialEq, Store)]
+struct NestedState {
+    #[store(key: usize = |group| group.id)]
+    groups: Vec<Group>,
+}
+
+fn group(id: usize, values: &[(usize, i32)]) -> Group {
+    Group {
+        id,
+        items: state(values).items,
+    }
+}
+
+#[derive(Clone)]
+struct BeforeRead<F> {
+    inner: F,
+    hook: Arc<Mutex<Option<Box<dyn FnOnce() + Send>>>>,
+}
+
+impl<F: StoreField> StoreField for BeforeRead<F> {
+    type Value = F::Value;
+    type Reader = F::Reader;
+    type Writer = F::Writer;
+
+    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger(path)
+    }
+
+    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+        self.inner.get_trigger_unkeyed(path)
+    }
+
+    fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner.path()
+    }
+
+    fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
+        self.inner.path_unkeyed()
+    }
+
+    fn reader(&self) -> Option<Self::Reader> {
+        let hook = self.hook.lock().unwrap().take();
+        if let Some(hook) = hook {
+            hook();
+        }
+        self.inner.reader()
+    }
+
+    fn writer(&self) -> Option<Self::Writer> {
+        self.inner.writer()
+    }
+
+    fn keys(&self) -> Option<KeyMap> {
+        self.inner.keys()
+    }
+}
+
+#[test]
+fn update_keys_resolves_nested_path_after_reader_acquisition() {
+    let store = ArcStore::new(NestedState {
+        groups: vec![group(10, &[(1, 11), (2, 12)])],
+    });
+    let groups = store.clone().groups();
+    let ten = groups.at_key(10);
+    assert_eq!(
+        ten.clone().items().at_key(1).get_untracked(),
+        Item { id: 1, value: 11 }
+    );
+
+    let (paused_tx, paused_rx) = mpsc::channel();
+    let (resume_tx, resume_rx) = mpsc::channel();
+    let (done_tx, done_rx) = mpsc::channel();
+    let timeout = Duration::from_secs(10);
+    let wrapped = BeforeRead {
+        inner: ten.clone(),
+        hook: Arc::new(Mutex::new(Some(Box::new(move || {
+            paused_tx.send(()).unwrap();
+            resume_rx
+                .recv_timeout(timeout)
+                .expect("nested reader was not released");
+        })))),
+    };
+    let delayed = thread::spawn(move || {
+        wrapped.items().update_keys();
+        done_tx.send(()).unwrap();
+    });
+
+    paused_rx
+        .recv_timeout(timeout)
+        .expect("update_keys did not attempt to acquire its reader");
+    // Recycle group 10's canonical slot for group 20, then reinsert group 10
+    // in a different slot. A path captured before the reader now names group 20.
+    groups.set(vec![group(20, &[(2, 22), (1, 21)])]);
+    groups.set(vec![
+        group(20, &[(2, 22), (1, 21)]),
+        group(10, &[(1, 11), (2, 12)]),
+    ]);
+    resume_tx.send(()).unwrap();
+    done_rx
+        .recv_timeout(timeout)
+        .expect("nested update_keys did not finish (possible lock recursion)");
+    delayed.join().expect("nested update_keys panicked");
+
+    // Read before writing: a write could invalidate and repair poisoned keys.
+    let twenty_items = groups.at_key(20).items();
+    assert_eq!(
+        twenty_items.at_key(1).get_untracked(),
+        Item { id: 1, value: 21 }
+    );
+    assert_eq!(
+        twenty_items.at_key(2).get_untracked(),
+        Item { id: 2, value: 22 }
+    );
+    assert_eq!(
+        ten.clone().items().at_key(1).get_untracked(),
+        Item { id: 1, value: 11 }
+    );
+    twenty_items.at_key(1).value().set(99);
+    ten.items().at_key(2).value().set(88);
+    assert_eq!(
+        store.get_untracked(),
+        NestedState {
+            groups: vec![
+                group(20, &[(2, 22), (1, 99)]),
+                group(10, &[(1, 11), (2, 88)]),
+            ],
+        }
+    );
+}
+
+#[test]
+fn nested_update_keys_initializes_cold_and_stale_ancestors() {
+    let (done_tx, done_rx) = mpsc::channel();
+    let worker = thread::spawn(move || {
+        let store = ArcStore::new(NestedState {
+            groups: vec![group(10, &[(1, 11), (2, 12)])],
+        });
+        let items = store.clone().groups().at_key(10).items();
+
+        // No path lookup or keyed read has initialized either registry yet.
+        items.update_keys();
+        assert_eq!(items.at_key(1).get_untracked(), Item { id: 1, value: 11 });
+
+        // A root replacement leaves both ancestor and child registries stale.
+        store.set(NestedState {
+            groups: vec![
+                group(20, &[(1, 21)]),
+                group(10, &[(2, 112), (1, 111)]),
+            ],
+        });
+        items.update_keys();
+        assert_eq!(items.at_key(1).get_untracked(), Item { id: 1, value: 111 });
+        assert_eq!(items.at_key(2).get_untracked(), Item { id: 2, value: 112 });
+        done_tx.send(()).unwrap();
+    });
+    done_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("nested update_keys did not finish (possible lock recursion)");
+    worker.join().expect("nested update_keys panicked");
 }
 
 #[derive(Clone)]

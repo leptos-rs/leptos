@@ -235,6 +235,29 @@ where
         self.inner.get_trigger_unkeyed(path)
     }
 
+    fn index_path_segment(
+        &self,
+        index: usize,
+        value: Option<&Self::Value>,
+    ) -> Option<StorePathSegment> {
+        self.keys()?.try_index_segment::<K>(
+            self.path().into_iter().collect(),
+            index,
+            || match value {
+                Some(value) => {
+                    Some(value.into_iter().map(self.key_fn).collect())
+                }
+                None => self.latest_keys(),
+            },
+        )
+    }
+
+    fn track_index_selection(&self) {
+        if let Some(keys) = self.keys() {
+            keys.track_index_selection(self.path().into_iter().collect());
+        }
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
         Some(Mapped::new_with_guard(inner, self.read))
@@ -253,21 +276,11 @@ where
         self.inner.keys()
     }
 
-    fn track_field(&self) {
-        let mut full_path = self.path().into_iter().collect::<StorePath>();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
-
-        // tracks `this` for all ancestors: i.e., it will track any change that is made
-        // directly to one of its ancestors, but not a change made to a *child* of an ancestor
-        // (which would end up with every subfield tracking its own siblings, because they are
-        // children of its parent)
-        while !full_path.is_empty() {
-            full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
-            inner.this.track();
-        }
+    fn track_self_and_ancestors(&self) {
+        self.inner.track_self_and_ancestors();
+        self.get_trigger(self.path().into_iter().collect())
+            .this
+            .track();
     }
 }
 
@@ -726,21 +739,11 @@ where
         self.inner.keys()
     }
 
-    fn track_field(&self) {
-        let mut full_path = self.path().into_iter().collect::<StorePath>();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
-        trigger.this.track();
-        trigger.children.track();
-
-        // tracks `this` for all ancestors: i.e., it will track any change that is made
-        // directly to one of its ancestors, but not a change made to a *child* of an ancestor
-        // (which would end up with every subfield tracking its own siblings, because they are
-        // children of its parent)
-        while !full_path.is_empty() {
-            full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
-            inner.this.track();
-        }
+    fn track_self_and_ancestors(&self) {
+        self.inner.track_self_and_ancestors();
+        self.get_trigger(self.path().into_iter().collect())
+            .this
+            .track();
     }
 }
 
@@ -860,17 +863,17 @@ where
 {
     /// Generates a new set of keys and registers those keys with the parent store.
     pub fn update_keys(&self) {
-        let inner_path = self.path().into_iter().collect();
         let keys = self
             .inner
             .keys()
             .expect("updating keys on a store with no keys");
 
-        // generating the latest keys out here means that if we have
-        // nested keyed fields, the second field will not try to take a
-        // read-lock on the key map to get the field while the first field
-        // is still holding the write-lock in the closure below
+        // Resolve the canonical path and snapshot under the same value reader,
+        // held through publication so an ancestor's keyed slot cannot be recycled.
+        // Both operations stay outside the key-map write lock: nested fields
+        // may need to access their ancestors' key entries.
         if let Some(reader) = self.reader() {
+            let inner_path = self.path().into_iter().collect();
             let latest = reader.deref().into_iter().map(self.key_fn).collect();
             keys.update_field_keys(inner_path, latest);
         }

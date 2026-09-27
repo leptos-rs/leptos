@@ -81,6 +81,10 @@ where
         self.inner.path_unkeyed()
     }
 
+    fn track_self_and_ancestors(&self) {
+        self.inner.track_self_and_ancestors();
+    }
+
     fn reader(&self) -> Option<Self::Reader> {
         let inner = self.inner.reader()?;
         Some(Mapped::new_with_guard(inner, |n| n.deref()))

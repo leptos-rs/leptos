@@ -191,7 +191,6 @@
 //! replaces the enum and notifies subscribers at the enum's path. Named and tuple
 //! fields support `#[patch(...)]` and `#[store(key: ...)]` just like struct fields.
 //! A keyed accessor returns `Option<KeyedSubfield<...>>`:
-//!
 //! ```rust
 //! use reactive_stores::{Patch, Store};
 //! use reactive_graph::traits::Get;
@@ -225,8 +224,10 @@
 //! ```
 //!
 //! Keyed handles follow their key when a containing value is replaced. The registry
-//! lazily refreshes a collection's key mapping in O(n) on its first keyed access
-//! after a store write; subsequent reads reuse the mapping. Writes invalidate
+//! lazily refreshes a collection's key mapping on its first keyed access after a
+//! store write; subsequent reads reuse the mapping. Rebuilding keys scans the
+//! collection once; retiring removed items also scans the registry to discard
+//! their descendant metadata. Writes invalidate
 //! cached mappings even when reactive notifications are suppressed. Invalidation
 //! is conservatively store-wide, so a write to an unrelated field may also cause
 //! a collection to refresh on its next access. Constructing an enum accessor does
@@ -236,13 +237,22 @@
 //! the collection's path. Calling `.patch()` on the keyed accessor itself preserves
 //! the more selective collection-structure notifications of [`KeyedSubfield`].
 //!
+//! Access through `.at_unkeyed(index)` remains positional, even on a keyed
+//! collection: after a reorder it selects the new item at that index, while
+//! `.at_key(key)` follows the key. Indexed observers also track collection
+//! structure changes, without subscribing to unrelated item payload writes.
+//! Both access routes share the current item's keyed metadata and notifications.
+//!
 //! Enum accessors and variant checks track direct changes to the enum and its
 //! ancestors, but not changes to its payload fields. Reading a field returned by an
 //! accessor additionally tracks that field, without subscribing to its siblings.
 //! Replacing or writing to the whole enum (or an ancestor) still notifies these
 //! subscribers, even if the variant remains the same.
 //! A previously obtained field handle must not be read or written after switching to
-//! a different variant; reacquire it through the accessor instead.
+//! a different variant; reacquire it through the accessor instead, even if the enum
+//! later returns to the original variant. Field paths are local to each variant.
+//! Accessors and enum patches discard the previous variant's keyed metadata when
+//! they observe a variant change, so reused paths can have different key types.
 //!
 //! #### Box
 //! [`Box<T>`](std::boxed::Box) also requires some special treatment in how you dereference elements of the Box, especially
@@ -310,7 +320,7 @@ use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
         ArcTrigger,
-        guards::{Plain, ReadGuard, WriteGuard},
+        guards::{Plain, ReadGuard},
     },
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Track,
@@ -318,7 +328,7 @@ use reactive_graph::{
     },
 };
 pub use reactive_stores_macro::{Patch, Store};
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use std::{
     any::Any,
     fmt::Debug,
@@ -326,8 +336,8 @@ use std::{
     ops::DerefMut,
     panic::Location,
     sync::{
+        Arc, RwLock, Weak,
         atomic::{AtomicUsize, Ordering},
-        Arc, RwLock,
     },
 };
 
@@ -500,14 +510,85 @@ struct KeyMapEntry {
     generation: usize,
 }
 
+#[derive(Default)]
+struct KeyMapState {
+    fields: FxHashMap<StorePath, KeyMapEntry>,
+    variants: FxHashMap<StorePath, usize>,
+    // Allocated only for indexed observers of keyed collections. Payload writes
+    // must not wake these observers unless the selected item's own path changes.
+    index_selections: FxHashMap<StorePath, ArcTrigger>,
+    // Only in-flight initializers own strong references. Retirement removes their
+    // identities without invalidating snapshots for unrelated paths.
+    pending: FxHashMap<StorePath, Weak<()>>,
+}
+
 /// A map of the keys for a keyed subfield.
 #[derive(Clone, Default)]
-pub struct KeyMap(
-    Arc<RwLock<FxHashMap<StorePath, KeyMapEntry>>>,
-    Arc<AtomicUsize>,
-);
+pub struct KeyMap(Arc<RwLock<KeyMapState>>, Arc<AtomicUsize>);
 
 impl KeyMap {
+    fn track_index_selection(&self, path: StorePath) {
+        let trigger = self
+            .0
+            .write()
+            .or_poisoned()
+            .index_selections
+            .entry(path)
+            .or_default()
+            .clone();
+        trigger.track();
+    }
+
+    fn notify_index_selection(&self, path: &StorePath) {
+        let trigger = self
+            .0
+            .read()
+            .or_poisoned()
+            .index_selections
+            .get(path)
+            .cloned();
+        if let Some(trigger) = trigger {
+            trigger.notify();
+        }
+    }
+
+    /// Records an enum variant at a canonical keyed path.
+    ///
+    /// Generated accessors must call this while holding the value reader. Enum
+    /// patches record the current variant on entry and the new one on replacement.
+    /// Callers must obtain a new accessor after switching variants; an unobserved
+    /// roundtrip to the same variant does not guarantee fresh key identities.
+    #[doc(hidden)]
+    pub fn observe_variant(&self, path: StorePath, variant: usize) {
+        let mut state = self.0.write().or_poisoned();
+        self.observe_variant_locked(&mut state, path, variant);
+    }
+
+    /// Records an enum variant, translating collection indices under the registry
+    /// lock. The caller must hold the value reader or writer while observing it.
+    #[doc(hidden)]
+    pub fn observe_variant_unkeyed(&self, path: &StorePath, variant: usize) {
+        let mut state = self.0.write().or_poisoned();
+        let path = state.keyed_path(path);
+        self.observe_variant_locked(&mut state, path, variant);
+    }
+
+    fn observe_variant_locked(
+        &self,
+        state: &mut KeyMapState,
+        path: StorePath,
+        variant: usize,
+    ) {
+        let previous = state.variants.get(&path).copied();
+        if previous == Some(variant) {
+            return;
+        }
+        // First observations also retire registries whose variant was never
+        // recorded, since local field paths can alias across variants.
+        state.retire_descendants(&path, |_| true);
+        state.variants.insert(path, variant);
+    }
+
     /// Accesses the keys for a collection, initializing them if necessary.
     ///
     /// Both key-to-index and index-to-path mappings are maintained together by
@@ -541,32 +622,96 @@ impl KeyMap {
     where
         K: Debug + Hash + Eq + Send + Sync + 'static,
     {
-        // Associate the snapshot with the revision *before* reading the value.
+        self.try_with_entry(
+            path,
+            initialize,
+            |entries, path, generation, latest| {
+                Self::access_entry(entries, path, generation, latest, fun)
+            },
+        )
+    }
+
+    fn try_index_segment<K>(
+        &self,
+        path: StorePath,
+        index: usize,
+        initialize: impl FnOnce() -> Option<Vec<K>>,
+    ) -> Option<StorePathSegment>
+    where
+        K: Debug + Hash + Eq + Send + Sync + 'static,
+    {
+        self.try_with_entry(
+            path,
+            initialize,
+            |entries, path, generation, latest| {
+                Self::access_entry(
+                    entries,
+                    path.clone(),
+                    generation,
+                    latest,
+                    |_| ((), Vec::new()),
+                )?;
+                entries
+                    .fields
+                    .get(&path)?
+                    .indices
+                    .get(index)
+                    .copied()
+                    .flatten()
+            },
+        )
+    }
+
+    fn try_with_entry<K, T>(
+        &self,
+        path: StorePath,
+        initialize: impl FnOnce() -> Option<Vec<K>>,
+        access: impl FnOnce(
+            &mut KeyMapState,
+            StorePath,
+            usize,
+            Option<Vec<K>>,
+        ) -> Option<T>,
+    ) -> Option<T>
+    where
+        K: Debug + Hash + Eq + Send + Sync + 'static,
+    {
+        // Associate the snapshot with the revision before reading the value.
         // A concurrent write must not make an older snapshot appear current.
         let generation = self.1.load(Ordering::Acquire);
         let mut initialize = Some(initialize);
         let mut latest = None;
+        let mut snapshot: Option<Arc<()>> = None;
         loop {
             let mut entries = self.0.write().or_poisoned();
             let current = self.1.load(Ordering::Acquire);
-            if current != generation {
+            let retired = snapshot.as_ref().is_some_and(|snapshot| {
+                !entries.pending.get(&path).is_some_and(|registered| {
+                    registered.as_ptr() == Arc::as_ptr(snapshot)
+                })
+            });
+            if current != generation || retired {
                 // A delayed snapshot must never overwrite a newer mapping (or
                 // resurrect a retired subtree). Reuse a current entry only.
-                if entries.get(&path)?.generation != current {
+                if entries.fields.get(&path)?.generation != current {
                     return None;
                 }
-                return Self::access_entry(
-                    &mut entries,
-                    path,
-                    current,
-                    None,
-                    fun,
-                );
+                return access(&mut entries, path, current, None);
             }
             let needs_refresh = entries
+                .fields
                 .get(&path)
                 .is_none_or(|entry| entry.generation != generation);
             if needs_refresh && latest.is_none() {
+                // Sweep completed initializers only on the cold path, keeping the
+                // map bounded by peak concurrent initialization rather than reads.
+                entries.pending.retain(|_, token| token.strong_count() > 0);
+                let token = entries.pending.entry(path.clone()).or_default();
+                snapshot = Some(token.upgrade().unwrap_or_else(|| {
+                    let snapshot = Arc::new(());
+                    *token = Arc::downgrade(&snapshot);
+                    snapshot
+                }));
                 // The initializer may recursively initialize an ancestor's keys.
                 // Recheck the entry afterwards: that can also retire this subtree.
                 drop(entries);
@@ -575,13 +720,7 @@ impl KeyMap {
                 latest = Some(initialize()?);
                 continue;
             }
-            return Self::access_entry(
-                &mut entries,
-                path,
-                generation,
-                latest,
-                fun,
-            );
+            return access(&mut entries, path, generation, latest);
         }
     }
 
@@ -600,7 +739,7 @@ impl KeyMap {
     }
 
     fn access_entry<K, T>(
-        entries: &mut FxHashMap<StorePath, KeyMapEntry>,
+        entries: &mut KeyMapState,
         path: StorePath,
         generation: usize,
         mut latest: Option<Vec<K>>,
@@ -610,13 +749,18 @@ impl KeyMap {
         K: Debug + Hash + Eq + Send + Sync + 'static,
     {
         let entry =
-            entries.entry(path.clone()).or_insert_with(|| KeyMapEntry {
-                fields: Box::new(FieldKeys::new(
-                    latest.take().expect("new key entries require a snapshot"),
-                )),
-                indices: Vec::new(),
-                generation,
-            });
+            entries
+                .fields
+                .entry(path.clone())
+                .or_insert_with(|| KeyMapEntry {
+                    fields: Box::new(FieldKeys::new(
+                        latest
+                            .take()
+                            .expect("new key entries require a snapshot"),
+                    )),
+                    indices: Vec::new(),
+                    generation,
+                });
         let fields = entry.fields.downcast_mut::<FieldKeys<K>>()?;
         if let Some(latest) = latest {
             fields.update(latest);
@@ -638,16 +782,9 @@ impl KeyMap {
         if !retired.is_empty() {
             // A recycled outer slot must not inherit the previous item's nested
             // registries, even when removal and insertion happen in one update.
-            entries.retain(|candidate, _| {
-                if candidate.len() <= path.len()
-                    || !candidate.into_iter().zip(&path).all(|(a, b)| a == b)
-                {
-                    return true;
-                }
-                !candidate
-                    .into_iter()
-                    .nth(path.len())
-                    .is_some_and(|segment| retired.contains(segment))
+            let retired = retired.into_iter().collect::<FxHashSet<_>>();
+            entries.retire_descendants(&path, |segment| {
+                retired.contains(&segment)
             });
         }
         Some(result)
@@ -659,10 +796,41 @@ impl KeyMap {
 
     #[track_caller]
     fn keyed_path(&self, unkeyed: &StorePath) -> StorePath {
-        let entries = self.0.read().or_poisoned();
+        self.0.read().or_poisoned().keyed_path(unkeyed)
+    }
+}
+
+impl KeyMapState {
+    // Metadata and in-flight snapshots must retire together, including snapshots
+    // that have not yet published a field entry. Preserve the parent itself.
+    fn retire_descendants(
+        &mut self,
+        path: &StorePath,
+        retire_child: impl Fn(StorePathSegment) -> bool,
+    ) {
+        let retain = |candidate: &StorePath| {
+            if candidate.len() <= path.len()
+                || !candidate.into_iter().zip(path).all(|(a, b)| a == b)
+            {
+                return true;
+            }
+            !candidate
+                .into_iter()
+                .nth(path.len())
+                .is_some_and(|segment| retire_child(*segment))
+        };
+        self.fields.retain(|candidate, _| retain(candidate));
+        self.variants.retain(|candidate, _| retain(candidate));
+        self.index_selections
+            .retain(|candidate, _| retain(candidate));
+        self.pending.retain(|candidate, _| retain(candidate));
+    }
+
+    #[track_caller]
+    fn keyed_path(&self, unkeyed: &StorePath) -> StorePath {
         let mut path = StorePath::with_capacity(unkeyed.len());
         for segment in unkeyed {
-            let segment = if let Some(entry) = entries.get(&path) {
+            let segment = if let Some(entry) = self.fields.get(&path) {
                 entry
                     .indices
                     .get(segment.0)
@@ -680,6 +848,200 @@ impl KeyMap {
             path.push(segment);
         }
         path
+    }
+}
+
+#[cfg(test)]
+mod key_map_variant_tests {
+    use super::*;
+
+    fn path(segments: &[usize]) -> StorePath {
+        segments.iter().copied().map(Into::into).collect()
+    }
+
+    fn seed(keys: &KeyMap, segments: &[usize]) {
+        keys.update_field_keys(path(segments), vec![10usize]);
+    }
+
+    #[test]
+    fn observations_retire_only_strict_descendants() {
+        let keys = KeyMap::default();
+        seed(&keys, &[]);
+        seed(&keys, &[0]);
+        seed(&keys, &[0, 1]);
+        seed(&keys, &[0, 1, 2]);
+        seed(&keys, &[1]);
+        keys.observe_variant(path(&[0, 3]), 0);
+        keys.observe_variant(path(&[1]), 0);
+        let generation = keys.1.load(Ordering::Acquire);
+
+        // An initial observation must also clean up unobserved legacy topology.
+        keys.observe_variant(path(&[0]), 0);
+        assert_eq!(keys.1.load(Ordering::Acquire), generation);
+        {
+            let state = keys.0.read().or_poisoned();
+            assert_eq!(state.fields.len(), 3);
+            assert!(state.fields.contains_key(&path(&[])));
+            assert!(state.fields.contains_key(&path(&[0])));
+            assert!(state.fields.contains_key(&path(&[1])));
+            assert_eq!(state.variants.len(), 2);
+            assert_eq!(state.variants.get(&path(&[1])), Some(&0));
+        }
+        seed(&keys, &[0, 1]);
+        keys.observe_variant(path(&[0]), 0);
+        assert!(
+            keys.0
+                .read()
+                .or_poisoned()
+                .fields
+                .contains_key(&path(&[0, 1]))
+        );
+        keys.observe_variant(path(&[0]), 1);
+        let state = keys.0.read().or_poisoned();
+
+        assert_eq!(keys.1.load(Ordering::Acquire), generation);
+        assert!(!state.fields.contains_key(&path(&[0, 1])));
+        assert_eq!(state.variants.get(&path(&[0])), Some(&1));
+    }
+
+    #[test]
+    fn unkeyed_observation_translates_and_slot_retirement_clears_variants() {
+        let keys = KeyMap::default();
+        keys.update_field_keys(path(&[0]), vec![10usize, 20]);
+        keys.observe_variant(path(&[0, 0]), 0);
+        seed(&keys, &[0, 0, 0]);
+        keys.update_field_keys(path(&[0]), vec![20usize, 10]);
+        keys.observe_variant_unkeyed(&path(&[0, 1]), 1);
+        {
+            let state = keys.0.read().or_poisoned();
+            assert_eq!(state.variants.get(&path(&[0, 0])), Some(&1));
+            assert!(!state.fields.contains_key(&path(&[0, 0, 0])));
+        }
+        keys.observe_variant(path(&[0, 1]), 0);
+        keys.update_field_keys(path(&[0]), vec![20usize, 30]);
+        let state = keys.0.read().or_poisoned();
+        assert!(!state.variants.contains_key(&path(&[0, 0])));
+        assert_eq!(state.variants.get(&path(&[0, 1])), Some(&0));
+    }
+
+    #[test]
+    fn slot_retirement_rejects_delayed_snapshot_without_staling_parent() {
+        for publish_new_mapping in [false, true] {
+            let keys = KeyMap::default();
+            seed(&keys, &[0]);
+            let generation = keys.1.load(Ordering::Acquire);
+
+            let result = keys.with_field_keys(
+                path(&[0, 0, 1]),
+                |fields| (fields.get(&30usize).map(|(_, index)| index), vec![]),
+                || {
+                    keys.update_field_keys(path(&[0]), vec![20usize]);
+                    if publish_new_mapping {
+                        keys.update_field_keys(path(&[0, 0, 1]), vec![30usize]);
+                    }
+                    vec![10usize]
+                },
+            );
+            assert_eq!(result, publish_new_mapping.then_some(Some(0)));
+
+            assert_eq!(keys.1.load(Ordering::Acquire), generation);
+            assert_eq!(
+                keys.with_field_keys(
+                    path(&[0]),
+                    |fields| (
+                        fields.get(&20usize).map(|(_, index)| index),
+                        vec![]
+                    ),
+                    || panic!("retirement must not refresh the parent mapping"),
+                ),
+                Some(Some(0)),
+            );
+        }
+    }
+
+    #[test]
+    fn same_path_initializers_share_identity_and_expired_tokens_are_swept() {
+        let keys = KeyMap::default();
+        let result = keys.with_field_keys(
+            path(&[0]),
+            |fields| (fields.get(&10usize).is_some(), vec![]),
+            || {
+                let token = keys.0.read().or_poisoned().pending[&path(&[0])]
+                    .upgrade()
+                    .unwrap();
+                let nested = keys.with_field_keys(
+                    path(&[0]),
+                    |_| ((), vec![]),
+                    || {
+                        let state = keys.0.read().or_poisoned();
+                        assert_eq!(
+                            state.pending[&path(&[0])].as_ptr(),
+                            Arc::as_ptr(&token)
+                        );
+                        vec![10usize]
+                    },
+                );
+                assert_eq!(nested, Some(()));
+                vec![10usize]
+            },
+        );
+        assert_eq!(result, Some(true));
+        assert_eq!(
+            keys.0.read().or_poisoned().pending[&path(&[0])].strong_count(),
+            0
+        );
+        for index in 1..10 {
+            keys.with_field_keys(
+                path(&[index]),
+                |_| ((), vec![]),
+                || vec![10usize],
+            );
+            assert_eq!(keys.0.read().or_poisoned().pending.len(), 1);
+        }
+    }
+
+    #[test]
+    fn sibling_initializer_survives_unrelated_retirement() {
+        let keys = KeyMap::default();
+        keys.observe_variant(path(&[0]), 0);
+        let result = keys.with_field_keys(
+            path(&[1]),
+            |fields| (fields.get(&10usize).map(|(_, index)| index), vec![]),
+            || {
+                keys.observe_variant(path(&[0]), 1);
+                vec![10usize]
+            },
+        );
+        assert_eq!(result, Some(Some(0)));
+    }
+
+    #[test]
+    fn enum_retirement_rejects_delayed_snapshot() {
+        for first_observation in [false, true] {
+            let keys = KeyMap::default();
+            if !first_observation {
+                keys.observe_variant(path(&[0]), 0);
+            }
+            // The initializer runs unlocked: retire the enum after its snapshot
+            // generation was captured but before it can publish its keys.
+            let result = keys.with_field_keys(
+                path(&[0, 1]),
+                |_| panic!("retired snapshot must not access the entry"),
+                || {
+                    keys.observe_variant(path(&[0]), 1);
+                    vec![10usize]
+                },
+            );
+            assert_eq!(result, None::<()>);
+            assert!(
+                !keys
+                    .0
+                    .read()
+                    .or_poisoned()
+                    .fields
+                    .contains_key(&path(&[0, 1]))
+            );
+        }
     }
 }
 
@@ -778,7 +1140,6 @@ where
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
         self.writer()
-            .map(|writer| WriteGuard::new(self.clone(), writer))
     }
 
     fn try_write_untracked(
@@ -949,7 +1310,7 @@ where
     type Value = T;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
-        self.writer().map(|writer| WriteGuard::new(*self, writer))
+        self.writer()
     }
 
     fn try_write_untracked(
