@@ -9,6 +9,7 @@ mod common;
 use common::*;
 use leptos::prelude::*;
 use leptos_router::{
+    Lazy, LazyRoute,
     components::{
         FlatRoutes, Outlet, ParentRoute, ProtectedParentRoute, ProtectedRoute,
         Route, Router, Routes,
@@ -23,6 +24,8 @@ wasm_bindgen_test_configure!(run_in_browser);
 thread_local! {
     static CONDITION: RefCell<Option<WriteSignal<Option<bool>>>> =
         const { RefCell::new(None) };
+    static SWITCH: RefCell<Option<WriteSignal<bool>>> =
+        const { RefCell::new(None) };
     static DISPOSED_PAGES: Cell<usize> = const { Cell::new(0) };
 }
 
@@ -32,6 +35,16 @@ fn set_condition(value: Option<bool>) {
         condition
             .borrow()
             .expect("the app has no /signal-protected route")
+            .set(value)
+    });
+}
+
+/// Sets the switch that the view of `/switch-layout/switch` reads.
+fn set_switch(value: bool) {
+    SWITCH.with(|switch| {
+        switch
+            .borrow()
+            .expect("the app has no /switch-layout/switch route")
             .set(value)
     });
 }
@@ -74,6 +87,37 @@ fn OtherPage() -> impl IntoView {
             <p id="other">{move || Suspend::new(async move { data.await })}</p>
         </Suspense>
     }
+}
+
+/// A lazy route whose preload and view each wait for a "lazy" gate.
+struct LazyPage;
+
+impl LazyRoute for LazyPage {
+    fn data() -> Self {
+        LazyPage
+    }
+
+    async fn view(_this: Self) -> AnyView {
+        gate("lazy").await;
+        view! { <p id="lazy">"lazy"</p> }.into_any()
+    }
+
+    async fn preload() {
+        gate("lazy").await;
+    }
+}
+
+fn lazy_page() -> Lazy<LazyPage> {
+    Lazy::new()
+}
+
+/// Lets a pending lazy route load: its preload (with `<Routes>`), then its
+/// view.
+async fn load_lazy_page() {
+    release("lazy");
+    settle().await;
+    release("lazy");
+    settle().await;
 }
 
 /// A layout that does not render its child routes, as a layout may do on
@@ -134,6 +178,15 @@ fn ParentPage() -> impl IntoView {
         </Suspense>
         <Outlet/>
     }
+}
+
+/// A layout that provides a context to its child routes only after it has
+/// created its view.
+#[component]
+fn LateContextLayout() -> impl IntoView {
+    let view = view! { <p id="late-context">"layout"</p><Outlet/> };
+    provide_context(PageContext("late context"));
+    view
 }
 
 #[component]
@@ -233,7 +286,33 @@ macro_rules! app {
 }
 
 fn nested() -> impl IntoView {
+    let (switch, set_switch) = signal(false);
+    SWITCH.with(|s| *s.borrow_mut() = Some(set_switch));
     app!(Routes, holding, {
+        <ParentRoute path=path!("app") view=|| view! { <p id="app">"app"</p><Outlet/> }>
+            <ProtectedRoute
+                path=path!("protected")
+                condition=|| Some(true)
+                redirect_path=|| "/login"
+                view=Page
+            />
+        </ParentRoute>
+        <ParentRoute path=path!("late-context") view=LateContextLayout>
+            <Route path=path!("child") view=ChildPage/>
+        </ParentRoute>
+        <ParentRoute
+            path=path!("switch-layout")
+            view=|| view! { <p id="switch-layout">"layout"</p><Outlet/> }
+        >
+            <Route
+                path=path!("switch")
+                view=move || if switch.get() {
+                    view! { <p id="switch">"on"</p> }
+                } else {
+                    view! { <p id="switch">"off"</p> }
+                }
+            />
+        </ParentRoute>
         <ProtectedParentRoute
             path=path!("parent")
             condition=|| Some(true)
@@ -252,6 +331,17 @@ fn nested() -> impl IntoView {
         <ParentRoute
             path=path!("layout")
             view=|| view! { <p id="layout">"layout"</p><Outlet/> }
+        >
+            <Route path=path!("page") view=Page/>
+            <Route path=path!("other") view=OtherPage/>
+            <Route path=path!("lazy") view=lazy_page()/>
+        </ParentRoute>
+        <ParentRoute
+            path=path!("twice")
+            view=|| view! {
+                <div id="first"><Outlet/></div>
+                <div id="second"><Outlet/></div>
+            }
         >
             <Route path=path!("page") view=Page/>
             <Route path=path!("other") view=OtherPage/>
@@ -808,5 +898,188 @@ async fn replacing_the_child_of_a_layout_holds_the_previous_child() {
     settle().await;
     assert_eq!(app.text("#other").as_deref(), Some("loaded"));
     assert!(!app.has("#page"));
+    assert!(!is_routing());
+}
+
+async fn holds_the_previous_page_until_the_outlets_it_adds_have_loaded(
+    path: &str,
+    layout: &str,
+) {
+    start_at("/");
+    let app = mount(|| nested().into_any());
+    settle().await;
+
+    navigate(path);
+    settle().await;
+    assert!(app.has("#home"), "{path}: the previous page is held");
+    assert!(!app.has(layout));
+    assert!(is_routing());
+
+    release("page");
+    settle().await;
+    assert!(app.has(layout));
+    assert_eq!(app.text("#page").as_deref(), Some("loaded"));
+    assert!(!app.has("#home"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn a_navigation_holds_the_previous_page_until_the_outlets_it_adds_have_loaded()
+ {
+    holds_the_previous_page_until_the_outlets_it_adds_have_loaded(
+        "/layout/page",
+        "#layout",
+    )
+    .await;
+}
+
+#[wasm_bindgen_test]
+async fn a_protected_route_under_a_new_layout_holds_the_previous_page() {
+    holds_the_previous_page_until_the_outlets_it_adds_have_loaded(
+        "/app/protected",
+        "#app",
+    )
+    .await;
+}
+
+#[wasm_bindgen_test]
+async fn a_navigation_from_the_fallback_holds_the_fallback() {
+    start_at("/nowhere");
+    let app = mount(|| nested().into_any());
+    settle().await;
+    assert!(app.has("#not-found"));
+
+    navigate("/layout/page");
+    settle().await;
+    assert!(app.has("#not-found"), "the fallback is held");
+    assert!(is_routing());
+
+    release("page");
+    settle().await;
+    assert_eq!(app.text("#page").as_deref(), Some("loaded"));
+    assert!(!app.has("#not-found"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn a_layout_provides_context_to_the_outlets_a_navigation_adds() {
+    start_at("/");
+    let app = mount(|| nested().into_any());
+    settle().await;
+
+    navigate("/late-context/child");
+    settle().await;
+    assert_eq!(app.text("#child").as_deref(), Some("late context"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn a_route_view_added_by_a_navigation_stays_reactive() {
+    start_at("/");
+    let app = mount(|| nested().into_any());
+    settle().await;
+
+    navigate("/switch-layout/switch");
+    settle().await;
+    assert_eq!(app.text("#switch").as_deref(), Some("off"));
+    set_switch(true);
+    settle().await;
+    assert_eq!(app.text("#switch").as_deref(), Some("on"));
+}
+
+#[wasm_bindgen_test]
+async fn a_navigation_superseded_while_its_outlets_load_shows_nothing_of_them()
+{
+    start_at("/");
+    let app = mount(|| nested().into_any());
+    settle().await;
+
+    navigate("/layout/page");
+    settle().await;
+    navigate("/other");
+    settle().await;
+    release("page");
+    settle().await;
+    assert!(!app.has("#layout") && !app.has("#page"));
+    assert!(app.has("#home"), "the previous page is held");
+    assert!(is_routing());
+
+    release("other");
+    settle().await;
+    assert_eq!(app.text("#other").as_deref(), Some("loaded"));
+    assert!(!app.has("#layout"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn replacing_the_child_of_a_loading_layout_shows_the_new_child_only() {
+    start_at("/");
+    let app = mount(|| nested().into_any());
+    settle().await;
+
+    navigate("/layout/page");
+    settle().await;
+    navigate("/layout/other");
+    settle().await;
+    release("page");
+    settle().await;
+    assert!(app.has("#home"), "the previous page is held");
+    assert!(!app.has("#layout") && !app.has("#page"));
+
+    release("other");
+    settle().await;
+    assert!(app.has("#layout"));
+    assert_eq!(app.text("#other").as_deref(), Some("loaded"));
+    assert!(!app.has("#page"), "the replaced child is shown");
+    assert!(!is_routing());
+}
+
+/// A layout may render its child in more than one place, each `<Outlet/>`
+/// with a view of its own.
+#[wasm_bindgen_test]
+async fn replacing_the_child_of_a_loading_layout_that_renders_it_twice() {
+    start_at("/");
+    let app = mount(|| nested().into_any());
+    settle().await;
+
+    navigate("/twice/page");
+    settle().await;
+    // the view of the first <Outlet/> loads, then the child is replaced
+    release_first("page");
+    settle().await;
+    navigate("/twice/other");
+    settle().await;
+    release("page");
+    settle().await;
+    release("other");
+    settle().await;
+    release("other");
+    settle().await;
+    assert_eq!(app.text("#first #other").as_deref(), Some("loaded"));
+    assert_eq!(app.text("#second #other").as_deref(), Some("loaded"));
+    assert!(!app.has("#page"), "the replaced child is shown");
+    assert!(!is_routing());
+}
+
+/// The new child is lazy, and has not loaded when the view of the one it
+/// replaces has.
+#[wasm_bindgen_test]
+async fn replacing_the_child_of_a_loading_layout_with_a_lazy_route() {
+    start_at("/");
+    let app = mount(|| nested().into_any());
+    settle().await;
+
+    navigate("/layout/page");
+    settle().await;
+    navigate("/layout/lazy");
+    settle().await;
+    release("page");
+    settle().await;
+    assert!(app.has("#home"), "the previous page is held");
+    assert!(!app.has("#layout") && !app.has("#page"));
+
+    load_lazy_page().await;
+    assert!(app.has("#layout") && app.has("#lazy"));
+    assert!(!app.has("#page"), "the replaced child is shown");
     assert!(!is_routing());
 }

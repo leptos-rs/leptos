@@ -13,13 +13,19 @@ use either_of::{Either, EitherOf3};
 use futures::{
     FutureExt,
     channel::oneshot,
-    future::{AbortHandle, AbortRegistration, Abortable, Aborted, join_all},
+    future::{
+        AbortHandle, AbortRegistration, Abortable, Aborted, Shared, join_all,
+    },
     task::AtomicWaker,
 };
 use leptos::{attr::any_attribute::AnyAttribute, component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
+    graph::{
+        AnySource, AnySubscriber, Observer, ReactiveNode, Source, Subscriber,
+        WithObserver,
+    },
     owner::{Owner, provide_context, use_context},
     signal::{ArcRwSignal, ArcTrigger},
     traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track, Write},
@@ -30,7 +36,7 @@ use send_wrapper::SendWrapper;
 use std::{
     cell::{Cell, RefCell},
     fmt::Debug,
-    future::{Future, poll_fn},
+    future::{Future, pending, poll_fn},
     iter, mem,
     pin::Pin,
     rc::Rc,
@@ -119,10 +125,11 @@ where
                     &mut loaders,
                     &mut outlets,
                     &outer_owner,
+                    false,
                 );
                 drop(url);
 
-                EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
+                EitherOf3::C(top_level_outlet(&outlets[0], &outer_owner, None))
             }
         };
 
@@ -202,7 +209,14 @@ where
                 }
 
                 let mut preloaders = Vec::new();
-                let mut full_loaders = Vec::new();
+                let mut full_loaders: Vec<FullLoader> = Vec::new();
+                // a navigation from the fallback (or while the initial load
+                // is still pending) that holds the previous page renders the
+                // new top-level view only once it has been chosen
+                let top_level_shown =
+                    matches!(state.view.borrow().state, EitherOf3::C(_));
+                let hold_top_level =
+                    !top_level_shown && self.set_is_routing.is_some();
                 let different_level = route.rebuild_nested_route(
                     &self.current_url.read_untracked(),
                     self.base,
@@ -214,6 +228,20 @@ where
                     0,
                     &self.outer_owner,
                 );
+
+                let top_level = hold_top_level.then(|| {
+                    let (shown_tx, shown_rx) = oneshot::channel::<()>();
+                    full_loaders.push(Box::pin(async move {
+                        _ = shown_rx.await;
+                    }));
+                    (
+                        state.outlets[0].clone(),
+                        Rc::clone(&state.view),
+                        Rc::clone(&state.navigation),
+                        self.outer_owner.clone(),
+                        shown_tx,
+                    )
+                });
 
                 let location = self.location.clone();
                 let is_back = location
@@ -229,6 +257,32 @@ where
                         .into_iter()
                         .flatten()
                         .collect::<Vec<_>>();
+                    if let Some((
+                        outlet,
+                        view,
+                        navigation,
+                        outer_owner,
+                        shown,
+                    )) = top_level
+                    {
+                        // a navigation that started since shows something
+                        // else: choosing this view would only create it
+                        if navigation.get() != navigation_id {
+                            return;
+                        }
+                        let chosen =
+                            choose_ahead(&outlet, outer_owner.child()).await;
+                        if navigation.get() == navigation_id {
+                            EitherOf3::<(), Fal, AnyView>::C(top_level_outlet(
+                                &outlet,
+                                &outer_owner,
+                                Some(chosen),
+                            ))
+                            .rebuild(&mut *view.borrow_mut());
+                            _ = shown.send(());
+                        }
+                        return;
+                    }
                     if !triggers.is_empty() {
                         // tell each one of the outlet triggers that it's ready
                         let notify = move || {
@@ -264,11 +318,13 @@ where
                 });
 
                 // if the top-level outlet is not rendered yet (fallback, or
-                // the initial load was still pending), show the view instead
-                if !matches!(state.view.borrow().state, EitherOf3::C(_)) {
+                // the initial load was still pending), show the view instead,
+                // unless it is held until the view has been chosen (see above)
+                if !top_level_shown && !hold_top_level {
                     EitherOf3::<(), Fal, AnyView>::C(top_level_outlet(
-                        &state.outlets,
+                        &state.outlets[0],
                         &self.outer_owner,
+                        None,
                     ))
                     .rebuild(&mut *state.view.borrow_mut());
                 }
@@ -389,6 +445,7 @@ where
                         &mut loaders,
                         &mut outlets,
                         &outer_owner,
+                        false,
                     );
 
                     // outlets will not send their views if the loaders are never polled
@@ -398,7 +455,11 @@ where
                         .now_or_never()
                         .expect("async routes not supported in SSR");
 
-                    Either::Right(top_level_outlet(&outlets, &outer_owner))
+                    Either::Right(top_level_outlet(
+                        &outlets[0],
+                        &outer_owner,
+                        None,
+                    ))
                 }
             };
             view.to_html_with_buf(buf, position, flags, extra_attrs);
@@ -436,6 +497,7 @@ where
                     &mut loaders,
                     &mut outlets,
                     &outer_owner,
+                    false,
                 );
 
                 let preload_owners = outlets
@@ -452,7 +514,7 @@ where
                     .now_or_never()
                     .expect("async routes not supported in SSR");
 
-                Either::Right(top_level_outlet(&outlets, &outer_owner))
+                Either::Right(top_level_outlet(&outlets[0], &outer_owner, None))
             }
         };
         view.to_html_async_with_buf::<OUT_OF_ORDER>(
@@ -496,6 +558,7 @@ where
                         &mut loaders,
                         &mut outlets,
                         &outer_owner,
+                        false,
                     );
                     drop(url);
 
@@ -503,7 +566,11 @@ where
                         "lazy routes not supported with hydrate_body(); use \
                          hydrate_lazy() instead",
                     );
-                    EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
+                    EitherOf3::C(top_level_outlet(
+                        &outlets[0],
+                        &outer_owner,
+                        None,
+                    ))
                 }
             }
             .hydrate::<FROM_SERVER>(cursor, position),
@@ -552,11 +619,16 @@ where
                         &mut loaders,
                         &mut outlets,
                         &outer_owner,
+                        false,
                     );
                     drop(url);
 
                     join_all(mem::take(&mut loaders)).await;
-                    EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
+                    EitherOf3::C(top_level_outlet(
+                        &outlets[0],
+                        &outer_owner,
+                        None,
+                    ))
                 }
             }
             .hydrate::<true>(cursor, position),
@@ -577,7 +649,11 @@ where
     }
 }
 
-type OutletViewFn = Box<dyn FnMut(Owner) -> Suspend<AnyView> + Send>;
+/// Chooses the view of an outlet; the owner it is given becomes the owner of
+/// the view (see `with_owner`).
+type OutletViewFn = Box<dyn FnMut(Owner) -> ViewFuture + Send>;
+
+type ViewFuture = Pin<Box<dyn Future<Output = AnyView> + Send>>;
 
 pub(crate) struct RouteContext {
     id: RouteMatchId,
@@ -587,6 +663,8 @@ pub(crate) struct RouteContext {
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
     view_fn: Arc<Mutex<OutletViewFn>>,
+    // the views scheduled for this outlet, and the one installed in `view_fn`
+    views: Arc<Mutex<Views>>,
     owner: Arc<Mutex<Option<Owner>>>,
     preload_owner: Owner,
     child: ChildRoute,
@@ -596,6 +674,25 @@ pub(crate) struct RouteContext {
     preload_abort: Arc<Mutex<Option<AbortHandle>>>,
     // the <Outlet/>s of the parent's view that currently render this outlet
     renderers: Arc<Renderers>,
+}
+
+/// The views that navigations have scheduled for an outlet, counted in the
+/// order they were scheduled: the newest one is the one to show.
+#[derive(Default)]
+struct Views {
+    // how many views have been scheduled
+    scheduled: usize,
+    // which one of them the outlet's `view_fn` chooses
+    installed: usize,
+    // resolves once the newest view has been installed, or once its preload
+    // has been cancelled
+    installing: Option<Shared<oneshot::Receiver<()>>>,
+}
+
+/// A view scheduled for an outlet, whose preload reports through this.
+struct ScheduledView {
+    id: usize,
+    installed: oneshot::Sender<()>,
 }
 
 #[derive(Clone)]
@@ -623,6 +720,36 @@ impl RouteContext {
         }
     }
 
+    /// Schedules a new view for this outlet.
+    fn schedule_view(&self) -> ScheduledView {
+        let mut views = self.views.lock().or_poisoned();
+        views.scheduled += 1;
+        let (installed, installing) = oneshot::channel();
+        views.installing = Some(installing.shared());
+        ScheduledView {
+            id: views.scheduled,
+            installed,
+        }
+    }
+
+    /// Records that the preload of the view scheduled as `id` has installed it
+    /// in `view_fn`.
+    fn view_installed(&self, id: usize, installed: oneshot::Sender<()>) {
+        self.views.lock().or_poisoned().installed = id;
+        _ = installed.send(());
+    }
+
+    /// If the newest view scheduled for this outlet has not been installed
+    /// yet, resolves once it has been, or once its preload has been cancelled.
+    fn view_installing(&self) -> Option<Shared<oneshot::Receiver<()>>> {
+        let views = self.views.lock().or_poisoned();
+        if views.installed == views.scheduled {
+            None
+        } else {
+            views.installing.clone()
+        }
+    }
+
     /// Registers a new preload for this outlet, cancelling the previous one,
     /// and returns the registration that makes it abortable.
     fn new_preload(&self) -> AbortRegistration {
@@ -646,6 +773,7 @@ impl Clone for RouteContext {
             matched: self.matched.clone(),
             base: self.base.clone(),
             view_fn: Arc::clone(&self.view_fn),
+            views: Arc::clone(&self.views),
             owner: Arc::clone(&self.owner),
             child: self.child.clone(),
             preload_owner: self.preload_owner.clone(),
@@ -740,6 +868,9 @@ async fn chosen_while_rendered(
 }
 
 trait AddNestedRoute {
+    /// Builds the outlets for this match and those below it. `navigating` is
+    /// set when a navigation that holds the previous page (see
+    /// `set_is_routing`) builds them.
     fn build_nested_route(
         self,
         url: &Url,
@@ -747,6 +878,7 @@ trait AddNestedRoute {
         loaders: &mut Vec<Preloader>,
         outlets: &mut Vec<RouteContext>,
         outer_owner: &Owner,
+        navigating: bool,
     );
 
     #[allow(clippy::too_many_arguments)]
@@ -775,6 +907,7 @@ where
         loaders: &mut Vec<Preloader>,
         outlets: &mut Vec<RouteContext>,
         outer_owner: &Owner,
+        navigating: bool,
     ) {
         let orig_url = url;
 
@@ -837,8 +970,9 @@ where
             params,
             matched,
             view_fn: Arc::new(Mutex::new(Box::new(|_owner| {
-                Suspend::new(Box::pin(async { ().into_any() }))
+                Box::pin(async { ().into_any() })
             }))),
+            views: Default::default(),
             base: base.clone(),
             child: ChildRoute(Arc::new(Mutex::new(None))),
             owner: Arc::new(Mutex::new(None)),
@@ -847,6 +981,7 @@ where
             renderers: Default::default(),
         };
         let preload_registration = outlet.new_preload();
+        let ScheduledView { id, installed } = outlet.schedule_view();
         if !outlets.is_empty() {
             let prev_index = outlets.len().saturating_sub(1);
             *outlets[prev_index].child.0.lock().or_poisoned() =
@@ -876,7 +1011,13 @@ where
                         provide_context(params.clone());
                         provide_context(url.clone());
                         provide_context(matched.clone());
-                        ScopedFuture::new(view.preload())
+                        ScopedFuture::new(async {
+                            if navigating {
+                                AsyncTransition::run(|| view.preload()).await;
+                            } else {
+                                view.preload().await;
+                            }
+                        })
                     })
                     .await;
                 let child = outlet.child.clone();
@@ -889,34 +1030,18 @@ where
                         let params = params.clone();
                         let url = url.clone();
                         let matched = matched.clone();
-                        owner_where_used.with({
-                            let matched = matched.clone();
-                            || {
-                                let child = child.clone();
-                                Suspend::new(Box::pin(async move {
-                                    provide_context(child.clone());
-                                    provide_context(params.clone());
-                                    provide_context(url.clone());
-                                    provide_context(matched.clone());
-                                    let view = SendWrapper::new(
-                                        ScopedFuture::new(view.choose()),
-                                    );
-                                    let view = view.await;
-                                    let view = MatchedRoute(
-                                        matched.0.get_untracked(),
-                                        view,
-                                    );
-
-                                    OwnedView::new(view).into_any()
-                                })
-                                    as Pin<
-                                        Box<
-                                            dyn Future<Output = AnyView> + Send,
-                                        >,
-                                    >)
-                            }
-                        })
+                        Box::pin(with_owner(owner_where_used, async move {
+                            provide_context(child);
+                            provide_context(params);
+                            provide_context(url);
+                            provide_context(matched.clone());
+                            let view = choose_view(view, navigating).await;
+                            let view =
+                                MatchedRoute(matched.0.get_untracked(), view);
+                            OwnedView::new(view).into_any()
+                        }))
                     });
+                outlet.view_installed(id, installed);
                 trigger
             }
         });
@@ -932,6 +1057,7 @@ where
                 loaders,
                 outlets,
                 outer_owner,
+                navigating,
             );
         }
     }
@@ -970,6 +1096,7 @@ where
                     preloaders,
                     outlets,
                     outer_owner,
+                    set_is_routing,
                 );
                 level
             }
@@ -1041,6 +1168,8 @@ where
 
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
+                    let ScheduledView { id, installed } =
+                        current.schedule_view();
                     // the router always renders the top-level outlet, while a
                     // child outlet is only rendered if its parent's view has
                     // an <Outlet/> on screen
@@ -1103,36 +1232,26 @@ where
                                         params_including_parents.clone();
                                     let url = url.clone();
                                     let matched = matched.clone();
-                                    Suspend::new(Box::pin(async move {
-                                        let view = SendWrapper::new(
-                                            owner_where_used.with(|| {
-                                                provide_context(child.clone());
-                                                provide_context(params);
-                                                provide_context(url);
-                                                provide_context(matched);
-                                                ScopedFuture::new(async move {
-                                                    if set_is_routing {
-                                                        AsyncTransition::run(
-                                                            || view.choose(),
-                                                        )
-                                                        .await
-                                                    } else {
-                                                        view.choose().await
-                                                    }
-                                                })
-                                            }),
-                                        );
-
-                                        let view = view.await;
-
-                                        if let Some(tx) = full_tx {
-                                            _ = tx.send(prev_owner);
-                                        }
-                                        owner_where_used.with(|| {
+                                    Box::pin(with_owner(
+                                        owner_where_used,
+                                        async move {
+                                            provide_context(child);
+                                            provide_context(params);
+                                            provide_context(url);
+                                            provide_context(matched);
+                                            let view = choose_view(
+                                                view,
+                                                set_is_routing,
+                                            )
+                                            .await;
+                                            if let Some(tx) = full_tx {
+                                                _ = tx.send(prev_owner);
+                                            }
                                             OwnedView::new(view).into_any()
-                                        })
-                                    }))
+                                        },
+                                    ))
                                 });
+                            outlet.view_installed(id, installed);
 
                             drop(old_params);
                             drop(old_url);
@@ -1161,6 +1280,7 @@ where
                             preloaders,
                             outlets,
                             outer_owner,
+                            set_is_routing,
                         );
                     } else {
                         *outlets[*items].child.0.lock().or_poisoned() = None;
@@ -1196,6 +1316,200 @@ where
     }
 }
 
+/// Polls `fut` with `owner` as the current owner, without changing the current
+/// observer.
+fn with_owner<T>(
+    owner: Owner,
+    fut: impl Future<Output = T> + Send + 'static,
+) -> impl Future<Output = T> + Send + 'static {
+    let mut fut = Box::pin(fut);
+    poll_fn(move |cx| owner.with(|| fut.as_mut().poll(cx)))
+}
+
+/// Chooses `view`. During a navigation that holds the previous page
+/// (`navigating`), it chooses it in an async transition, which waits for the
+/// resources created while the view is created, and then chooses the views of
+/// the child outlets that it renders, so that they are shown along with it.
+async fn choose_view(view: impl ChooseView, navigating: bool) -> AnyView {
+    if !navigating {
+        return SendWrapper::new(ScopedFuture::new(view.choose())).await;
+    }
+    let children = ChildChoices::open();
+    provide_context(children.clone());
+    let view =
+        SendWrapper::new(ScopedFuture::new(AsyncTransition::run(|| {
+            view.choose()
+        })))
+        .await;
+    children.choose().await;
+    view
+}
+
+/// The child outlets of a view that is being chosen during a navigation that
+/// holds the previous page: the `<Outlet/>`s created while it is chosen, i.e.
+/// those in the view itself rather than in content it renders later.
+#[derive(Clone)]
+struct ChildChoices(Arc<Mutex<Option<Vec<ChildChoice>>>>);
+
+struct ChildChoice {
+    outlet: RouteContext,
+    // the owner of the <Outlet/>, under which the view is created
+    owner: Owner,
+    slot: ChosenSlot,
+}
+
+/// How many rounds [`ChildChoices::choose`] takes to choose the view of an
+/// outlet, when later navigations schedule other views for it meanwhile.
+const CHILD_CHOICE_ROUNDS: usize = 8;
+
+/// Where the view chosen for an `<Outlet/>` waits for it to render.
+type ChosenSlot = Arc<Mutex<Option<Chosen>>>;
+
+impl ChildChoices {
+    fn open() -> Self {
+        Self(Arc::new(Mutex::new(Some(Vec::new()))))
+    }
+
+    /// Registers the outlet that an `<Outlet/>` owned by `owner` renders, if
+    /// the view is still being chosen.
+    fn register(
+        &self,
+        outlet: RouteContext,
+        owner: Owner,
+    ) -> Option<ChosenSlot> {
+        let mut children = self.0.lock().or_poisoned();
+        let slot = ChosenSlot::default();
+        children.as_mut()?.push(ChildChoice {
+            outlet,
+            owner,
+            slot: Arc::clone(&slot),
+        });
+        Some(slot)
+    }
+
+    /// Stops registering outlets, and chooses the views of those registered.
+    async fn choose(self) {
+        let children = self.0.lock().or_poisoned().take().unwrap_or_default();
+        join_all(children.into_iter().map(
+            |ChildChoice {
+                 outlet,
+                 owner,
+                 slot,
+             }| async move {
+                // a later navigation may schedule another view for the
+                // outlet while this one is chosen: then that one is chosen,
+                // once its preload has installed it
+                for _ in 0..CHILD_CHOICE_ROUNDS {
+                    if let Some(installing) = outlet.view_installing() {
+                        _ = installing.await;
+                        continue;
+                    }
+                    let chosen = choose_ahead(&outlet, owner.child()).await;
+                    if chosen.is_current(&outlet) {
+                        *slot.lock().or_poisoned() = Some(chosen);
+                        break;
+                    }
+                }
+            },
+        ))
+        .await;
+    }
+}
+
+/// An outlet's view, chosen ahead of rendering it.
+struct Chosen {
+    view: AnyView,
+    sources: Arc<ReadSources>,
+    // the view of the outlet it was chosen from (see `Views`)
+    view_id: usize,
+}
+
+impl Chosen {
+    /// Whether no navigation has scheduled another view for `outlet` since the
+    /// one it was chosen from.
+    fn is_current(&self, outlet: &RouteContext) -> bool {
+        self.view_id == outlet.views.lock().or_poisoned().scheduled
+    }
+
+    /// Renders the view, as a `Suspend` that has already resolved would.
+    fn into_view(self) -> Suspend<AnyView> {
+        self.sources.forward();
+        let view = self.view;
+        Suspend::new(async move { view })
+    }
+}
+
+/// Chooses the view of `outlet` in `owner`, ahead of rendering it.
+fn choose_ahead(
+    outlet: &RouteContext,
+    owner: Owner,
+) -> impl Future<Output = Chosen> + Send + 'static {
+    let sources = Arc::new(ReadSources::default());
+    let (view_id, view) =
+        ReadSources::subscriber(&sources).with_observer(|| {
+            let mut view_fn = outlet.view_fn.lock().or_poisoned();
+            let view_id = outlet.views.lock().or_poisoned().installed;
+            (view_id, ScopedFuture::new(view_fn(owner)))
+        });
+    async move {
+        Chosen {
+            view: view.await,
+            sources,
+            view_id,
+        }
+    }
+}
+
+/// Collects the reactive sources read while a view is chosen ahead of
+/// rendering it, and has what renders it subscribe to them, as `Suspend` does
+/// when it chooses a view itself: a route's view is then updated when what it
+/// read while it was created changes, however it was chosen.
+#[derive(Default)]
+struct ReadSources(Mutex<Vec<AnySource>>);
+
+impl ReadSources {
+    fn subscriber(this: &Arc<Self>) -> AnySubscriber {
+        AnySubscriber(
+            Arc::as_ptr(this) as usize,
+            Arc::downgrade(this) as Weak<dyn Subscriber + Send + Sync>,
+        )
+    }
+
+    /// Subscribes the current observer to the sources read.
+    fn forward(&self) {
+        if let Some(observer) = Observer::get() {
+            for source in mem::take(&mut *self.0.lock().or_poisoned()) {
+                source.add_subscriber(observer.clone());
+                observer.add_source(source);
+            }
+        }
+    }
+}
+
+impl ReactiveNode for ReadSources {
+    fn mark_dirty(&self) {}
+
+    fn mark_check(&self) {}
+
+    fn mark_subscribers_check(&self) {}
+
+    fn update_if_necessary(&self) -> bool {
+        false
+    }
+}
+
+impl Subscriber for ReadSources {
+    fn add_source(&self, source: AnySource) {
+        self.0.lock().or_poisoned().push(source);
+    }
+
+    fn clear_sources(&self, subscriber: &AnySubscriber) {
+        for source in mem::take(&mut *self.0.lock().or_poisoned()) {
+            source.remove_subscriber(subscriber);
+        }
+    }
+}
+
 impl<Fal> Mountable for NestedRouteViewState<Fal>
 where
     Fal: Render,
@@ -1221,18 +1535,27 @@ where
     }
 }
 
-fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
-    let outlet = outlets.first().unwrap();
+/// The router's view of the top-level outlet. It first shows `chosen`, if its
+/// view has already been chosen.
+fn top_level_outlet(
+    outlet: &RouteContext,
+    outer_owner: &Owner,
+    chosen: Option<Chosen>,
+) -> AnyView {
     let child = outlet.child.clone();
     let view_fn = outlet.view_fn.clone();
     let trigger = outlet.trigger.clone();
+    let chosen = Mutex::new(chosen);
     outer_owner.clone().with(|| {
         provide_context(child.clone());
         let outer_owner = outer_owner.clone();
         (move || {
             trigger.track();
+            if let Some(chosen) = chosen.lock().or_poisoned().take() {
+                return chosen.into_view();
+            }
             let mut view_fn = view_fn.lock().or_poisoned();
-            view_fn(outer_owner.child())
+            Suspend::new(view_fn(outer_owner.child()))
         })
         .into_any()
     })
@@ -1249,11 +1572,31 @@ where
     let child = child.lock().or_poisoned().clone();
     let outer_owner = Owner::current().unwrap();
     child.map(|child| {
+        // while the view that renders this <Outlet/> is chosen during a
+        // navigation that holds the previous page, the child's view is chosen
+        // too, and shown along with it
+        let chosen = use_context::<ChildChoices>().and_then(|choices| {
+            choices.register(child.clone(), outer_owner.clone())
+        });
         move || {
             child.trigger.track();
             Renderers::track(&child.renderers);
+            // a view chosen ahead is shown unless a later navigation has
+            // scheduled another view for the outlet since
+            if let Some(chosen) = chosen
+                .as_ref()
+                .and_then(|slot| slot.lock().or_poisoned().take())
+                .filter(|chosen| chosen.is_current(&child))
+            {
+                return chosen.into_view();
+            }
+            // nothing new is shown until the preload of the newest view has
+            // installed it: its trigger then renders the outlet again
+            if child.view_installing().is_some() {
+                return Suspend::new(pending::<AnyView>());
+            }
             let mut view_fn = child.view_fn.lock().or_poisoned();
-            view_fn(outer_owner.child())
+            Suspend::new(view_fn(outer_owner.child()))
         }
     })
 }
