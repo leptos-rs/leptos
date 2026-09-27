@@ -80,6 +80,17 @@ async fn i_see_the_second_count_is(
     Ok(())
 }
 
+#[then(regex = r"^I see the inspect result for field (.*)$")]
+async fn i_see_the_inspect_result_for_field(
+    world: &mut AppWorld,
+    field: String,
+) -> Result<()> {
+    let client = &world.client;
+    check::inspect_result_for_field_is_visible(client, &field).await?;
+
+    Ok(())
+}
+
 #[then(regex = r"^I see the (.*) link being bolded$")]
 async fn i_see_the_link_being_bolded(
     world: &mut AppWorld,
