@@ -56,6 +56,14 @@ mod router {
     #[prefix = "/"]
     struct SiteRoot;
 
+    #[derive(Clone, Copy, Embed)]
+    #[folder = "$LEPTOS_SITE_ROOT/$LEPTOS_SITE_PKG_DIR"]
+    // `RustEmbed` does not currently interpolate other values, only on `folder`.
+    // FIXME When `RustEmbed` does support this, or this is supported through `leptos_macro`.
+    // #[prefix = "/$LEPTOS_SITE_PKG_DIR/"]
+    #[prefix = "/pkg/"]
+    struct SitePkg;
+
     impl From<Cli> for Router {
         fn from(cli: Cli) -> Self {
             let conf = get_configuration(None).unwrap();
@@ -328,7 +336,7 @@ mod router {
                             .app(App)
                             .shell(shell)
                             .state(leptos_options.clone())
-                            .enable_embed_site_pkg(SiteRoot)
+                            .enable_embed_site_pkg(SitePkg)
                             .enable_fs_leptos_site_root("/"),
                     ),
 
