@@ -255,7 +255,18 @@ impl View {
                 }
             }
             View::Text(node) => {
-                chunks.push_back(StreamChunk::Sync(node.content))
+                // escape the text node, as `ssr.rs`'s blocking serializer does
+                // (and as the `View::DynChild` arm below does). Without this,
+                // streaming SSR emits the text verbatim and the browser parses
+                // it as markup, so any interpolated value containing `<`, `>`
+                // or `&` becomes live HTML. `dont_escape_text` is set for the
+                // children of `<script>`/`<style>`, which are raw text.
+                let content = if dont_escape_text {
+                    node.content
+                } else {
+                    html_escape::encode_safe(&node.content).to_string().into()
+                };
+                chunks.push_back(StreamChunk::Sync(content))
             }
             View::Component(node) => {
                 #[cfg(debug_assertions)]
@@ -527,5 +538,42 @@ impl View {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::IntoView;
+
+    /// run `view` through the streaming serializer and collect its output
+    fn render(view: View, dont_escape_text: bool) -> String {
+        let mut chunks = VecDeque::new();
+        view.into_stream_chunks_helper(&mut chunks, dont_escape_text);
+        let mut html = String::new();
+        for chunk in chunks {
+            if let StreamChunk::Sync(sync) = chunk {
+                html.push_str(&sync);
+            }
+        }
+        html
+    }
+
+    #[test]
+    fn text_node_is_escaped() {
+        // the same `html_escape::encode_safe` the blocking serializer uses, so
+        // both produce identical output
+        let view = "<script>alert(1)</script> & <b>".to_string().into_view();
+        assert_eq!(
+            render(view, false),
+            "&lt;script&gt;alert(1)&lt;&#x2F;script&gt; &amp; &lt;b&gt;"
+        );
+    }
+
+    #[test]
+    fn text_node_in_raw_text_context_is_not_escaped() {
+        // `dont_escape_text` is set for the children of <script>/<style>
+        let view = "a < b && c > d".to_string().into_view();
+        assert_eq!(render(view, true), "a < b && c > d");
     }
 }
