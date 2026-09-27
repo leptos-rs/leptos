@@ -155,13 +155,6 @@
 //! assert_eq!(store.vec_field().at_unkeyed(1).get(), 2);
 //! assert_eq!(store.vec_field().at_unkeyed(2).get(), 3);
 //! ```
-//! Keyed handles follow their key when a containing value is replaced. The registry
-//! lazily refreshes a collection's key mapping in O(n) on its first keyed access
-//! after a store write; subsequent reads reuse the mapping. Writes invalidate
-//! cached mappings even when reactive notifications are suppressed. Invalidation
-//! is conservatively store-wide, so a write to an unrelated field may also cause
-//! a collection to refresh on its next access.
-//!
 //! #### Enum
 //! Enumerated types behave a bit differently as the [`Store`](macro@Store) macro builds underlying traits instead of alternate
 //! enumerated structures.  Each element in an `Enum` generates methods to access it in the store: a
@@ -171,7 +164,7 @@
 //! use reactive_stores::Store;
 //! use reactive_graph::traits::{Read, Get};
 //!
-//! #[derive(Store)]
+//! #[derive(Store, reactive_stores::Patch)]
 //! enum Choices {
 //!    First,
 //!    Second(String),
@@ -184,7 +177,73 @@
 //! assert!(!choice_one.second());
 //! // Note the use of the accessor method here .second_0()
 //! assert_eq!(choice_two.second_0().unwrap().get(), "hello");
+//!
+//! use reactive_stores::Patch;
+//! choice_two.patch(Choices::Second("updated".to_string()));
+//! assert_eq!(choice_two.second_0().unwrap().get(), "updated");
+//! choice_two.patch(Choices::First);
+//! assert!(choice_two.first());
+//! assert!(choice_two.second_0().is_none());
 //! ```
+//!
+//! With [`Patch`](macro@Patch), matching variants recursively patch their fields;
+//! patching an unchanged unit variant does not notify subscribers. Changing variants
+//! replaces the enum and notifies subscribers at the enum's path. Named and tuple
+//! fields support `#[patch(...)]` and `#[store(key: ...)]` just like struct fields.
+//! A keyed accessor returns `Option<KeyedSubfield<...>>`:
+//!
+//! ```rust
+//! use reactive_stores::{Patch, Store};
+//! use reactive_graph::traits::Get;
+//!
+//! #[derive(Store, Patch)]
+//! struct Todo {
+//!     id: usize,
+//!     completed: bool,
+//! }
+//!
+//! #[derive(Store, Patch)]
+//! enum TodosState {
+//!     Loading,
+//!     Ready {
+//!         #[store(key: usize = |todo| todo.id)]
+//!         todos: Vec<Todo>,
+//!     },
+//! }
+//!
+//! let store = Store::new(TodosState::Ready {
+//!     todos: vec![Todo { id: 1, completed: false }],
+//! });
+//! let todo = store.ready_todos().unwrap().at_key(1);
+//! store.patch(TodosState::Ready {
+//!     todos: vec![
+//!         Todo { id: 2, completed: false },
+//!         Todo { id: 1, completed: true },
+//!     ],
+//! });
+//! assert!(todo.completed().get());
+//! ```
+//!
+//! Keyed handles follow their key when a containing value is replaced. The registry
+//! lazily refreshes a collection's key mapping in O(n) on its first keyed access
+//! after a store write; subsequent reads reuse the mapping. Writes invalidate
+//! cached mappings even when reactive notifications are suppressed. Invalidation
+//! is conservatively store-wide, so a write to an unrelated field may also cause
+//! a collection to refresh on its next access. Constructing an enum accessor does
+//! not scan its collection.
+//!
+//! Patching the whole enum updates matching items by key; structural collection changes notify at
+//! the collection's path. Calling `.patch()` on the keyed accessor itself preserves
+//! the more selective collection-structure notifications of [`KeyedSubfield`].
+//!
+//! Enum accessors and variant checks track direct changes to the enum and its
+//! ancestors, but not changes to its payload fields. Reading a field returned by an
+//! accessor additionally tracks that field, without subscribing to its siblings.
+//! Replacing or writing to the whole enum (or an ancestor) still notifies these
+//! subscribers, even if the variant remains the same.
+//! A previously obtained field handle must not be read or written after switching to
+//! a different variant; reacquire it through the accessor instead.
+//!
 //! #### Box
 //! [`Box<T>`](std::boxed::Box) also requires some special treatment in how you dereference elements of the Box, especially
 //! when trying to build a recursive data structure.  [DerefField](trait@DerefField) provides a [.deref_value()](DerefField::deref_field) method to access
