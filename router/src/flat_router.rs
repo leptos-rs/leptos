@@ -47,7 +47,12 @@ pub(crate) struct FlatRoutesViewState {
     #[allow(clippy::type_complexity)]
     view: AnyViewState,
     id: Option<RouteMatchId>,
+    // replaced whenever a route is rendered: identifies the route instance
+    // that a navigation is loading
     owner: Owner,
+    // incremented whenever a navigation replaces the route instance, so that
+    // an earlier navigation can tell that it no longer completes
+    navigation: u64,
     params: ArcRwSignal<ParamsMap>,
     path: String,
     url: ArcRwSignal<Url>,
@@ -126,6 +131,7 @@ where
                 view: fallback().into_any().build(),
                 id,
                 owner,
+                navigation: 0,
                 params,
                 path,
                 url,
@@ -156,6 +162,7 @@ where
                         view: view.into_any().build(),
                         id,
                         owner,
+                        navigation: 0,
                         params,
                         path,
                         url,
@@ -168,6 +175,7 @@ where
                                 view: ().into_any().build(),
                                 id,
                                 owner,
+                                navigation: 0,
                                 params,
                                 path,
                                 url,
@@ -245,6 +253,8 @@ where
 
         // otherwise, we need to update the retained path for diffing
         initial_state.id = new_id;
+        initial_state.navigation = initial_state.navigation.wrapping_add(1);
+        let navigation_id = initial_state.navigation;
 
         // otherwise, it's a new route, so we'll need to
         // 1) create a new owner, URL signal, and params signal
@@ -274,6 +284,11 @@ where
                     provide_context(Matched(ArcMemo::from(new_matched)));
                     fallback().into_any().rebuild(&mut state.borrow_mut().view)
                 });
+                // the fallback is shown at once; an earlier navigation that is
+                // still loading no longer completes (see below)
+                if let Some(set_is_routing) = set_is_routing {
+                    set_is_routing.set(false);
+                }
                 if let Some(location) = location {
                     location.ready_to_complete();
                 }
@@ -288,7 +303,10 @@ where
                     );
                 }
 
-                let spawned_path = url_snapshot.path().to_string();
+                if let Some(set_is_routing) = set_is_routing {
+                    set_is_routing.set(true);
+                }
+                let spawned_owner = owner.clone();
 
                 let is_back = location
                     .as_ref()
@@ -302,27 +320,32 @@ where
                     ScopedFuture::new({
                         let state = Rc::clone(state);
                         async move {
-                            let view = OwnedView::new(
-                                if let Some(set_is_routing) = set_is_routing {
-                                    set_is_routing.set(true);
-                                    let value =
-                                        AsyncTransition::run(|| view.choose())
-                                            .await;
-                                    set_is_routing.set(false);
-                                    value
+                            let view =
+                                OwnedView::new(if set_is_routing.is_some() {
+                                    AsyncTransition::run(|| view.choose()).await
                                 } else {
                                     view.choose().await
-                                },
-                            );
+                                });
 
-                            // only update the route if it's still the current path
-                            // i.e., if we've navigated away before this has loaded, do nothing
-                            if current_url.read_untracked().path()
-                                == spawned_path
-                            {
-                                let rebuild = move || {
-                                    view.into_any()
-                                        .rebuild(&mut state.borrow_mut().view);
+                            // only render the view if its route instance is
+                            // still the one to show: a later navigation may
+                            // have replaced it, even with another instance of
+                            // the same route
+                            let is_current_route = {
+                                let state = Rc::clone(&state);
+                                move || state.borrow().owner == spawned_owner
+                            };
+                            if is_current_route() {
+                                let rebuild = {
+                                    let state = Rc::clone(&state);
+                                    move || {
+                                        // a view transition renders later
+                                        if is_current_route() {
+                                            view.into_any().rebuild(
+                                                &mut state.borrow_mut().view,
+                                            );
+                                        }
+                                    }
                                 };
                                 if transition {
                                     start_view_transition(0, is_back, rebuild);
@@ -331,8 +354,15 @@ where
                                 }
                             }
 
-                            if let Some(location) = location {
-                                location.ready_to_complete();
+                            // a later navigation owns is_routing and the
+                            // location
+                            if state.borrow().navigation == navigation_id {
+                                if let Some(set_is_routing) = set_is_routing {
+                                    set_is_routing.set(false);
+                                }
+                                if let Some(location) = location {
+                                    location.ready_to_complete();
+                                }
                             }
                             drop(old_owner);
                             drop(old_params);
@@ -681,6 +711,7 @@ where
                     .hydrate::<FROM_SERVER>(cursor, position),
                 id,
                 owner,
+                navigation: 0,
                 params,
                 path,
                 url,
@@ -713,6 +744,7 @@ where
                             .hydrate::<FROM_SERVER>(cursor, position),
                         id,
                         owner,
+                        navigation: 0,
                         params,
                         path,
                         url,
@@ -777,6 +809,7 @@ where
                     .await,
                 id,
                 owner,
+                navigation: 0,
                 params,
                 path,
                 url,
@@ -808,6 +841,7 @@ where
                     view: view.into_any().hydrate_async(cursor, position).await,
                     id,
                     owner,
+                    navigation: 0,
                     params,
                     path,
                     url,

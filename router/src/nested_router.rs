@@ -14,6 +14,7 @@ use futures::{
     FutureExt,
     channel::oneshot,
     future::{AbortHandle, AbortRegistration, Abortable, Aborted, join_all},
+    task::AtomicWaker,
 };
 use leptos::{attr::any_attribute::AnyAttribute, component, oco::Oco};
 use or_poisoned::OrPoisoned;
@@ -29,11 +30,12 @@ use send_wrapper::SendWrapper;
 use std::{
     cell::{Cell, RefCell},
     fmt::Debug,
-    future::Future,
+    future::{Future, poll_fn},
     iter, mem,
     pin::Pin,
     rc::Rc,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Weak},
+    task::Poll,
 };
 use tachys::{
     hydration::Cursor,
@@ -174,7 +176,8 @@ where
         let new_match = self.routes.match_route(url_snapshot.path());
 
         *state.current_url.write_untracked() = url_snapshot;
-        state.navigation.set(state.navigation.get().wrapping_add(1));
+        let navigation_id = state.navigation.get().wrapping_add(1);
+        state.navigation.set(navigation_id);
 
         match new_match {
             None => {
@@ -184,6 +187,11 @@ where
                     outlet.abort_preload();
                 }
                 state.outlets.clear();
+                // the fallback is shown at once; an earlier navigation that is
+                // still loading no longer completes (see below)
+                if let Some(set_is_routing) = self.set_is_routing {
+                    set_is_routing.set(false);
+                }
                 if let Some(loc) = self.location {
                     loc.ready_to_complete();
                 }
@@ -240,8 +248,13 @@ where
                     }
                 });
 
+                let navigation = Rc::clone(&state.navigation);
                 Executor::spawn_local(async move {
                     join_all(full_loaders).await;
+                    // a later navigation owns is_routing and the location
+                    if navigation.get() != navigation_id {
+                        return;
+                    }
                     if let Some(set_is_routing) = self.set_is_routing {
                         set_is_routing.set(false);
                     }
@@ -581,6 +594,8 @@ pub(crate) struct RouteContext {
     // this outlet: a navigation that replaces or removes the outlet aborts
     // it, while one that reuses the outlet leaves it alone
     preload_abort: Arc<Mutex<Option<AbortHandle>>>,
+    // the <Outlet/>s of the parent's view that currently render this outlet
+    renderers: Arc<Renderers>,
 }
 
 #[derive(Clone)]
@@ -635,6 +650,7 @@ impl Clone for RouteContext {
             child: self.child.clone(),
             preload_owner: self.preload_owner.clone(),
             preload_abort: Arc::clone(&self.preload_abort),
+            renderers: Arc::clone(&self.renderers),
         }
     }
 }
@@ -643,6 +659,85 @@ impl Clone for RouteContext {
 /// that renders it, or with `Err` if the preload was cancelled (see
 /// `RouteContext::preload_abort`).
 type Preloader = Pin<Box<dyn Future<Output = Result<ArcTrigger, Aborted>>>>;
+
+/// Resolves once the view a navigation shows in an outlet has been chosen.
+type FullLoader = Pin<Box<dyn Future<Output = ()>>>;
+
+/// Counts the `<Outlet/>`s that render an outlet (see
+/// `RouteContext::renderers`).
+#[derive(Default)]
+struct Renderers(Mutex<RenderersInner>);
+
+#[derive(Default)]
+struct RenderersInner {
+    count: usize,
+    // woken when the count drops to zero; each one belongs to a future that
+    // waits for it, and is dropped along with it
+    waiting: Vec<Weak<AtomicWaker>>,
+}
+
+impl Renderers {
+    /// Counts an `<Outlet/>` that renders the outlet, until the current owner
+    /// is cleaned up: when the `<Outlet/>` renders it again, or is disposed of.
+    fn track(this: &Arc<Self>) {
+        this.0.lock().or_poisoned().count += 1;
+        Owner::on_cleanup({
+            let this = Arc::clone(this);
+            move || {
+                let waiting = {
+                    let mut inner = this.0.lock().or_poisoned();
+                    inner.count = inner.count.saturating_sub(1);
+                    if inner.count == 0 {
+                        mem::take(&mut inner.waiting)
+                    } else {
+                        Vec::new()
+                    }
+                };
+                for waker in waiting.iter().filter_map(Weak::upgrade) {
+                    waker.wake();
+                }
+            }
+        });
+    }
+
+    /// Whether nothing renders the outlet. If something does, `waker` is
+    /// woken once nothing does anymore.
+    fn poll_none(&self, waker: &Arc<AtomicWaker>) -> bool {
+        let mut inner = self.0.lock().or_poisoned();
+        if inner.count == 0 {
+            return true;
+        }
+        // forget the futures that no longer wait
+        inner.waiting.retain(|waiting| waiting.strong_count() > 0);
+        if !inner
+            .waiting
+            .iter()
+            .any(|waiting| waiting.as_ptr() == Arc::as_ptr(waker))
+        {
+            inner.waiting.push(Arc::downgrade(waker));
+        }
+        false
+    }
+}
+
+/// Resolves once the view scheduled for an outlet has been chosen, or once
+/// nothing renders the outlet: a view that is not rendered is never chosen,
+/// and is not part of what the navigation shows.
+async fn chosen_while_rendered(
+    mut chosen: oneshot::Receiver<Option<Owner>>,
+    renderers: Arc<Renderers>,
+) {
+    let waker = Arc::new(AtomicWaker::new());
+    poll_fn(|cx| {
+        waker.register(cx.waker());
+        if chosen.poll_unpin(cx).is_ready() || renderers.poll_none(&waker) {
+            Poll::Ready(())
+        } else {
+            Poll::Pending
+        }
+    })
+    .await
+}
 
 trait AddNestedRoute {
     fn build_nested_route(
@@ -661,7 +756,7 @@ trait AddNestedRoute {
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         loaders: &mut Vec<Preloader>,
-        full_loaders: &mut Vec<oneshot::Receiver<Option<Owner>>>,
+        full_loaders: &mut Vec<FullLoader>,
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
         level: u8,
@@ -749,6 +844,7 @@ where
             owner: Arc::new(Mutex::new(None)),
             preload_owner: outer_owner.child(),
             preload_abort: Default::default(),
+            renderers: Default::default(),
         };
         let preload_registration = outlet.new_preload();
         if !outlets.is_empty() {
@@ -847,7 +943,7 @@ where
         base: Option<Oco<'static, str>>,
         items: &mut usize,
         preloaders: &mut Vec<Preloader>,
-        full_loaders: &mut Vec<oneshot::Receiver<Option<Owner>>>,
+        full_loaders: &mut Vec<FullLoader>,
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
         level: u8,
@@ -945,7 +1041,19 @@ where
 
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
-                    full_loaders.push(full_rx);
+                    // the router always renders the top-level outlet, while a
+                    // child outlet is only rendered if its parent's view has
+                    // an <Outlet/> on screen
+                    full_loaders.push(if *items == 0 {
+                        Box::pin(async move {
+                            _ = full_rx.await;
+                        })
+                    } else {
+                        Box::pin(chosen_while_rendered(
+                            full_rx,
+                            Arc::clone(&current.renderers),
+                        ))
+                    });
                     let outlet = current.clone();
 
                     // send the new view, with the new owner, through the channel to the Outlet,
@@ -1143,8 +1251,83 @@ where
     child.map(|child| {
         move || {
             child.trigger.track();
+            Renderers::track(&child.renderers);
             let mut view_fn = child.view_fn.lock().or_poisoned();
             view_fn(outer_owner.child())
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::task::{ArcWake, waker};
+    use std::{
+        pin::pin,
+        sync::atomic::{AtomicBool, Ordering},
+        task::{Context, Waker},
+    };
+
+    #[derive(Default)]
+    struct Woken(AtomicBool);
+
+    impl ArcWake for Woken {
+        fn wake_by_ref(this: &Arc<Self>) {
+            this.0.store(true, Ordering::Relaxed);
+        }
+    }
+
+    fn new_waker() -> (Arc<Woken>, Waker) {
+        let woken = Arc::new(Woken::default());
+        let waker = waker(Arc::clone(&woken));
+        (woken, waker)
+    }
+
+    #[test]
+    fn waiting_for_a_rendered_outlet_ends_once_nothing_renders_it() {
+        let outlet = Owner::new();
+        let renderers = Arc::<Renderers>::default();
+        outlet.with(|| Renderers::track(&renderers));
+        let (_chosen_tx, chosen) = oneshot::channel::<Option<Owner>>();
+        let mut waiting =
+            pin!(chosen_while_rendered(chosen, Arc::clone(&renderers)));
+        let (woken, waker) = new_waker();
+        let mut cx = Context::from_waker(&waker);
+        assert!(waiting.as_mut().poll(&mut cx).is_pending());
+
+        // the <Outlet/> is disposed of, and another one renders the outlet
+        outlet.cleanup();
+        outlet.with(|| Renderers::track(&renderers));
+        assert!(waiting.as_mut().poll(&mut cx).is_pending());
+
+        outlet.cleanup();
+        assert!(woken.0.load(Ordering::Relaxed));
+        assert!(waiting.as_mut().poll(&mut cx).is_ready());
+    }
+
+    #[test]
+    fn waiting_for_a_rendered_outlet_leaves_no_waker_behind() {
+        let outlet = Owner::new();
+        let renderers = Arc::<Renderers>::default();
+        outlet.with(|| Renderers::track(&renderers));
+        // the navigations that replace the outlet's view, each one waiting
+        // for it in a task of its own
+        for _ in 0..3 {
+            let (chosen_tx, chosen) = oneshot::channel::<Option<Owner>>();
+            let mut waiting =
+                pin!(chosen_while_rendered(chosen, Arc::clone(&renderers)));
+            let (_, waker) = new_waker();
+            let mut cx = Context::from_waker(&waker);
+            assert!(waiting.as_mut().poll(&mut cx).is_pending());
+            _ = chosen_tx.send(None);
+            assert!(waiting.as_mut().poll(&mut cx).is_ready());
+        }
+        let (wakers, live) = {
+            let inner = renderers.0.lock().or_poisoned();
+            let live = inner.waiting.iter().filter(|w| w.strong_count() > 0);
+            (inner.waiting.len(), live.count())
+        };
+        assert!(wakers <= 1, "{wakers} wakers");
+        assert_eq!(live, 0);
+    }
 }

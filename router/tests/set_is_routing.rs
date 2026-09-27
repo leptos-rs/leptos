@@ -10,8 +10,8 @@ use common::*;
 use leptos::prelude::*;
 use leptos_router::{
     components::{
-        FlatRoutes, Outlet, ProtectedParentRoute, ProtectedRoute, Route,
-        Router, Routes,
+        FlatRoutes, Outlet, ParentRoute, ProtectedParentRoute, ProtectedRoute,
+        Route, Router, Routes,
     },
     path,
 };
@@ -56,6 +56,35 @@ fn Page() -> impl IntoView {
         <Suspense fallback=|| view! { <p id="page-fallback">"loading"</p> }>
             <p id="page">{move || Suspend::new(async move { data.await })}</p>
         </Suspense>
+    }
+}
+
+/// Like [`Page`], with the "other" gate.
+#[component]
+fn OtherPage() -> impl IntoView {
+    let data = AsyncDerived::new(|| {
+        let loaded = gate("other");
+        async move {
+            loaded.await;
+            "loaded"
+        }
+    });
+    view! {
+        <Suspense>
+            <p id="other">{move || Suspend::new(async move { data.await })}</p>
+        </Suspense>
+    }
+}
+
+/// A layout that does not render its child routes, as a layout may do on
+/// small screens, or before the user has opened a panel.
+#[component]
+fn HiddenOutletLayout() -> impl IntoView {
+    view! {
+        <p id="hidden-outlet">"layout"</p>
+        <Show when=|| false>
+            <Outlet/>
+        </Show>
     }
 }
 
@@ -152,9 +181,11 @@ macro_rules! app {
             <CaptureNavigate/>
             <a id="to-page" href="/page">"page"</a>
             <a id="to-protected" href="/protected">"protected"</a>
+            <a id="to-other" href="/other">"other"</a>
             <$routes fallback=|| view! { <p id="not-found">"not found"</p> }>
                 <Route path=path!("") view=|| view! { <p id="home">"home"</p> }/>
                 <Route path=path!("page") view=Page/>
+                <Route path=path!("other") view=OtherPage/>
                 <Route path=path!("login") view=|| view! { <p id="login">"login"</p> }/>
                 <ProtectedRoute
                     path=path!("protected")
@@ -211,6 +242,24 @@ fn nested() -> impl IntoView {
         >
             <Route path=path!("child") view=ChildPage/>
         </ProtectedParentRoute>
+        <ParentRoute
+            path=path!("no-outlet")
+            view=|| view! { <p id="no-outlet">"layout"</p> }
+        >
+            <Route path=path!("x") view=|| view! { <p id="x">"x"</p> }/>
+            <Route path=path!("y") view=|| view! { <p id="y">"y"</p> }/>
+        </ParentRoute>
+        <ParentRoute
+            path=path!("layout")
+            view=|| view! { <p id="layout">"layout"</p><Outlet/> }
+        >
+            <Route path=path!("page") view=Page/>
+            <Route path=path!("other") view=OtherPage/>
+        </ParentRoute>
+        <ParentRoute path=path!("hidden-outlet") view=HiddenOutletLayout>
+            <Route path=path!("x") view=|| view! { <p id="x">"x"</p> }/>
+            <Route path=path!("y") view=|| view! { <p id="y">"y"</p> }/>
+        </ParentRoute>
     })
 }
 
@@ -605,4 +654,159 @@ async fn flat_protected_route_without_set_is_routing_is_shown_at_once() {
         flat_not_holding().into_any()
     })
     .await;
+}
+
+async fn an_earlier_navigation_does_not_complete_a_later_one(
+    app: fn() -> AnyView,
+) {
+    start_at("/");
+    let app = mount(app);
+    settle().await;
+
+    app.click("#to-page");
+    settle().await;
+    app.click("#to-other");
+    settle().await;
+    release("page");
+    settle().await;
+    assert!(is_routing(), "the later navigation is still loading");
+    assert!(app.has("#home"), "the previous page is held");
+    assert_eq!(pathname(), "/", "the URL changes with the page");
+
+    release("other");
+    settle().await;
+    assert_eq!(app.text("#other").as_deref(), Some("loaded"));
+    assert_eq!(pathname(), "/other");
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn nested_earlier_navigation_does_not_complete_a_later_one() {
+    an_earlier_navigation_does_not_complete_a_later_one(|| nested().into_any())
+        .await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_earlier_navigation_does_not_complete_a_later_one() {
+    an_earlier_navigation_does_not_complete_a_later_one(|| flat().into_any())
+        .await;
+}
+
+async fn returning_to_a_route_does_not_show_its_abandoned_load(
+    app: fn() -> AnyView,
+) {
+    start_at("/");
+    let app = mount(app);
+    settle().await;
+
+    navigate("/page");
+    settle().await;
+    navigate("/other");
+    settle().await;
+    navigate("/page");
+    settle().await;
+    // the first navigation to /page finishes loading
+    release_first("page");
+    settle().await;
+    assert!(!app.has("#page"), "the abandoned load was shown");
+    assert!(is_routing());
+
+    release("page");
+    release("other");
+    settle().await;
+    assert_eq!(app.text("#page").as_deref(), Some("loaded"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn nested_returning_to_a_route_does_not_show_its_abandoned_load() {
+    returning_to_a_route_does_not_show_its_abandoned_load(|| {
+        nested().into_any()
+    })
+    .await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_returning_to_a_route_does_not_show_its_abandoned_load() {
+    returning_to_a_route_does_not_show_its_abandoned_load(|| flat().into_any())
+        .await;
+}
+
+async fn navigating_to_the_fallback_clears_is_routing(app: fn() -> AnyView) {
+    start_at("/");
+    let app = mount(app);
+    settle().await;
+
+    navigate("/page");
+    settle().await;
+    assert!(is_routing());
+    navigate("/nowhere");
+    settle().await;
+    assert!(app.has("#not-found"));
+    assert!(!is_routing());
+
+    // the abandoned navigation finishes loading
+    release("page");
+    settle().await;
+    assert!(app.has("#not-found"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn nested_navigating_to_the_fallback_clears_is_routing() {
+    navigating_to_the_fallback_clears_is_routing(|| nested().into_any()).await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_navigating_to_the_fallback_clears_is_routing() {
+    navigating_to_the_fallback_clears_is_routing(|| flat().into_any()).await;
+}
+
+/// A navigation that only replaces the child of a layout that does not render
+/// its child routes has nothing to show, and must not wait for it.
+#[wasm_bindgen_test]
+async fn a_child_route_nothing_renders_does_not_hold_the_navigation() {
+    for layout in ["no-outlet", "hidden-outlet"] {
+        start_at("/");
+        let app = mount(|| nested().into_any());
+        settle().await;
+
+        navigate(&format!("/{layout}/x"));
+        settle().await;
+        assert!(app.has(&format!("#{layout}")));
+        assert!(!is_routing());
+
+        navigate(&format!("/{layout}/y"));
+        settle().await;
+        assert!(!is_routing(), "{layout}: the navigation never completed");
+    }
+}
+
+/// A navigation that only replaces the child of a layout still waits for the
+/// new child's view, which the layout renders.
+#[wasm_bindgen_test]
+async fn replacing_the_child_of_a_layout_holds_the_previous_child() {
+    start_at("/");
+    let app = mount(|| nested().into_any());
+    settle().await;
+    navigate("/layout/page");
+    settle().await;
+    release("page");
+    settle().await;
+    assert_eq!(app.text("#page").as_deref(), Some("loaded"));
+    assert!(!is_routing());
+
+    navigate("/layout/other");
+    settle().await;
+    assert!(
+        app.has("#layout") && app.has("#page"),
+        "the previous child is held"
+    );
+    assert!(is_routing());
+
+    release("other");
+    settle().await;
+    assert_eq!(app.text("#other").as_deref(), Some("loaded"));
+    assert!(!app.has("#page"));
+    assert!(!is_routing());
 }
