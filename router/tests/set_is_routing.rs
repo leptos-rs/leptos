@@ -6,6 +6,7 @@
 
 mod common;
 
+use any_spawner::Executor;
 use common::*;
 use leptos::prelude::*;
 use leptos_router::{
@@ -28,6 +29,8 @@ thread_local! {
     static SWITCH: RefCell<Option<WriteSignal<bool>>> =
         const { RefCell::new(None) };
     static DISPOSED_PAGES: Cell<usize> = const { Cell::new(0) };
+    static PAGE_SHOWN_WHEN_ROUTED: RefCell<Vec<bool>> =
+        const { RefCell::new(Vec::new()) };
 }
 
 /// Sets the condition of the `/signal-protected` route.
@@ -1283,4 +1286,104 @@ async fn flat_params_only_navigation_completes_with_the_route_it_reuses_without_
         flat_not_holding().into_any()
     })
     .await;
+}
+
+/// An app whose routes use view transitions, and which records, whenever
+/// `is_routing` is cleared, whether the new page (`#page`) is on screen by the
+/// time the browser can render again, i.e. once the microtasks queued with
+/// that change have run.
+fn with_view_transitions(flat: bool) -> AnyView {
+    let (is_routing, set_is_routing) = signal(false);
+    Effect::new(move |was_routing: Option<bool>| {
+        let routing = is_routing.get();
+        if was_routing == Some(true) && !routing {
+            Executor::spawn_local(async {
+                let mut shown = false;
+                for _ in 0..8 {
+                    shown =
+                        document().query_selector("#page").unwrap().is_some();
+                    if shown {
+                        break;
+                    }
+                    Executor::tick().await;
+                }
+                PAGE_SHOWN_WHEN_ROUTED
+                    .with(|seen| seen.borrow_mut().push(shown));
+            });
+        }
+        routing
+    });
+    let fallback = || view! { <p id="not-found">"not found"</p> };
+    let routes = move || {
+        if flat {
+            view! {
+                <FlatRoutes transition=true fallback>
+                    <Route path=path!("") view=|| view! { <p id="home">"home"</p> }/>
+                    <Route path=path!("page") view=Page/>
+                </FlatRoutes>
+            }
+            .into_any()
+        } else {
+            view! {
+                <Routes transition=true fallback>
+                    <Route path=path!("") view=|| view! { <p id="home">"home"</p> }/>
+                    <Route path=path!("page") view=Page/>
+                </Routes>
+            }
+            .into_any()
+        }
+    };
+    view! {
+        <Router set_is_routing>
+            <CaptureNavigate/>
+            {routes()}
+        </Router>
+    }
+    .into_any()
+}
+
+/// Resolves once `done` holds, checking it every 10 milliseconds for a second.
+async fn until(done: impl Fn() -> bool) {
+    for _ in 0..100 {
+        if done() {
+            return;
+        }
+        sleep(10).await;
+    }
+    panic!("timed out");
+}
+
+/// With a view transition, the new page is shown once the browser has
+/// captured the old one: the navigation completes only then.
+async fn is_routing_is_cleared_once_a_view_transition_shows_the_page(
+    flat: bool,
+) {
+    start_at("/");
+    PAGE_SHOWN_WHEN_ROUTED.with(|seen| seen.borrow_mut().clear());
+    let app = mount(move || with_view_transitions(flat));
+    settle().await;
+
+    navigate("/page");
+    // <Routes> only creates the new view once the view transition has
+    // captured the old page
+    until(|| pending("page") > 0).await;
+    release("page");
+    until(|| app.has("#page")).await;
+    settle().await;
+    assert_eq!(app.text("#page").as_deref(), Some("loaded"));
+    assert_eq!(
+        PAGE_SHOWN_WHEN_ROUTED.with(|seen| seen.take()),
+        [true],
+        "is_routing was cleared before the new page was shown"
+    );
+}
+
+#[wasm_bindgen_test]
+async fn nested_is_routing_is_cleared_once_a_view_transition_shows_the_page() {
+    is_routing_is_cleared_once_a_view_transition_shows_the_page(false).await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_is_routing_is_cleared_once_a_view_transition_shows_the_page() {
+    is_routing_is_cleared_once_a_view_transition_shows_the_page(true).await;
 }

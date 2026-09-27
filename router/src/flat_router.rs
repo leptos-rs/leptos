@@ -403,23 +403,28 @@ where
                                         }
                                         // resolves `view_chosen`
                                         drop(chosen_tx);
+
+                                        // the navigation completes once its
+                                        // view is on screen; a later one owns
+                                        // is_routing and the location
+                                        if state.borrow().navigation
+                                            == navigation_id
+                                        {
+                                            if let Some(set_is_routing) =
+                                                set_is_routing
+                                            {
+                                                set_is_routing.set(false);
+                                            }
+                                            if let Some(location) = location {
+                                                location.ready_to_complete();
+                                            }
+                                        }
                                     }
                                 };
                                 if transition {
                                     start_view_transition(0, is_back, rebuild);
                                 } else {
                                     rebuild();
-                                }
-                            }
-
-                            // a later navigation owns is_routing and the
-                            // location
-                            if state.borrow().navigation == navigation_id {
-                                if let Some(set_is_routing) = set_is_routing {
-                                    set_is_routing.set(false);
-                                }
-                                if let Some(location) = location {
-                                    location.ready_to_complete();
                                 }
                             }
                             drop(old_owner);
