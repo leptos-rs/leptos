@@ -1,13 +1,13 @@
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
-use quote::{ToTokens, quote};
+use quote::{quote, ToTokens};
 use syn::{
-    Attribute, Error, ExprClosure, Field, Fields, GenericParam, Generics,
-    Ident, Index, Meta, Result, Token, Type, TypeParam, Variant, Visibility,
-    WhereClause,
     parse::{Parse, ParseStream, Parser},
     punctuated::Punctuated,
     token::Comma,
+    Attribute, Error, ExprClosure, Field, Fields, GenericParam, Generics,
+    Ident, Index, Meta, Result, Token, Type, TypeParam, Variant, Visibility,
+    WhereClause,
 };
 
 #[proc_macro_derive(Store, attributes(store))]
@@ -311,14 +311,21 @@ impl ModelTy {
                 })
                 .collect::<Result<Vec<_>>>()
                 .map(|fields| fields.into_iter().unzip()),
-            ModelTy::Enum { variants } => Ok(variants
+            ModelTy::Enum { variants } => variants
                 .iter()
-                .map(|variant| {
+                .scan(0, |offset, variant| {
+                    let field_offset = *offset;
+                    // Include skipped fields so Store and Patch paths agree.
+                    *offset += variant.fields.len();
+                    Some((field_offset, variant))
+                })
+                .map(|(field_offset, variant)| {
                     let Variant { ident, fields, .. } = variant;
 
-                    (
+                    Ok((
                         variant_to_tokens(
                             false,
+                            field_offset,
                             library_path,
                             ident,
                             generics,
@@ -326,9 +333,10 @@ impl ModelTy {
                             any_store_field,
                             name,
                             fields,
-                        ),
+                        )?,
                         variant_to_tokens(
                             true,
+                            field_offset,
                             library_path,
                             ident,
                             generics,
@@ -336,10 +344,11 @@ impl ModelTy {
                             any_store_field,
                             name,
                             fields,
-                        ),
-                    )
+                        )?,
+                    ))
                 })
-                .unzip()),
+                .collect::<Result<Vec<_>>>()
+                .map(|fields| fields.into_iter().unzip()),
         }
     }
 }
@@ -445,6 +454,7 @@ fn field_to_tokens(
 #[allow(clippy::too_many_arguments)]
 fn variant_to_tokens(
     include_body: bool,
+    field_offset: usize,
     library_path: &proc_macro2::TokenStream,
     ident: &Ident,
     _generics: &Generics,
@@ -452,13 +462,13 @@ fn variant_to_tokens(
     any_store_field: &Ident,
     name: &Ident,
     fields: &Fields,
-) -> proc_macro2::TokenStream {
+) -> Result<TokenStream> {
     // the method name will always be the snake_cased ident
     let orig_ident = &ident;
     let ident =
         Ident::new(&ident.to_string().to_case(Case::Snake), ident.span());
 
-    match fields {
+    Ok(match fields {
         // For unit enum fields, we will just return a `bool` subfield, which is
         // true when this field matches
         Fields::Unit => {
@@ -468,7 +478,7 @@ fn variant_to_tokens(
                     fn #ident(self) -> bool {
                         match #library_path::StoreField::reader(&self) {
                             Some(reader) => {
-                                #library_path::StoreField::track_field(&self);
+                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 matches!(&*reader, #name::#orig_ident)
                             },
                             None => false
@@ -490,7 +500,7 @@ fn variant_to_tokens(
                     fn #ident(self) -> bool {
                         match #library_path::StoreField::reader(&self) {
                             Some(reader) => {
-                                #library_path::StoreField::track_field(&self);
+                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 matches!(&*reader, #name::#orig_ident { .. })
                             },
                             None => false
@@ -507,30 +517,32 @@ fn variant_to_tokens(
                 .named
                 .iter()
                 .enumerate()
-                .map(|(field_idx, field)| {
-                    // Give each field of the variant a distinct path segment so
-                    // writing one field does not wake subscribers of a sibling.
-                    let segment = field_idx;
+                .map(|(idx, field)| {
                     let field_ident = field.ident.as_ref().unwrap();
-                    let field_ty = &field.ty;
+                    let path_idx = field_offset + idx;
+                    let Some((subfield_ty, constructor, key_arg)) =
+                        enum_subfield_tokens(field, library_path, clear_generics, any_store_field, name)?
+                    else {
+                        return Ok(quote! {});
+                    };
                     let combined_ident = Ident::new(
                         &format!("{ident}_{field_ident}"),
                         field_ident.span(),
                     );
 
-                    // default subfield
-                    if include_body {
+                    Ok(if include_body {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>> {
-                                #library_path::StoreField::track_field(&self);
+                            fn #combined_ident(self) -> Option<#subfield_ty> {
+                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 let reader = #library_path::StoreField::reader(&self);
                                 let matches = reader
                                     .map(|reader| matches!(&*reader, #name::#orig_ident { .. }))
                                     .unwrap_or(false);
                                 if matches {
-                                    Some(#library_path::Subfield::new(
+                                    let field: #subfield_ty = #constructor(
                                         self,
-                                        #segment.into(),
+                                        #path_idx.into(),
+                                        #key_arg
                                         |prev| {
                                             match prev {
                                                 #name::#orig_ident { #field_ident, .. } => Some(#field_ident),
@@ -545,7 +557,8 @@ fn variant_to_tokens(
                                             }
                                             .expect("accessed an enum field that is no longer matched")
                                         },
-                                    ))
+                                    );
+                                    Some(field)
                                 } else {
                                     None
                                 }
@@ -553,10 +566,10 @@ fn variant_to_tokens(
                         }
                     } else {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>>;
+                            fn #combined_ident(self) -> Option<#subfield_ty>;
                         }
-                    }
-                }));
+                    })
+                }).collect::<Result<Vec<_>>>()?);
 
             tokens
         }
@@ -569,7 +582,7 @@ fn variant_to_tokens(
                     fn #ident(self) -> bool {
                         match #library_path::StoreField::reader(&self) {
                             Some(reader) => {
-                                #library_path::StoreField::track_field(&self);
+                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 matches!(&*reader, #name::#orig_ident { .. })
                             },
                             None => false
@@ -589,9 +602,13 @@ fn variant_to_tokens(
                 .iter()
                 .enumerate()
                 .map(|(idx, field)| {
-                    let segment = idx;
                     let field_ident = idx;
-                    let field_ty = &field.ty;
+                    let path_idx = field_offset + idx;
+                    let Some((subfield_ty, constructor, key_arg)) =
+                        enum_subfield_tokens(field, library_path, clear_generics, any_store_field, name)?
+                    else {
+                        return Ok(quote! {});
+                    };
                     let combined_ident = Ident::new(
                         &format!("{ident}_{field_ident}"),
                         ident.span(),
@@ -602,19 +619,19 @@ fn variant_to_tokens(
                     let ignore_after = (idx..number_of_fields.saturating_sub(1)).map(|_| quote !{_, });
                     let ignore_after2 = ignore_after.clone();
 
-                    // default subfield
-                    if include_body {
+                    Ok(if include_body {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>> {
-                                #library_path::StoreField::track_field(&self);
+                            fn #combined_ident(self) -> Option<#subfield_ty> {
+                                #library_path::StoreField::track_self_and_ancestors(&self);
                                 let reader = #library_path::StoreField::reader(&self);
                                 let matches = reader
                                     .map(|reader| matches!(&*reader, #name::#orig_ident(..)))
                                     .unwrap_or(false);
                                 if matches {
-                                    Some(#library_path::Subfield::new(
+                                    let field: #subfield_ty = #constructor(
                                         self,
-                                        #segment.into(),
+                                        #path_idx.into(),
+                                        #key_arg
                                         |prev| {
                                             match prev {
                                                 #name::#orig_ident(#(#ignore_before)* this, #(#ignore_after)*) => Some(this),
@@ -629,7 +646,8 @@ fn variant_to_tokens(
                                             }
                                             .expect("accessed an enum field that is no longer matched")
                                         },
-                                    ))
+                                    );
+                                    Some(field)
                                 } else {
                                     None
                                 }
@@ -637,14 +655,49 @@ fn variant_to_tokens(
                         }
                     } else {
                         quote! {
-                            fn #combined_ident(self) -> Option<#library_path::Subfield<#any_store_field, #name #clear_generics, #field_ty>>;
+                            fn #combined_ident(self) -> Option<#subfield_ty>;
                         }
-                    }
-                }));
+                    })
+                }).collect::<Result<Vec<_>>>()?);
 
             tokens
         }
+    })
+}
+
+fn enum_subfield_tokens(
+    field: &Field,
+    library_path: &TokenStream,
+    clear_generics: &Generics,
+    any_store_field: &Ident,
+    name: &Ident,
+) -> Result<Option<(TokenStream, TokenStream, TokenStream)>> {
+    let ty = &field.ty;
+    if let Some(modes) = parse_store_modes(&field.attrs)? {
+        if modes.len() != 1 {
+            return Err(Error::new(
+                field
+                    .ident
+                    .as_ref()
+                    .map(|ident| ident.span())
+                    .unwrap_or_else(Span::call_site),
+                "multiple modes not currently supported",
+            ));
+        }
+        return Ok(match &modes[0] {
+            SubfieldMode::Keyed(keyed_by, key_ty) => Some((
+                quote! { #library_path::KeyedSubfield<#any_store_field, #name #clear_generics, #key_ty, #ty> },
+                quote! { #library_path::KeyedSubfield::new },
+                quote! { #keyed_by, },
+            )),
+            SubfieldMode::Skip => None,
+        });
     }
+    Ok(Some((
+        quote! { #library_path::Subfield<#any_store_field, #name #clear_generics, #ty> },
+        quote! { #library_path::Subfield::new },
+        quote! {},
+    )))
 }
 
 struct PatchModel {
@@ -687,7 +740,7 @@ impl Parse for PatchModel {
             _ => {
                 return Err(Error::new(
                     Span::call_site(),
-                    "only structs and enums can be used with `Store`",
+                    "only structs and enums can be used with `Patch`",
                 ));
             }
         };
@@ -731,104 +784,89 @@ impl PatchModel {
                     #(#fields)*
                 }
             }
+            PatchModelTy::Enum { variants } if variants.is_empty() => {
+                quote! { match new {} }
+            }
             PatchModelTy::Enum { variants } => {
-                // Number every variant field with its index within the
-                // variant, mirroring the numbering used by the `Store`
-                // derive, so that `notify` targets the same triggers the
-                // field accessors subscribe to.
-                let arms = variants.iter().map(|variant| {
-                    let Variant { ident, fields, .. } = variant;
-                    match fields {
-                        Fields::Unit => {
-                            // same variant, no payload: nothing to patch
-                            quote! {
-                                (#name::#ident, #name::#ident) => {}
+                let mut next_field = 0;
+                let arms = variants
+                    .iter()
+                    .map(|variant| {
+                        let ident = &variant.ident;
+                        let field_offset = next_field;
+                        next_field += variant.fields.len();
+                        let mut old_bindings = Vec::new();
+                        let mut new_bindings = Vec::new();
+                        let mut patches = Vec::new();
+                        for (idx, field) in variant.fields.iter().enumerate() {
+                            let old = Ident::new(
+                                &format!("__patch_old_{idx}"),
+                                Span::mixed_site(),
+                            );
+                            let new = Ident::new(
+                                &format!("__patch_new_{idx}"),
+                                Span::mixed_site(),
+                            );
+                            patches.push(patch_field_to_tokens(
+                                &library_path,
+                                field,
+                                field_offset + idx,
+                                quote! { #old },
+                                quote! { #new },
+                            )?);
+                            if let Some(field_ident) = &field.ident {
+                                old_bindings
+                                    .push(quote! { #field_ident: #old });
+                                new_bindings
+                                    .push(quote! { #field_ident: #new });
+                            } else {
+                                old_bindings.push(quote! { #old });
+                                new_bindings.push(quote! { #new });
                             }
                         }
-                        Fields::Named(named) => {
-                            let self_binds = named.named.iter().map(|f| {
-                                let id = f.ident.as_ref().unwrap();
-                                let bind = Ident::new(&format!("self_{id}"), id.span());
-                                quote! { #id: #bind }
-                            });
-                            let new_binds = named.named.iter().map(|f| {
-                                let id = f.ident.as_ref().unwrap();
-                                let bind = Ident::new(&format!("new_{id}"), id.span());
-                                quote! { #id: #bind }
-                            });
-                            let patches = named.named.iter().enumerate().map(|(i, f)| {
-                                let id = f.ident.as_ref().unwrap();
-                                let self_bind = Ident::new(&format!("self_{id}"), id.span());
-                                let new_bind = Ident::new(&format!("new_{id}"), id.span());
-                                let segment = i;
-                                let advance = if i == 0 {
-                                    quote! { new_path.push(#segment); }
-                                } else {
-                                    quote! { new_path.replace_last(#segment); }
-                                };
-                                quote! {
-                                    #advance
-                                    #library_path::PatchField::patch_field(
-                                        #self_bind, #new_bind, &new_path, notify, keys,
-                                    );
-                                }
-                            });
+                        let (old_pattern, new_pattern) = match &variant.fields {
+                            Fields::Named(_) => (
+                                quote! { Self::#ident { #(#old_bindings),* } },
+                                quote! { Self::#ident { #(#new_bindings),* } },
+                            ),
+                            Fields::Unnamed(_) => (
+                                quote! { Self::#ident(#(#old_bindings),*) },
+                                quote! { Self::#ident(#(#new_bindings),*) },
+                            ),
+                            Fields::Unit => (
+                                quote! { Self::#ident },
+                                quote! { Self::#ident },
+                            ),
+                        };
+                        let body = if patches.is_empty() {
+                            quote! {}
+                        } else {
                             quote! {
-                                (
-                                    #name::#ident { #(#self_binds),* },
-                                    #name::#ident { #(#new_binds),* },
-                                ) => {
-                                    let mut new_path = path.clone();
-                                    #(#patches)*
-                                }
+                                let mut new_path = path.clone();
+                                new_path.push(#field_offset);
+                                #(#patches)*
                             }
-                        }
-                        Fields::Unnamed(unnamed) => {
-                            let self_binds = (0..unnamed.unnamed.len()).map(|i| {
-                                Ident::new(&format!("self_{i}"), Span::call_site())
-                            });
-                            let new_binds = (0..unnamed.unnamed.len()).map(|i| {
-                                Ident::new(&format!("new_{i}"), Span::call_site())
-                            });
-                            let patches = (0..unnamed.unnamed.len()).map(|i| {
-                                let self_bind = Ident::new(&format!("self_{i}"), Span::call_site());
-                                let new_bind = Ident::new(&format!("new_{i}"), Span::call_site());
-                                let segment = i;
-                                let advance = if i == 0 {
-                                    quote! { new_path.push(#segment); }
-                                } else {
-                                    quote! { new_path.replace_last(#segment); }
-                                };
-                                quote! {
-                                    #advance
-                                    #library_path::PatchField::patch_field(
-                                        #self_bind, #new_bind, &new_path, notify, keys,
-                                    );
-                                }
-                            });
-                            quote! {
-                                (
-                                    #name::#ident( #(#self_binds),* ),
-                                    #name::#ident( #(#new_binds),* ),
-                                ) => {
-                                    let mut new_path = path.clone();
-                                    #(#patches)*
-                                }
-                            }
-                        }
-                    }
-                }).collect::<Vec<_>>();
-
-                quote! {
-                    match (&mut *self, new) {
-                        #(#arms)*
-                        // discriminant changed: replace the whole value and
-                        // notify the enum's own path, which wakes subscribers of
-                        // every variant accessor (they track `this` on this path).
+                        };
+                        Ok(quote! { (#old_pattern, #new_pattern) => { #body } })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                let fallback = if variants.len() > 1 {
+                    let refresh =
+                        patch_enum_refresh_to_tokens(&library_path, variants)?;
+                    Some(quote! {
                         (this, new) => {
                             *this = new;
+                            #refresh
                             notify(path);
                         }
+                    })
+                } else {
+                    None
+                };
+                quote! {
+                    match (self, new) {
+                        #(#arms,)*
+                        #fallback
                     }
                 }
             }
@@ -923,6 +961,63 @@ fn patch_field_to_tokens(
     })
 }
 
+fn patch_enum_refresh_to_tokens(
+    library_path: &TokenStream,
+    variants: &[Variant],
+) -> Result<TokenStream> {
+    let mut next_field = 0usize;
+    let mut arms = Vec::new();
+    for variant in variants {
+        let ident = &variant.ident;
+        let mut bindings = Vec::new();
+        let mut refreshes = Vec::new();
+        for (idx, field) in variant.fields.iter().enumerate() {
+            let field_idx = next_field;
+            next_field += 1;
+            if let Some((key_fn, key_ty)) =
+                parse_patch_key_closure(&field.attrs)?
+            {
+                let binding = Ident::new(
+                    &format!("__patch_keyed_{idx}"),
+                    Span::mixed_site(),
+                );
+                let locator = match &field.ident {
+                    Some(ident) => Either::Left(ident),
+                    None => Either::Right(Index::from(idx)),
+                };
+                bindings.push(quote! { #locator: #binding });
+                refreshes.push(quote! {
+                    new_path.replace_last(#field_idx);
+                    #library_path::refresh_keyed_field::<_, #key_ty>(
+                        #binding, &new_path, keys, #key_fn,
+                    );
+                });
+            }
+        }
+        if !refreshes.is_empty() {
+            arms.push(quote! {
+                Self::#ident { #(#bindings,)* .. } => {
+                    #(#refreshes)*
+                }
+            });
+        }
+    }
+    Ok(if arms.is_empty() {
+        quote! {}
+    } else {
+        let fallback =
+            (arms.len() < variants.len()).then(|| quote! { _ => {} });
+        quote! {
+            let mut new_path = path.clone();
+            new_path.push(0);
+            match &*this {
+                #(#arms,)*
+                #fallback
+            }
+        }
+    })
+}
+
 fn parse_patch_key_closure(
     attrs: &[Attribute],
 ) -> Result<Option<(ExprClosure, Type)>> {
@@ -986,5 +1081,56 @@ impl<A: ToTokens, B: ToTokens> ToTokens for Either<A, B> {
             Either::Left(a) => a.to_tokens(tokens),
             Either::Right(b) => b.to_tokens(tokens),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn patch_supports_keyed_enum_fields() {
+        for input in [
+            quote! {
+                enum Example {
+                    Named {
+                        #[store(key: usize = |item| *item)]
+                        items: Vec<usize>,
+                    },
+                }
+            },
+            quote! {
+                enum Example {
+                    Tuple(#[store(key: usize = |item| *item)] Vec<usize>),
+                }
+            },
+            quote! {
+                enum Example {
+                    Custom {
+                        #[store(key: usize = |item| *item)]
+                        #[patch(|this, new| *this = new)]
+                        items: Vec<usize>,
+                    },
+                }
+            },
+        ] {
+            let model = syn::parse2::<PatchModel>(input).unwrap();
+            model.expand().unwrap();
+        }
+    }
+
+    #[test]
+    fn patch_union_diagnostic_names_patch() {
+        let error = syn::parse2::<PatchModel>(quote! {
+            union Example {
+                value: u32,
+            }
+        })
+        .err()
+        .expect("Patch must reject unions");
+        assert_eq!(
+            error.to_string(),
+            "only structs and enums can be used with `Patch`"
+        );
     }
 }

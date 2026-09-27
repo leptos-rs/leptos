@@ -91,6 +91,23 @@ pub trait StoreField: Sized {
         trigger.children.track();
     }
 
+    /// Tracks direct changes to this field and its ancestors, but not its children.
+    ///
+    /// Used by enum accessors to detect variant changes without subscribing to
+    /// changes in the variant's payload. Ancestor tracking also detects replacement
+    /// of a containing value.
+    #[doc(hidden)]
+    #[track_caller]
+    fn track_self_and_ancestors(&self) {
+        let mut path = self.path().into_iter().collect::<StorePath>();
+        loop {
+            self.get_trigger(path.clone()).this.track();
+            if path.pop().is_none() {
+                break;
+            }
+        }
+    }
+
     /// Returns a read guard to access this field.
     #[track_caller]
     fn reader(&self) -> Option<Self::Reader>;
