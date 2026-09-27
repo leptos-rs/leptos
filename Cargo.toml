@@ -82,7 +82,7 @@ typed-builder-macro = { default-features = false, version = "0.23" }
 thiserror = { default-features = false, version = "2.0" }
 wasm-bindgen = { default-features = false, version = "0.2" }
 indexmap = { default-features = false, version = "2.13" }
-rstml = { default-features = false, version = "0.13.1-test.ae41582f-679e-45d8-86d7-ef5959cc0a75" }
+rstml = { default-features = false, version = "0.13.1" }
 rustc_version = { default-features = false, version = "0.4" }
 guardian = { default-features = false, version = "1.3" }
 rustc-hash = { default-features = false, version = "2.1" }
