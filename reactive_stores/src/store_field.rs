@@ -11,7 +11,44 @@ use reactive_graph::{
     },
     traits::{Track, UntrackableGuard},
 };
-use std::{iter, ops::Deref, sync::Arc};
+use std::{
+    iter,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
+
+/// Invalidates cached key metadata before releasing a store's value lock.
+#[doc(hidden)]
+pub struct StoreWriteGuard<T: 'static> {
+    inner: UntrackedWriteGuard<T>,
+    keys: KeyMap,
+    mutated: bool,
+}
+
+impl<T> Deref for StoreWriteGuard<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.inner
+    }
+}
+
+impl<T> DerefMut for StoreWriteGuard<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        self.mutated = true;
+        &mut self.inner
+    }
+}
+
+impl<T> Drop for StoreWriteGuard<T> {
+    fn drop(&mut self) {
+        if self.mutated {
+            // Metadata validity is independent of reactive notification tracking.
+            // The inner value lock is released only after this invalidation.
+            self.keys.invalidate();
+        }
+    }
+}
 
 /// Describes a type that can be accessed as a reactive store field.
 pub trait StoreField: Sized {
@@ -127,7 +164,7 @@ where
 {
     type Value = T;
     type Reader = Plain<T>;
-    type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
+    type Writer = WriteGuard<ArcTrigger, StoreWriteGuard<T>>;
 
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
@@ -138,30 +175,7 @@ where
 
     #[track_caller]
     fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
-        let caller = std::panic::Location::caller();
-        let orig_path = path.clone();
-
-        let mut path = StorePath::with_capacity(orig_path.len());
-        for segment in &orig_path {
-            let parent_is_keyed = self.keys.contains_key(&path);
-
-            if parent_is_keyed {
-                let key = self
-                    .keys
-                    .get_key_for_index(&(path.clone(), segment.0))
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "could not find key for index {:?} at {}",
-                            (path.clone(), segment.0),
-                            caller
-                        )
-                    });
-                path.push(key);
-            } else {
-                path.push(*segment);
-            }
-        }
-        self.get_trigger(path)
+        self.get_trigger(self.keys.keyed_path(&path))
     }
 
     #[track_caller]
@@ -183,7 +197,14 @@ where
     fn writer(&self) -> Option<Self::Writer> {
         let trigger = self.get_trigger(Default::default());
         let guard = UntrackedWriteGuard::try_new(Arc::clone(&self.value))?;
-        Some(WriteGuard::new(trigger.children, guard))
+        Some(WriteGuard::new(
+            trigger.children,
+            StoreWriteGuard {
+                inner: guard,
+                keys: self.keys.clone(),
+                mutated: false,
+            },
+        ))
     }
 
     #[track_caller]
@@ -199,7 +220,7 @@ where
 {
     type Value = T;
     type Reader = Plain<T>;
-    type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
+    type Writer = WriteGuard<ArcTrigger, StoreWriteGuard<T>>;
 
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
