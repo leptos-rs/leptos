@@ -30,7 +30,10 @@ use std::{
     fmt::{Debug, Display},
     future::poll_fn,
     mem,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
     task::Poll,
     time::Duration,
 };
@@ -70,6 +73,8 @@ pub fn Router<Chil>(
     /// Content that only starts loading once the new page is shown (inside a `Suspend`, for
     /// example) shows its own fallback instead. A navigation that only changes the params of
     /// the route on screen keeps the signal set while the resources that depend on them reload.
+    /// With several [`Routes`] or [`FlatRoutes`], the signal stays set while any of them is
+    /// navigating.
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
     // TODO trailing slashes
@@ -122,7 +127,7 @@ where
         current_url,
         location,
         state,
-        set_is_routing,
+        set_is_routing: set_is_routing.map(IsRouting::new),
         query_mutations: Default::default(),
         location_provider,
     });
@@ -137,10 +142,65 @@ pub(crate) struct RouterContext {
     pub current_url: ArcRwSignal<Url>,
     pub location: Location,
     pub state: ArcRwSignal<State>,
-    pub set_is_routing: Option<SignalSetter<bool>>,
+    pub set_is_routing: Option<IsRouting>,
     pub query_mutations:
         ArcStoredValue<Vec<(Oco<'static, str>, Option<String>)>>,
     pub location_provider: Option<BrowserUrl>,
+}
+
+/// A `<Router>`'s `set_is_routing`, which its `<Routes>` and `<FlatRoutes>`
+/// share: `is_routing` is set while any of them is navigating.
+#[derive(Clone)]
+pub(crate) struct IsRouting {
+    set_is_routing: SignalSetter<bool>,
+    // how many of them are navigating
+    navigating: Arc<AtomicUsize>,
+}
+
+impl IsRouting {
+    fn new(set_is_routing: SignalSetter<bool>) -> Self {
+        Self {
+            set_is_routing,
+            navigating: Default::default(),
+        }
+    }
+
+    /// The share of the `<Routes>` or `<FlatRoutes>` being created, which it
+    /// gives up when it is disposed of.
+    fn share(&self) -> Arc<SetIsRouting> {
+        let share = Arc::new(SetIsRouting {
+            is_routing: self.clone(),
+            navigating: AtomicBool::new(false),
+        });
+        Owner::on_cleanup({
+            let share = Arc::clone(&share);
+            move || share.set(false)
+        });
+        share
+    }
+}
+
+/// Sets a `<Router>`'s `is_routing` on behalf of one of its `<Routes>` or
+/// `<FlatRoutes>` (see [`IsRouting`]).
+pub(crate) struct SetIsRouting {
+    is_routing: IsRouting,
+    navigating: AtomicBool,
+}
+
+impl SetIsRouting {
+    /// Sets whether these routes are navigating.
+    pub fn set(&self, navigating: bool) {
+        if self.navigating.swap(navigating, Ordering::Relaxed) == navigating {
+            return;
+        }
+        let count = &self.is_routing.navigating;
+        let routes_navigating = if navigating {
+            count.fetch_add(1, Ordering::Relaxed) + 1
+        } else {
+            count.fetch_sub(1, Ordering::Relaxed) - 1
+        };
+        self.is_routing.set_is_routing.set(routes_navigating > 0);
+    }
 }
 
 impl RouterContext {
@@ -252,6 +312,7 @@ where
         ..
     } = use_context()
         .expect("<Routes> should be used inside a <Router> component");
+    let set_is_routing = set_is_routing.as_ref().map(IsRouting::share);
     let base = base.map(|base| {
         let mut base = Oco::from(base);
         base.upgrade_inplace();
@@ -275,7 +336,7 @@ where
             current_url: current_url.clone(),
             base: base.clone(),
             fallback: fallback.clone(),
-            set_is_routing,
+            set_is_routing: set_is_routing.clone(),
             transition,
         }
     }
@@ -305,6 +366,7 @@ where
         ..
     } = use_context()
         .expect("<FlatRoutes> should be used inside a <Router> component");
+    let set_is_routing = set_is_routing.as_ref().map(IsRouting::share);
 
     // TODO base
     #[allow(unused)]
@@ -332,7 +394,7 @@ where
             routes: routes.clone(),
             fallback: fallback.clone(),
             outer_owner: outer_owner.clone(),
-            set_is_routing,
+            set_is_routing: set_is_routing.clone(),
             transition,
         }
     }

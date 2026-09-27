@@ -1387,3 +1387,74 @@ async fn nested_is_routing_is_cleared_once_a_view_transition_shows_the_page() {
 async fn flat_is_routing_is_cleared_once_a_view_transition_shows_the_page() {
     is_routing_is_cleared_once_a_view_transition_shows_the_page(true).await;
 }
+
+/// An app whose `<Router>` has a main `<Routes>`, a side `<FlatRoutes>`, and a
+/// `<Routes>` nested in a route of the main one.
+fn several_routes() -> AnyView {
+    view! {
+        <Router set_is_routing=routing_setter()>
+            <CaptureNavigate/>
+            <Routes fallback=|| view! { <p id="not-found">"not found"</p> }>
+                <Route path=path!("") view=|| view! { <p id="home">"home"</p> }/>
+                <Route path=path!("both") view=Page/>
+                <ParentRoute
+                    path=path!("sub")
+                    view=|| view! {
+                        <Routes fallback=|| ()>
+                            <Route path=path!("sub/a") view=|| view! { <p id="sub-a">"a"</p> }/>
+                            <Route path=path!("sub/other") view=OtherPage/>
+                        </Routes>
+                    }
+                >
+                    <Route path=path!("a") view=|| ()/>
+                    <Route path=path!("other") view=|| ()/>
+                </ParentRoute>
+            </Routes>
+            <FlatRoutes fallback=|| ()>
+                <Route path=path!("both") view=OtherPage/>
+            </FlatRoutes>
+        </Router>
+    }
+    .into_any()
+}
+
+#[wasm_bindgen_test]
+async fn is_routing_stays_set_while_any_routes_of_the_router_navigate() {
+    start_at("/");
+    let app = mount(several_routes);
+    settle().await;
+
+    navigate("/both");
+    settle().await;
+    assert!(is_routing());
+    release("other");
+    settle().await;
+    assert!(app.has("#other"));
+    assert!(is_routing(), "the main <Routes> is still navigating");
+
+    release("page");
+    settle().await;
+    assert!(app.has("#page"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn routes_disposed_of_while_navigating_no_longer_hold_is_routing() {
+    start_at("/sub/a");
+    let app = mount(several_routes);
+    settle().await;
+    assert!(app.has("#sub-a"));
+
+    navigate("/sub/other");
+    settle().await;
+    assert!(is_routing(), "the nested <Routes> is still navigating");
+
+    // replaces the route that renders the nested <Routes>
+    navigate("/");
+    settle().await;
+    assert!(app.has("#home"));
+    assert!(!is_routing(), "the disposed <Routes> holds is_routing");
+    release("other");
+    settle().await;
+    assert!(!is_routing());
+}

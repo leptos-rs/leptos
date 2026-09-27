@@ -1,6 +1,7 @@
 use crate::{
     ChooseView, MatchInterface, MatchNestedRoutes, MatchParams, PathSegment,
     RouteList, RouteListing, RouteMatchId,
+    components::SetIsRouting,
     flat_router::MatchedRoute,
     hooks::Matched,
     location::{LocationProvider, Url},
@@ -30,7 +31,6 @@ use reactive_graph::{
     signal::{ArcRwSignal, ArcTrigger},
     traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track, Write},
     transition::AsyncTransition,
-    wrappers::write::SignalSetter,
 };
 use send_wrapper::SendWrapper;
 use std::{
@@ -62,7 +62,7 @@ pub(crate) struct NestedRoutesView<Loc, Defs, FalFn> {
     pub current_url: ArcRwSignal<Url>,
     pub base: Option<Oco<'static, str>>,
     pub fallback: FalFn,
-    pub set_is_routing: Option<SignalSetter<bool>>,
+    pub set_is_routing: Option<Arc<SetIsRouting>>,
     pub transition: bool,
 }
 
@@ -196,7 +196,7 @@ where
                 state.outlets.clear();
                 // the fallback is shown at once; an earlier navigation that is
                 // still loading no longer completes (see below)
-                if let Some(set_is_routing) = self.set_is_routing {
+                if let Some(set_is_routing) = &self.set_is_routing {
                     set_is_routing.set(false);
                 }
                 if let Some(loc) = self.location {
@@ -204,7 +204,7 @@ where
                 }
             }
             Some(route) => {
-                if let Some(set_is_routing) = self.set_is_routing {
+                if let Some(set_is_routing) = &self.set_is_routing {
                     set_is_routing.set(true);
                 }
 

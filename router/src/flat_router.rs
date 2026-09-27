@@ -1,6 +1,7 @@
 use crate::{
     ChooseView, MatchInterface, MatchNestedRoutes, PathSegment, RouteList,
     RouteListing, RouteMatchId,
+    components::SetIsRouting,
     hooks::Matched,
     location::{LocationProvider, Url},
     matching::{MatchParams, RouteDefs},
@@ -17,9 +18,8 @@ use reactive_graph::{
     signal::ArcRwSignal,
     traits::{GetUntracked, ReadUntracked, Set},
     transition::AsyncTransition,
-    wrappers::write::SignalSetter,
 };
-use std::{cell::RefCell, iter, mem, rc::Rc};
+use std::{cell::RefCell, iter, mem, rc::Rc, sync::Arc};
 use tachys::{
     hydration::Cursor,
     reactive_graph::OwnedView,
@@ -38,7 +38,7 @@ pub(crate) struct FlatRoutesView<Loc, Defs, FalFn> {
     pub routes: RouteDefs<Defs>,
     pub fallback: FalFn,
     pub outer_owner: Owner,
-    pub set_is_routing: Option<SignalSetter<bool>>,
+    pub set_is_routing: Option<Arc<SetIsRouting>>,
     pub transition: bool,
 }
 
@@ -359,7 +359,7 @@ where
                     );
                 }
 
-                if let Some(set_is_routing) = set_is_routing {
+                if let Some(set_is_routing) = &set_is_routing {
                     set_is_routing.set(true);
                 }
                 let spawned_owner = owner.clone();
