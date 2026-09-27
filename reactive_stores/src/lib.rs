@@ -226,8 +226,8 @@
 //! Keyed handles follow their key when a containing value is replaced. The registry
 //! lazily refreshes a collection's key mapping on its first keyed access after a
 //! store write; subsequent reads reuse the mapping. Rebuilding keys scans the
-//! collection once; retiring removed items also scans the registry to discard
-//! their descendant metadata. Writes invalidate
+//! collection once; retiring removed items drops their descendant metadata
+//! without scanning unrelated paths. Writes invalidate
 //! cached mappings even when reactive notifications are suppressed. Invalidation
 //! is conservatively store-wide, so a write to an unrelated field may also cause
 //! a collection to refresh on its next access. Constructing an enum accessor does
@@ -328,7 +328,7 @@ use reactive_graph::{
     },
 };
 pub use reactive_stores_macro::{Patch, Store};
-use rustc_hash::{FxHashMap, FxHashSet};
+use rustc_hash::FxHashMap;
 use std::{
     any::Any,
     fmt::Debug,
@@ -511,20 +511,132 @@ struct KeyMapEntry {
 }
 
 #[derive(Default)]
-struct KeyMapState {
-    fields: FxHashMap<StorePath, KeyMapEntry>,
-    variants: FxHashMap<StorePath, usize>,
-    // Allocated only for indexed observers of keyed collections. Payload writes
-    // must not wake these observers unless the selected item's own path changes.
-    index_selections: FxHashMap<StorePath, ArcTrigger>,
-    // Only in-flight initializers own strong references. Retirement removes their
-    // identities without invalidating snapshots for unrelated paths.
-    pending: FxHashMap<StorePath, Weak<()>>,
+struct KeyMapNode {
+    // Intermediate paths carry no collection until a real snapshot is published.
+    collection: Option<KeyMapEntry>,
+    variant: Option<usize>,
+    // Payload writes must not wake indexed observers unless their selection changes.
+    index_selection: Option<ArcTrigger>,
+    // Only in-flight initializers own strong references. Removing a subtree drops
+    // its identities without invalidating snapshots for unrelated paths.
+    pending: Weak<()>,
+    children: KeyMapChildren,
+}
+
+// Most deep paths have only one child per level. Avoid hashing those segments;
+// box the branching map so every node does not pay for its inline storage.
+#[derive(Default)]
+enum KeyMapChildren {
+    #[default]
+    Empty,
+    One(StorePathSegment, Box<KeyMapNode>),
+    Many(Box<FxHashMap<StorePathSegment, KeyMapNode>>),
+}
+
+impl KeyMapChildren {
+    fn get(&self, segment: &StorePathSegment) -> Option<&KeyMapNode> {
+        match self {
+            Self::Empty => None,
+            Self::One(key, node) => (key == segment).then_some(node.as_ref()),
+            Self::Many(children) => children.get(segment),
+        }
+    }
+
+    fn get_mut(
+        &mut self,
+        segment: &StorePathSegment,
+    ) -> Option<&mut KeyMapNode> {
+        match self {
+            Self::Empty => None,
+            Self::One(key, node) => (key == segment).then_some(node.as_mut()),
+            Self::Many(children) => children.get_mut(segment),
+        }
+    }
+
+    fn get_or_insert(&mut self, segment: StorePathSegment) -> &mut KeyMapNode {
+        match self {
+            Self::Empty => *self = Self::One(segment, Box::default()),
+            Self::One(key, _) if *key != segment => {
+                let Self::One(key, node) = std::mem::take(self) else {
+                    unreachable!()
+                };
+                let mut children = FxHashMap::default();
+                children.insert(key, *node);
+                *self = Self::Many(Box::new(children));
+            }
+            _ => {}
+        }
+        match self {
+            Self::One(_, node) => node,
+            Self::Many(children) => children.entry(segment).or_default(),
+            Self::Empty => unreachable!(),
+        }
+    }
+
+    fn remove(&mut self, segment: &StorePathSegment) -> Option<KeyMapNode> {
+        match self {
+            Self::Empty => None,
+            Self::One(key, _) if key != segment => None,
+            Self::One(_, _) => {
+                let Self::One(_, node) = std::mem::take(self) else {
+                    unreachable!()
+                };
+                Some(*node)
+            }
+            Self::Many(children) => {
+                let removed = children.remove(segment)?;
+                // Restore the fast path after a branch shrinks, rather than
+                // making future lookup cost depend on its branching history.
+                if children.len() == 1 {
+                    let (key, node) = children.drain().next().unwrap();
+                    *self = Self::One(key, Box::new(node));
+                }
+                Some(removed)
+            }
+        }
+    }
+
+    fn clear(&mut self) {
+        *self = Self::Empty;
+    }
+
+    fn is_empty(&self) -> bool {
+        matches!(self, Self::Empty)
+    }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        match self {
+            Self::Empty => 0,
+            Self::One(..) => 1,
+            Self::Many(children) => children.len(),
+        }
+    }
+}
+
+struct PendingSnapshot<'a> {
+    state: &'a RwLock<KeyMapNode>,
+    path: StorePath,
+    token: Option<Arc<()>>,
+}
+
+impl Drop for PendingSnapshot<'_> {
+    fn drop(&mut self) {
+        // Field access can unwind while holding the registry lock. Clean up its
+        // token without a second panic, but leave the registry poisoned.
+        let mut state =
+            self.state.write().unwrap_or_else(|err| err.into_inner());
+        let token = self.token.take().expect("pending snapshot owns its token");
+        state.finish_pending(&mut (&self.path).into_iter().copied(), &token);
+        // Serialize the strong-reference drop too: otherwise two completions
+        // could both see another owner and leave an expired token behind.
+        drop(token);
+    }
 }
 
 /// A map of the keys for a keyed subfield.
 #[derive(Clone, Default)]
-pub struct KeyMap(Arc<RwLock<KeyMapState>>, Arc<AtomicUsize>);
+pub struct KeyMap(Arc<RwLock<KeyMapNode>>, Arc<AtomicUsize>);
 
 impl KeyMap {
     fn track_index_selection(&self, path: StorePath) {
@@ -532,9 +644,9 @@ impl KeyMap {
             .0
             .write()
             .or_poisoned()
-            .index_selections
-            .entry(path)
-            .or_default()
+            .node_or_insert(&path)
+            .index_selection
+            .get_or_insert_default()
             .clone();
         trigger.track();
     }
@@ -544,9 +656,8 @@ impl KeyMap {
             .0
             .read()
             .or_poisoned()
-            .index_selections
-            .get(path)
-            .cloned();
+            .node(path)
+            .and_then(|node| node.index_selection.clone());
         if let Some(trigger) = trigger {
             trigger.notify();
         }
@@ -561,7 +672,7 @@ impl KeyMap {
     #[doc(hidden)]
     pub fn observe_variant(&self, path: StorePath, variant: usize) {
         let mut state = self.0.write().or_poisoned();
-        self.observe_variant_locked(&mut state, path, variant);
+        state.observe_variant(path, variant);
     }
 
     /// Records an enum variant, translating collection indices under the registry
@@ -570,23 +681,7 @@ impl KeyMap {
     pub fn observe_variant_unkeyed(&self, path: &StorePath, variant: usize) {
         let mut state = self.0.write().or_poisoned();
         let path = state.keyed_path(path);
-        self.observe_variant_locked(&mut state, path, variant);
-    }
-
-    fn observe_variant_locked(
-        &self,
-        state: &mut KeyMapState,
-        path: StorePath,
-        variant: usize,
-    ) {
-        let previous = state.variants.get(&path).copied();
-        if previous == Some(variant) {
-            return;
-        }
-        // First observations also retire registries whose variant was never
-        // recorded, since local field paths can alias across variants.
-        state.retire_descendants(&path, |_| true);
-        state.variants.insert(path, variant);
+        state.observe_variant(path, variant);
     }
 
     /// Accesses the keys for a collection, initializing them if necessary.
@@ -622,13 +717,9 @@ impl KeyMap {
     where
         K: Debug + Hash + Eq + Send + Sync + 'static,
     {
-        self.try_with_entry(
-            path,
-            initialize,
-            |entries, path, generation, latest| {
-                Self::access_entry(entries, path, generation, latest, fun)
-            },
-        )
+        self.try_with_entry(path, initialize, |node, generation, latest| {
+            Self::access_entry(node, generation, latest, fun)
+        })
     }
 
     fn try_index_segment<K>(
@@ -640,38 +731,22 @@ impl KeyMap {
     where
         K: Debug + Hash + Eq + Send + Sync + 'static,
     {
-        self.try_with_entry(
-            path,
-            initialize,
-            |entries, path, generation, latest| {
-                Self::access_entry(
-                    entries,
-                    path.clone(),
-                    generation,
-                    latest,
-                    |_| ((), Vec::new()),
-                )?;
-                entries
-                    .fields
-                    .get(&path)?
-                    .indices
-                    .get(index)
-                    .copied()
-                    .flatten()
-            },
-        )
+        self.try_with_entry(path, initialize, |node, generation, latest| {
+            Self::access_entry(node, generation, latest, |_| ((), Vec::new()))?;
+            node.collection
+                .as_ref()?
+                .indices
+                .get(index)
+                .copied()
+                .flatten()
+        })
     }
 
     fn try_with_entry<K, T>(
         &self,
         path: StorePath,
         initialize: impl FnOnce() -> Option<Vec<K>>,
-        access: impl FnOnce(
-            &mut KeyMapState,
-            StorePath,
-            usize,
-            Option<Vec<K>>,
-        ) -> Option<T>,
+        access: impl FnOnce(&mut KeyMapNode, usize, Option<Vec<K>>) -> Option<T>,
     ) -> Option<T>
     where
         K: Debug + Hash + Eq + Send + Sync + 'static,
@@ -681,37 +756,44 @@ impl KeyMap {
         let generation = self.1.load(Ordering::Acquire);
         let mut initialize = Some(initialize);
         let mut latest = None;
-        let mut snapshot: Option<Arc<()>> = None;
+        // Release the registry lock before this guard's cleanup, even on unwind.
+        let mut snapshot: Option<PendingSnapshot<'_>> = None;
         loop {
             let mut entries = self.0.write().or_poisoned();
             let current = self.1.load(Ordering::Acquire);
+            // Resolve once, but never recreate a path for a delayed snapshot.
+            let node = if snapshot.is_some() || current != generation {
+                entries.node_mut(&path)?
+            } else {
+                entries.node_or_insert(&path)
+            };
             let retired = snapshot.as_ref().is_some_and(|snapshot| {
-                !entries.pending.get(&path).is_some_and(|registered| {
-                    registered.as_ptr() == Arc::as_ptr(snapshot)
-                })
+                node.pending.as_ptr()
+                    != Arc::as_ptr(snapshot.token.as_ref().unwrap())
             });
+            let entry = node.collection.as_ref();
             if current != generation || retired {
                 // A delayed snapshot must never overwrite a newer mapping (or
                 // resurrect a retired subtree). Reuse a current entry only.
-                if entries.fields.get(&path)?.generation != current {
+                if entry?.generation != current {
                     return None;
                 }
-                return access(&mut entries, path, current, None);
+                return access(node, current, None);
             }
-            let needs_refresh = entries
-                .fields
-                .get(&path)
-                .is_none_or(|entry| entry.generation != generation);
+            let needs_refresh =
+                entry.is_none_or(|entry| entry.generation != generation);
             if needs_refresh && latest.is_none() {
-                // Sweep completed initializers only on the cold path, keeping the
-                // map bounded by peak concurrent initialization rather than reads.
-                entries.pending.retain(|_, token| token.strong_count() > 0);
-                let token = entries.pending.entry(path.clone()).or_default();
-                snapshot = Some(token.upgrade().unwrap_or_else(|| {
-                    let snapshot = Arc::new(());
-                    *token = Arc::downgrade(&snapshot);
-                    snapshot
-                }));
+                let pending = &mut node.pending;
+                let token = pending.upgrade().unwrap_or_else(|| {
+                    let token = Arc::new(());
+                    *pending = Arc::downgrade(&token);
+                    token
+                });
+                snapshot = Some(PendingSnapshot {
+                    state: &self.0,
+                    path: path.clone(),
+                    token: Some(token),
+                });
                 // The initializer may recursively initialize an ancestor's keys.
                 // Recheck the entry afterwards: that can also retire this subtree.
                 drop(entries);
@@ -720,7 +802,7 @@ impl KeyMap {
                 latest = Some(initialize()?);
                 continue;
             }
-            return access(&mut entries, path, generation, latest);
+            return access(node, generation, latest);
         }
     }
 
@@ -730,8 +812,7 @@ impl KeyMap {
     {
         let generation = self.1.load(Ordering::Acquire);
         Self::access_entry(
-            &mut self.0.write().or_poisoned(),
-            path,
+            self.0.write().or_poisoned().node_or_insert(&path),
             generation,
             Some(latest),
             |_| ((), Vec::new()),
@@ -739,8 +820,7 @@ impl KeyMap {
     }
 
     fn access_entry<K, T>(
-        entries: &mut KeyMapState,
-        path: StorePath,
+        node: &mut KeyMapNode,
         generation: usize,
         mut latest: Option<Vec<K>>,
         fun: impl FnOnce(&mut FieldKeys<K>) -> (T, Vec<(usize, StorePathSegment)>),
@@ -748,19 +828,13 @@ impl KeyMap {
     where
         K: Debug + Hash + Eq + Send + Sync + 'static,
     {
-        let entry =
-            entries
-                .fields
-                .entry(path.clone())
-                .or_insert_with(|| KeyMapEntry {
-                    fields: Box::new(FieldKeys::new(
-                        latest
-                            .take()
-                            .expect("new key entries require a snapshot"),
-                    )),
-                    indices: Vec::new(),
-                    generation,
-                });
+        let entry = node.collection.get_or_insert_with(|| KeyMapEntry {
+            fields: Box::new(FieldKeys::new(
+                latest.take().expect("new key entries require a snapshot"),
+            )),
+            indices: Vec::new(),
+            generation,
+        });
         let fields = entry.fields.downcast_mut::<FieldKeys<K>>()?;
         if let Some(latest) = latest {
             fields.update(latest);
@@ -779,13 +853,10 @@ impl KeyMap {
         }
         let retired = std::mem::take(&mut fields.retired);
         entry.generation = generation;
-        if !retired.is_empty() {
-            // A recycled outer slot must not inherit the previous item's nested
-            // registries, even when removal and insertion happen in one update.
-            let retired = retired.into_iter().collect::<FxHashSet<_>>();
-            entries.retire_descendants(&path, |segment| {
-                retired.contains(&segment)
-            });
+        // A recycled slot must not inherit the previous item's nested metadata
+        // or pending snapshots. Keep the collection and its selection trigger.
+        for segment in retired {
+            node.children.remove(&segment);
         }
         Some(result)
     }
@@ -800,37 +871,75 @@ impl KeyMap {
     }
 }
 
-impl KeyMapState {
-    // Metadata and in-flight snapshots must retire together, including snapshots
-    // that have not yet published a field entry. Preserve the parent itself.
-    fn retire_descendants(
+impl KeyMapNode {
+    fn observe_variant(&mut self, path: StorePath, variant: usize) {
+        let node = self.node_or_insert(&path);
+        if node.variant == Some(variant) {
+            return;
+        }
+        // First observations also retire registries whose variant was never
+        // recorded, since local field paths can alias across variants.
+        node.children.clear();
+        node.variant = Some(variant);
+    }
+
+    fn node(&self, path: &StorePath) -> Option<&Self> {
+        let mut node = self;
+        for segment in path {
+            node = node.children.get(segment)?;
+        }
+        Some(node)
+    }
+
+    fn node_mut(&mut self, path: &StorePath) -> Option<&mut Self> {
+        let mut node = self;
+        for segment in path {
+            node = node.children.get_mut(segment)?;
+        }
+        Some(node)
+    }
+
+    fn node_or_insert(&mut self, path: &StorePath) -> &mut Self {
+        let mut node = self;
+        for segment in path {
+            node = node.children.get_or_insert(*segment);
+        }
+        node
+    }
+
+    // Walk only the completed path, pruning empty ancestors on the way back.
+    // A retired initializer must not clear a replacement initializer's token.
+    fn finish_pending(
         &mut self,
-        path: &StorePath,
-        retire_child: impl Fn(StorePathSegment) -> bool,
-    ) {
-        let retain = |candidate: &StorePath| {
-            if candidate.len() <= path.len()
-                || !candidate.into_iter().zip(path).all(|(a, b)| a == b)
-            {
-                return true;
+        path: &mut impl Iterator<Item = StorePathSegment>,
+        token: &Arc<()>,
+    ) -> bool {
+        if let Some(segment) = path.next() {
+            if let Some(child) = self.children.get_mut(&segment) {
+                if child.finish_pending(path, token) {
+                    self.children.remove(&segment);
+                }
             }
-            !candidate
-                .into_iter()
-                .nth(path.len())
-                .is_some_and(|segment| retire_child(*segment))
-        };
-        self.fields.retain(|candidate, _| retain(candidate));
-        self.variants.retain(|candidate, _| retain(candidate));
-        self.index_selections
-            .retain(|candidate, _| retain(candidate));
-        self.pending.retain(|candidate, _| retain(candidate));
+        } else if self.pending.as_ptr() == Arc::as_ptr(token)
+            && Arc::strong_count(token) == 1
+        {
+            self.pending = Weak::new();
+        }
+        self.collection.is_none()
+            && self.variant.is_none()
+            && self.index_selection.is_none()
+            && self.pending.strong_count() == 0
+            && self.children.is_empty()
     }
 
     #[track_caller]
     fn keyed_path(&self, unkeyed: &StorePath) -> StorePath {
         let mut path = StorePath::with_capacity(unkeyed.len());
+        let mut node = Some(self);
         for segment in unkeyed {
-            let segment = if let Some(entry) = self.fields.get(&path) {
+            let segment = if let Some(entry) =
+                node.and_then(|node| node.collection.as_ref())
+            {
                 entry
                     .indices
                     .get(segment.0)
@@ -846,6 +955,7 @@ impl KeyMapState {
                 *segment
             };
             path.push(segment);
+            node = node.and_then(|node| node.children.get(&segment));
         }
         path
     }
@@ -854,13 +964,145 @@ impl KeyMapState {
 #[cfg(test)]
 mod key_map_variant_tests {
     use super::*;
+    use std::{
+        panic::{AssertUnwindSafe, catch_unwind},
+        sync::{Barrier, mpsc},
+        thread,
+        time::Duration,
+    };
 
     fn path(segments: &[usize]) -> StorePath {
         segments.iter().copied().map(Into::into).collect()
     }
 
+    #[test]
+    fn child_storage_transitions_preserve_metadata_and_pending_identity() {
+        let mut children = KeyMapChildren::default();
+        assert!(children.is_empty());
+        assert!(children.get(&7.into()).is_none());
+        assert!(children.get_mut(&7.into()).is_none());
+        assert!(children.remove(&7.into()).is_none());
+        let token = Arc::new(());
+        let node = children.get_or_insert(7.into());
+        node.variant = Some(70);
+        node.pending = Arc::downgrade(&token);
+        node.children.get_or_insert(9.into()).variant = Some(90);
+        assert_eq!(children.get_or_insert(7.into()).variant, Some(70));
+        assert!(matches!(children, KeyMapChildren::One(..)));
+        assert!(children.remove(&8.into()).is_none());
+
+        children.get_or_insert(8.into()).variant = Some(80);
+        assert!(matches!(children, KeyMapChildren::Many(..)));
+        assert_eq!(children.len(), 2);
+        assert!(
+            children
+                .get(&7.into())
+                .unwrap()
+                .pending
+                .ptr_eq(&Arc::downgrade(&token))
+        );
+        assert!(children.remove(&99.into()).is_none());
+        assert_eq!(children.remove(&8.into()).unwrap().variant, Some(80));
+        assert!(matches!(children, KeyMapChildren::One(..)));
+        assert_eq!(
+            children
+                .get(&7.into())
+                .unwrap()
+                .children
+                .get(&9.into())
+                .unwrap()
+                .variant,
+            Some(90)
+        );
+        assert!(
+            children
+                .get(&7.into())
+                .unwrap()
+                .pending
+                .ptr_eq(&Arc::downgrade(&token))
+        );
+        children.get_mut(&7.into()).unwrap().variant = Some(71);
+        assert_eq!(children.remove(&7.into()).unwrap().variant, Some(71));
+        assert!(children.is_empty());
+
+        children.get_or_insert(3.into());
+        children.clear();
+        assert!(children.is_empty());
+        children.get_or_insert(3.into());
+        children.get_or_insert(4.into());
+        children.clear();
+        assert!(children.is_empty());
+    }
+
+    #[test]
+    fn child_storage_matches_hashmap_through_mixed_operations() {
+        let mut children = KeyMapChildren::default();
+        let mut reference =
+            FxHashMap::<StorePathSegment, KeyMapNode>::default();
+        let mut rng = 0x123456789abcdef_u64;
+        for i in 0..20_000 {
+            rng ^= rng << 13;
+            rng ^= rng >> 7;
+            rng ^= rng << 17;
+            let key = ((rng >> 8) as usize % 16).into();
+            match rng % 32 {
+                0 => {
+                    children.clear();
+                    reference.clear();
+                }
+                1..=12 => assert_eq!(
+                    children.remove(&key).map(|n| n.variant),
+                    reference.remove(&key).map(|n| n.variant)
+                ),
+                13..=16 => {
+                    if let Some(n) = children.get_mut(&key) {
+                        n.variant = Some(i);
+                    }
+                    if let Some(n) = reference.get_mut(&key) {
+                        n.variant = Some(i);
+                    }
+                }
+                _ => {
+                    children.get_or_insert(key).variant = Some(i);
+                    reference.entry(key).or_default().variant = Some(i);
+                }
+            }
+            assert_eq!(children.len(), reference.len());
+            assert_eq!(children.is_empty(), reference.is_empty());
+            for key in 0..16 {
+                assert_eq!(
+                    children.get(&key.into()).map(|n| n.variant),
+                    reference.get(&key.into()).map(|n| n.variant)
+                );
+            }
+        }
+    }
+
     fn seed(keys: &KeyMap, segments: &[usize]) {
         keys.update_field_keys(path(segments), vec![10usize]);
+    }
+
+    fn registered_key(
+        keys: &KeyMap,
+        segments: &[usize],
+        key: usize,
+    ) -> Option<(StorePathSegment, usize)> {
+        keys.try_with_field_keys(
+            path(segments),
+            |fields| (fields.get(&key), vec![]),
+            || None,
+        )
+        .flatten()
+    }
+
+    fn pending(keys: &KeyMap, segments: &[usize]) -> Weak<()> {
+        keys.0
+            .read()
+            .or_poisoned()
+            .node(&path(segments))
+            .unwrap()
+            .pending
+            .clone()
     }
 
     #[test]
@@ -878,30 +1120,37 @@ mod key_map_variant_tests {
         // An initial observation must also clean up unobserved legacy topology.
         keys.observe_variant(path(&[0]), 0);
         assert_eq!(keys.1.load(Ordering::Acquire), generation);
+        for preserved in [&[][..], &[0], &[1]] {
+            assert_eq!(
+                registered_key(&keys, preserved, 10),
+                Some((0.into(), 0))
+            );
+        }
+        assert_eq!(registered_key(&keys, &[0, 1], 10), None);
+        assert_eq!(registered_key(&keys, &[0, 1, 2], 10), None);
         {
             let state = keys.0.read().or_poisoned();
-            assert_eq!(state.fields.len(), 3);
-            assert!(state.fields.contains_key(&path(&[])));
-            assert!(state.fields.contains_key(&path(&[0])));
-            assert!(state.fields.contains_key(&path(&[1])));
-            assert_eq!(state.variants.len(), 2);
-            assert_eq!(state.variants.get(&path(&[1])), Some(&0));
+            assert!(state.node(&path(&[0, 3])).is_none());
+            assert_eq!(state.node(&path(&[1])).unwrap().variant, Some(0));
         }
         seed(&keys, &[0, 1]);
+        keys.update_field_keys(path(&[0, 1]), vec![20usize, 10]);
+        let identity = registered_key(&keys, &[0, 1], 10);
         keys.observe_variant(path(&[0]), 0);
-        assert!(
+        assert_eq!(registered_key(&keys, &[0, 1], 10), identity);
+        keys.observe_variant(path(&[0]), 1);
+
+        assert_eq!(keys.1.load(Ordering::Acquire), generation);
+        assert_eq!(registered_key(&keys, &[0, 1], 10), None);
+        assert_eq!(
             keys.0
                 .read()
                 .or_poisoned()
-                .fields
-                .contains_key(&path(&[0, 1]))
+                .node(&path(&[0]))
+                .unwrap()
+                .variant,
+            Some(1),
         );
-        keys.observe_variant(path(&[0]), 1);
-        let state = keys.0.read().or_poisoned();
-
-        assert_eq!(keys.1.load(Ordering::Acquire), generation);
-        assert!(!state.fields.contains_key(&path(&[0, 1])));
-        assert_eq!(state.variants.get(&path(&[0])), Some(&1));
     }
 
     #[test]
@@ -914,14 +1163,14 @@ mod key_map_variant_tests {
         keys.observe_variant_unkeyed(&path(&[0, 1]), 1);
         {
             let state = keys.0.read().or_poisoned();
-            assert_eq!(state.variants.get(&path(&[0, 0])), Some(&1));
-            assert!(!state.fields.contains_key(&path(&[0, 0, 0])));
+            assert_eq!(state.node(&path(&[0, 0])).unwrap().variant, Some(1));
+            assert!(state.node(&path(&[0, 0, 0])).is_none());
         }
         keys.observe_variant(path(&[0, 1]), 0);
         keys.update_field_keys(path(&[0]), vec![20usize, 30]);
         let state = keys.0.read().or_poisoned();
-        assert!(!state.variants.contains_key(&path(&[0, 0])));
-        assert_eq!(state.variants.get(&path(&[0, 1])), Some(&0));
+        assert!(state.node(&path(&[0, 0])).is_none());
+        assert_eq!(state.node(&path(&[0, 1])).unwrap().variant, Some(0));
     }
 
     #[test]
@@ -960,44 +1209,291 @@ mod key_map_variant_tests {
     }
 
     #[test]
-    fn same_path_initializers_share_identity_and_expired_tokens_are_swept() {
+    fn same_path_initializers_share_identity_until_last_completion() {
         let keys = KeyMap::default();
         let result = keys.with_field_keys(
             path(&[0]),
             |fields| (fields.get(&10usize).is_some(), vec![]),
             || {
-                let token = keys.0.read().or_poisoned().pending[&path(&[0])]
-                    .upgrade()
-                    .unwrap();
+                let token = pending(&keys, &[0]);
                 let nested = keys.with_field_keys(
                     path(&[0]),
                     |_| ((), vec![]),
                     || {
-                        let state = keys.0.read().or_poisoned();
-                        assert_eq!(
-                            state.pending[&path(&[0])].as_ptr(),
-                            Arc::as_ptr(&token)
-                        );
+                        assert!(pending(&keys, &[0]).ptr_eq(&token));
+                        assert_eq!(token.strong_count(), 2);
                         vec![10usize]
                     },
                 );
                 assert_eq!(nested, Some(()));
+                assert!(pending(&keys, &[0]).ptr_eq(&token));
+                assert_eq!(token.strong_count(), 1);
                 vec![10usize]
             },
         );
         assert_eq!(result, Some(true));
-        assert_eq!(
-            keys.0.read().or_poisoned().pending[&path(&[0])].strong_count(),
-            0
-        );
-        for index in 1..10 {
-            keys.with_field_keys(
-                path(&[index]),
-                |_| ((), vec![]),
-                || vec![10usize],
+        assert!(pending(&keys, &[0]).ptr_eq(&Weak::new()));
+        assert_eq!(registered_key(&keys, &[0], 10), Some((0.into(), 0)));
+    }
+
+    #[test]
+    fn failed_shared_initializer_preserves_survivor() {
+        for unwind in [false, true] {
+            let keys = KeyMap::default();
+            let result = keys.with_field_keys(
+                path(&[0, 1]),
+                |fields| (fields.get(&10usize), vec![]),
+                || {
+                    let token = pending(&keys, &[0, 1]);
+                    let nested = catch_unwind(AssertUnwindSafe(|| {
+                        keys.try_with_field_keys::<usize, ()>(
+                            path(&[0, 1]),
+                            |_| {
+                                panic!(
+                                    "failed initializer must not access keys"
+                                )
+                            },
+                            || {
+                                assert_eq!(token.strong_count(), 2);
+                                if unwind {
+                                    panic!("initializer failed");
+                                }
+                                None
+                            },
+                        )
+                    }));
+                    if unwind {
+                        assert!(nested.is_err());
+                    } else {
+                        assert_eq!(nested.unwrap(), None);
+                    }
+                    assert!(pending(&keys, &[0, 1]).ptr_eq(&token));
+                    assert_eq!(token.strong_count(), 1);
+                    vec![10usize]
+                },
             );
-            assert_eq!(keys.0.read().or_poisoned().pending.len(), 1);
+            assert_eq!(result, Some(Some((0.into(), 0))));
+            assert!(pending(&keys, &[0, 1]).ptr_eq(&Weak::new()));
         }
+    }
+
+    #[test]
+    fn failed_initializers_prune_only_empty_ancestors() {
+        for unwind in [false, true] {
+            let keys = KeyMap::default();
+            keys.observe_variant(path(&[0]), 0);
+            seed(&keys, &[1]);
+            keys.track_index_selection(path(&[2]));
+            for segments in [
+                vec![],
+                vec![0, 4, 5],
+                vec![1, 4, 5],
+                vec![2, 4, 5],
+                vec![3, 4, 5],
+            ] {
+                let result = catch_unwind(AssertUnwindSafe(|| {
+                    keys.try_with_field_keys::<usize, ()>(
+                        path(&segments),
+                        |_| panic!("failed initializer must not access keys"),
+                        || {
+                            if unwind {
+                                panic!("initializer failed");
+                            }
+                            None
+                        },
+                    )
+                }));
+                if unwind {
+                    assert!(result.is_err());
+                } else {
+                    assert_eq!(result.unwrap(), None);
+                }
+            }
+            assert_eq!(registered_key(&keys, &[1], 10), Some((0.into(), 0)));
+            let state = keys.0.read().or_poisoned();
+            assert!(state.collection.is_none());
+            assert!(state.pending.ptr_eq(&Weak::new()));
+            assert_eq!(state.children.len(), 3);
+            assert_eq!(state.node(&path(&[0])).unwrap().variant, Some(0));
+            assert!(state.node(&path(&[2])).unwrap().index_selection.is_some());
+            for segment in 0..3 {
+                assert!(
+                    state.node(&path(&[segment])).unwrap().children.is_empty()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn failed_parent_initializer_preserves_published_descendants() {
+        let keys = KeyMap::default();
+        assert_eq!(
+            keys.try_with_field_keys::<usize, ()>(
+                path(&[0]),
+                |_| panic!("failed initializer must not access keys"),
+                || {
+                    seed(&keys, &[0, 1, 2]);
+                    None
+                },
+            ),
+            None,
+        );
+        assert_eq!(registered_key(&keys, &[0, 1, 2], 10), Some((0.into(), 0)));
+        let state = keys.0.read().or_poisoned();
+        let parent = state.node(&path(&[0])).unwrap();
+        assert!(parent.collection.is_none());
+        assert!(parent.pending.ptr_eq(&Weak::new()));
+    }
+
+    #[test]
+    fn callback_unwind_cleans_pending_without_hiding_poison() {
+        let keys = KeyMap::default();
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            keys.with_field_keys::<usize, ()>(
+                path(&[0, 1]),
+                |_| panic!("field callback failed"),
+                || vec![10],
+            )
+        }));
+        assert!(result.is_err());
+        assert!(keys.0.is_poisoned());
+        let state = keys.0.read().unwrap_or_else(|err| err.into_inner());
+        assert!(
+            state
+                .node(&path(&[0, 1]))
+                .unwrap()
+                .pending
+                .ptr_eq(&Weak::new())
+        );
+    }
+
+    #[test]
+    fn concurrent_completions_remove_the_last_pending_token() {
+        let keys = KeyMap::default();
+        let barrier = Arc::new(Barrier::new(3));
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let workers = (0..2)
+            .map(|_| {
+                let keys = keys.clone();
+                let barrier = barrier.clone();
+                let ready = ready_tx.clone();
+                thread::spawn(move || {
+                    keys.try_with_field_keys::<usize, ()>(
+                        path(&[0, 1, 2]),
+                        |_| panic!("failed initializer must not access keys"),
+                        || {
+                            ready.send(pending(&keys, &[0, 1, 2])).unwrap();
+                            barrier.wait();
+                            None
+                        },
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
+        let first = ready_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        let second = ready_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        assert!(first.ptr_eq(&second));
+        assert_eq!(first.strong_count(), 2);
+        barrier.wait();
+        for worker in workers {
+            assert_eq!(worker.join().unwrap(), None);
+        }
+        assert!(keys.0.read().or_poisoned().children.is_empty());
+        assert_eq!(first.strong_count(), 0);
+    }
+
+    #[test]
+    fn retired_completion_does_not_clear_replacement_token() {
+        let keys = KeyMap::default();
+        let (ready_tx, ready_rx) = mpsc::channel();
+        let (resume_tx, resume_rx) = mpsc::channel();
+        let (done_tx, done_rx) = mpsc::channel();
+        let timeout = Duration::from_secs(10);
+        let old_keys = keys.clone();
+        let worker = thread::spawn(move || {
+            let result = old_keys.with_field_keys::<usize, ()>(
+                path(&[0, 1, 2]),
+                |_| panic!("retired snapshot must not access keys"),
+                || {
+                    ready_tx.send(pending(&old_keys, &[0, 1, 2])).unwrap();
+                    resume_rx.recv_timeout(timeout).unwrap();
+                    vec![10]
+                },
+            );
+            done_tx.send(result).unwrap();
+        });
+        let old = ready_rx.recv_timeout(timeout).unwrap();
+        keys.observe_variant(path(&[0]), 0);
+        let result = keys.with_field_keys(
+            path(&[0, 1, 2]),
+            |fields| (fields.get(&20usize), vec![]),
+            || {
+                let replacement = pending(&keys, &[0, 1, 2]);
+                assert!(!replacement.ptr_eq(&old));
+                resume_tx.send(()).unwrap();
+                assert_eq!(done_rx.recv_timeout(timeout).unwrap(), None);
+                assert!(pending(&keys, &[0, 1, 2]).ptr_eq(&replacement));
+                assert_eq!(replacement.strong_count(), 1);
+                vec![20usize]
+            },
+        );
+        worker.join().unwrap();
+        assert_eq!(result, Some(Some((0.into(), 0))));
+        assert!(pending(&keys, &[0, 1, 2]).ptr_eq(&Weak::new()));
+        assert_eq!(registered_key(&keys, &[0, 1, 2], 10), None);
+    }
+
+    #[test]
+    fn sparse_nodes_translate_then_retire_on_first_observation() {
+        let keys = KeyMap::default();
+        keys.update_field_keys(path(&[0, 4, 5]), vec![10usize, 20]);
+        keys.update_field_keys(path(&[0, 4, 5]), vec![20usize, 10]);
+        keys.update_field_keys(path(&[0, 4, 5, 1, 6]), vec![30usize, 40]);
+        keys.update_field_keys(path(&[0, 4, 5, 1, 6]), vec![40usize, 30]);
+        seed(&keys, &[9, 5]);
+        assert_eq!(
+            keys.keyed_path(&path(&[0, 4, 5, 0, 6, 0, 7])),
+            path(&[0, 4, 5, 1, 6, 1, 7]),
+        );
+        {
+            let state = keys.0.read().or_poisoned();
+            for segments in [&[][..], &[0], &[0, 4]] {
+                assert!(
+                    state.node(&path(segments)).unwrap().collection.is_none()
+                );
+            }
+        }
+        keys.observe_variant(path(&[0, 4]), 0);
+        assert_eq!(registered_key(&keys, &[0, 4, 5], 10), None);
+        assert_eq!(registered_key(&keys, &[0, 4, 5, 1, 6], 40), None);
+        assert_eq!(registered_key(&keys, &[9, 5], 10), Some((0.into(), 0)));
+        assert_eq!(
+            keys.keyed_path(&path(&[0, 4, 5, 0, 6])),
+            path(&[0, 4, 5, 0, 6])
+        );
+    }
+
+    #[tokio::test]
+    async fn slot_retirement_preserves_parent_selection_subscribers() {
+        _ = any_spawner::Executor::init_tokio();
+        let keys = KeyMap::default();
+        seed(&keys, &[0]);
+        seed(&keys, &[0, 0, 1]);
+        let runs = Arc::new(AtomicUsize::new(0));
+        let effect_keys = keys.clone();
+        let effect_runs = runs.clone();
+        let effect = reactive_graph::effect::Effect::new_sync(move || {
+            effect_keys.track_index_selection(path(&[0]));
+            effect_runs.fetch_add(1, Ordering::Relaxed);
+        });
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        assert_eq!(runs.load(Ordering::Relaxed), 1);
+        keys.update_field_keys(path(&[0]), vec![20usize]);
+        keys.notify_index_selection(&path(&[0]));
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        assert_eq!(runs.load(Ordering::Relaxed), 2);
+        assert_eq!(registered_key(&keys, &[0, 0, 1], 10), None);
+        effect.dispose();
     }
 
     #[test]
@@ -1033,14 +1529,7 @@ mod key_map_variant_tests {
                 },
             );
             assert_eq!(result, None::<()>);
-            assert!(
-                !keys
-                    .0
-                    .read()
-                    .or_poisoned()
-                    .fields
-                    .contains_key(&path(&[0, 1]))
-            );
+            assert_eq!(registered_key(&keys, &[0, 1], 10), None);
         }
     }
 }
