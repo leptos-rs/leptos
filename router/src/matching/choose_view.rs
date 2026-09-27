@@ -145,7 +145,8 @@ tuples!(EitherOf14 => A, B, C, D, E, F, G, H, I, J, K, L, M, N);
 tuples!(EitherOf15 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 tuples!(EitherOf16 => A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
 
-/// A version of [`IntoMaybeErased`] for the [`ChooseView`] trait.
+/// A version of [`IntoMaybeErased`](tachys::view::any_view::IntoMaybeErased)
+/// for the [`ChooseView`] trait.
 pub trait IntoChooseViewMaybeErased {
     /// The type of the erased view.
     type Output: IntoChooseViewMaybeErased;
