@@ -155,6 +155,13 @@
 //! assert_eq!(store.vec_field().at_unkeyed(1).get(), 2);
 //! assert_eq!(store.vec_field().at_unkeyed(2).get(), 3);
 //! ```
+//! Keyed handles follow their key when a containing value is replaced. The registry
+//! lazily refreshes a collection's key mapping in O(n) on its first keyed access
+//! after a store write; subsequent reads reuse the mapping. Writes invalidate
+//! cached mappings even when reactive notifications are suppressed. Invalidation
+//! is conservatively store-wide, so a write to an unrelated field may also cause
+//! a collection to refresh on its next access.
+//!
 //! #### Enum
 //! Enumerated types behave a bit differently as the [`Store`](macro@Store) macro builds underlying traits instead of alternate
 //! enumerated structures.  Each element in an `Enum` generates methods to access it in the store: a
@@ -259,7 +266,10 @@ use std::{
     hash::Hash,
     ops::DerefMut,
     panic::Location,
-    sync::{Arc, RwLock},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, RwLock,
+    },
 };
 
 mod arc_field;
@@ -330,6 +340,8 @@ pub struct FieldKeys<K> {
     spare_keys: Vec<StorePathSegment>,
     current_key: usize,
     keys: FxHashMap<K, (StorePathSegment, usize)>,
+    changed: bool,
+    retired: Vec<StorePathSegment>,
 }
 
 impl<K> FieldKeys<K>
@@ -351,6 +363,8 @@ where
             spare_keys: Vec::new(),
             current_key: keys.len().saturating_sub(1),
             keys,
+            changed: true,
+            retired: Vec::new(),
         }
     }
 }
@@ -378,17 +392,13 @@ where
         })
     }
 
-    fn update(
-        &mut self,
-        iter: impl IntoIterator<Item = K>,
-    ) -> Vec<(usize, StorePathSegment)> {
+    fn update(&mut self, iter: impl IntoIterator<Item = K>) {
+        self.changed = true;
         let new_keys = iter
             .into_iter()
             .enumerate()
             .map(|(idx, key)| (key, idx))
             .collect::<FxHashMap<K, usize>>();
-
-        let mut index_keys = Vec::with_capacity(new_keys.len());
 
         // remove old keys and recycle the slots
         self.keys.retain(|key, old_entry| match new_keys.get(key) {
@@ -398,23 +408,18 @@ where
             }
             None => {
                 self.spare_keys.push(old_entry.0);
+                self.retired.push(old_entry.0);
                 false
             }
         });
 
         // add new keys
         for (key, idx) in new_keys {
-            match self.keys.get(&key) {
-                Some((segment, idx)) => index_keys.push((*idx, *segment)),
-                None => {
-                    let path = self.next_key();
-                    self.keys.insert(key, (path, idx));
-                    index_keys.push((idx, path));
-                }
+            if !self.keys.contains_key(&key) {
+                let path = self.next_key();
+                self.keys.insert(key, (path, idx));
             }
         }
-
-        index_keys
     }
 }
 
@@ -424,66 +429,37 @@ impl<K> Default for FieldKeys<K> {
             spare_keys: Default::default(),
             current_key: Default::default(),
             keys: Default::default(),
+            changed: true,
+            retired: Vec::new(),
         }
     }
 }
 
-type Map<K, V> = Arc<std::sync::RwLock<std::collections::HashMap<K, V>>>;
+struct KeyMapEntry {
+    fields: Box<dyn Any + Send + Sync>,
+    indices: Vec<Option<StorePathSegment>>,
+    generation: usize,
+}
 
 /// A map of the keys for a keyed subfield.
 #[derive(Clone, Default)]
 pub struct KeyMap(
-    /// Path to subfield -> Keys in keyed subfield
-    Map<StorePath, Box<dyn Any + Send + Sync>>,
-    /// Map index -> key
-    Map<(StorePath, usize), StorePathSegment>,
+    Arc<RwLock<FxHashMap<StorePath, KeyMapEntry>>>,
+    Arc<AtomicUsize>,
 );
 
 impl KeyMap {
-    /// Transforms the keys related to the field identified by `path`.
+    /// Accesses the keys for a collection, initializing them if necessary.
     ///
-    /// # Arguments
+    /// Both key-to-index and index-to-path mappings are maintained together by
+    /// the registry. The callback's returned vector is retained for compatibility
+    /// with older derived code; callers do not need to build a reverse mapping.
+    /// The initializer runs outside the registry lock, because reading a nested
+    /// collection can itself require looking up its parent's keys. It is also
+    /// called on the first access after a store write invalidates the snapshot.
     ///
-    /// - **path** - path to the field with collection
-    /// - **fun** - Transforms an instance of [FieldKeys] into the result
-    ///   
-    ///   ## Return value
-    ///
-    ///   callback should return a tuple ( result, new_keys)
-    ///
-    ///   - **result** - this value will be passed as a result
-    ///   - **new_keys** - is a vector of new keys to be added into reverse mapping
-    ///     (path, idx) -> (path segment) map
-    ///     
-    ///     ### Entries
-    ///
-    ///     Entry in the vector is a tuple (idx, segment) where
-    ///
-    ///     - **idx** - index of the element in the collection
-    ///     - **segment** - key of the element in the collection
-    ///     
-    /// - **initialize** - it is the set of keys with which to initialize the
-    ///   KeyMap for this field, if there aren't keys listed yet. In all cases
-    ///   inside the library this is `|| self.latest_keys()` or `|| self.inner.latest_keys()`
-    ///
-    ///   This function will be called **only** if KeyMap doesn't have entry for
-    ///   `path`.
-    ///
-    ///   ## Returns
-    ///
-    ///   A vector of keys which will be used if KeyMap doesn't have an entry for
-    ///   given `path`
-    ///
-    /// # Returns
-    ///
-    /// - [None] if path doesn't point to the keyed field
-    /// - **result** value returned from `fun` callback
-    ///
-    /// # Usage
-    ///
-    /// You should not call this method directly from your code, as it's
-    /// an implementation detail of `reactive_stores`. This method was exposed
-    /// to implement the derive `Patch` macro for keyed fields.
+    /// Returns `None` if the registered field uses a different key type.
+    /// This is an implementation detail used by generated code.
     #[doc(hidden)]
     pub fn with_field_keys<K, T>(
         &self,
@@ -494,43 +470,157 @@ impl KeyMap {
     where
         K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
     {
-        // We must call `initialize()` *outside* the write lock below,
-        // because nested keyed subfields can recursively re-enter this map:
-        // initializing a child path may call `latest_keys()` on a parent
-        // keyed field, whose `AtKeyed::reader` calls `resolve_index`, which
-        // itself calls `with_field_keys` and would attempt to acquire the
-        // same write lock — aborting in single-threaded environments and
-        // deadlocking in multi-threaded ones.
-        let needs_init = !self.0.read().or_poisoned().contains_key(&path);
-        let mut initial = needs_init.then(initialize);
+        self.try_with_field_keys(path, fun, || Some(initialize()))
+    }
 
-        let mut guard = self.0.write().or_poisoned();
-        let entry = guard.entry(path.clone()).or_insert_with(|| {
-            Box::new(FieldKeys::new(initial.take().unwrap_or_default()))
-        });
-
-        let entry = entry.downcast_mut::<FieldKeys<K>>()?;
-        let (result, new_keys) = fun(entry);
-        if !new_keys.is_empty() {
-            for (idx, segment) in new_keys {
-                self.1
-                    .write()
-                    .or_poisoned()
-                    .insert((path.clone(), idx), segment);
+    fn try_with_field_keys<K, T>(
+        &self,
+        path: StorePath,
+        fun: impl FnOnce(&mut FieldKeys<K>) -> (T, Vec<(usize, StorePathSegment)>),
+        initialize: impl FnOnce() -> Option<Vec<K>>,
+    ) -> Option<T>
+    where
+        K: Debug + Hash + Eq + Send + Sync + 'static,
+    {
+        // Associate the snapshot with the revision *before* reading the value.
+        // A concurrent write must not make an older snapshot appear current.
+        let generation = self.1.load(Ordering::Acquire);
+        let mut initialize = Some(initialize);
+        let mut latest = None;
+        loop {
+            let mut entries = self.0.write().or_poisoned();
+            let current = self.1.load(Ordering::Acquire);
+            if current != generation {
+                // A delayed snapshot must never overwrite a newer mapping (or
+                // resurrect a retired subtree). Reuse a current entry only.
+                if entries.get(&path)?.generation != current {
+                    return None;
+                }
+                return Self::access_entry(
+                    &mut entries,
+                    path,
+                    current,
+                    None,
+                    fun,
+                );
             }
+            let needs_refresh = entries
+                .get(&path)
+                .is_none_or(|entry| entry.generation != generation);
+            if needs_refresh && latest.is_none() {
+                // The initializer may recursively initialize an ancestor's keys.
+                // Recheck the entry afterwards: that can also retire this subtree.
+                drop(entries);
+                let initialize =
+                    initialize.take().expect("initializer is only called once");
+                latest = Some(initialize()?);
+                continue;
+            }
+            return Self::access_entry(
+                &mut entries,
+                path,
+                generation,
+                latest,
+                fun,
+            );
+        }
+    }
+
+    fn update_field_keys<K>(&self, path: StorePath, latest: Vec<K>)
+    where
+        K: Debug + Hash + Eq + Send + Sync + 'static,
+    {
+        let generation = self.1.load(Ordering::Acquire);
+        Self::access_entry(
+            &mut self.0.write().or_poisoned(),
+            path,
+            generation,
+            Some(latest),
+            |_| ((), Vec::new()),
+        );
+    }
+
+    fn access_entry<K, T>(
+        entries: &mut FxHashMap<StorePath, KeyMapEntry>,
+        path: StorePath,
+        generation: usize,
+        mut latest: Option<Vec<K>>,
+        fun: impl FnOnce(&mut FieldKeys<K>) -> (T, Vec<(usize, StorePathSegment)>),
+    ) -> Option<T>
+    where
+        K: Debug + Hash + Eq + Send + Sync + 'static,
+    {
+        let entry =
+            entries.entry(path.clone()).or_insert_with(|| KeyMapEntry {
+                fields: Box::new(FieldKeys::new(
+                    latest.take().expect("new key entries require a snapshot"),
+                )),
+                indices: Vec::new(),
+                generation,
+            });
+        let fields = entry.fields.downcast_mut::<FieldKeys<K>>()?;
+        if let Some(latest) = latest {
+            fields.update(latest);
+        }
+        let (result, _) = fun(fields);
+        if std::mem::take(&mut fields.changed) {
+            // Replace, rather than merge, so shrinking and empty collections do
+            // not retain old index mappings. Read-only lookups do not scan keys.
+            entry.indices.clear();
+            for &(segment, idx) in fields.keys.values() {
+                if entry.indices.len() <= idx {
+                    entry.indices.resize(idx + 1, None);
+                }
+                entry.indices[idx] = Some(segment);
+            }
+        }
+        let retired = std::mem::take(&mut fields.retired);
+        entry.generation = generation;
+        if !retired.is_empty() {
+            // A recycled outer slot must not inherit the previous item's nested
+            // registries, even when removal and insertion happen in one update.
+            entries.retain(|candidate, _| {
+                if candidate.len() <= path.len()
+                    || !candidate.into_iter().zip(&path).all(|(a, b)| a == b)
+                {
+                    return true;
+                }
+                !candidate
+                    .into_iter()
+                    .nth(path.len())
+                    .is_some_and(|segment| retired.contains(segment))
+            });
         }
         Some(result)
     }
 
-    fn contains_key(&self, key: &StorePath) -> bool {
-        self.0.read().or_poisoned().contains_key(key)
+    fn invalidate(&self) {
+        self.1.fetch_add(1, Ordering::Release);
     }
 
-    fn get_key_for_index(
-        &self,
-        key: &(StorePath, usize),
-    ) -> Option<StorePathSegment> {
-        self.1.read().or_poisoned().get(key).copied()
+    #[track_caller]
+    fn keyed_path(&self, unkeyed: &StorePath) -> StorePath {
+        let entries = self.0.read().or_poisoned();
+        let mut path = StorePath::with_capacity(unkeyed.len());
+        for segment in unkeyed {
+            let segment = if let Some(entry) = entries.get(&path) {
+                entry
+                    .indices
+                    .get(segment.0)
+                    .copied()
+                    .flatten()
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "could not find key for index {:?}",
+                            (path.clone(), segment.0)
+                        )
+                    })
+            } else {
+                *segment
+            };
+            path.push(segment);
+        }
+        path
     }
 }
 

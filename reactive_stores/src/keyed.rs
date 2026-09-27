@@ -280,10 +280,9 @@ where
     Prev: 'static,
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
-    fn latest_keys(&self) -> Vec<K> {
+    fn latest_keys(&self) -> Option<Vec<K>> {
         self.reader()
             .map(|r| r.deref().into_iter().map(|n| (self.key_fn)(n)).collect())
-            .unwrap_or_default()
     }
 
     pub(crate) fn path_at_key(
@@ -294,8 +293,8 @@ where
         let keys = self.keys();
         let keys = keys.as_ref()?;
         let segment = keys
-            .with_field_keys(
-                base_path.clone(),
+            .try_with_field_keys(
+                self.path().into_iter().collect(),
                 |keys| (keys.get(key), vec![]),
                 || self.latest_keys(),
             )
@@ -604,60 +603,16 @@ where
     T::Value: Sized,
 {
     /// Attempt to resolve the inner index if is still exists.
-    ///
-    /// The key map is only regenerated when the keyed subfield itself is
-    /// written to. A write to one of its *ancestors* (e.g., `parent.update(...)`)
-    /// notifies the subfield but leaves its keys stale, so a cached index may
-    /// now point past the end of the collection, or at a different element.
-    /// To guard against that, the cached index is checked against the current
-    /// collection, and the keys are regenerated if it no longer matches.
-    ///
-    /// This reads from the store, so it must never be called while a write
-    /// guard on the store is held.
-    fn resolve_index(&self) -> Option<usize> {
-        let inner_path: StorePath = self.inner.path().into_iter().collect();
+    fn resolve_index(&self, collection: &T) -> Option<usize> {
+        let inner_path = self.inner.path().into_iter().collect();
         let keys = self.inner.keys()?;
-        let lookup = || {
-            keys.with_field_keys(
-                inner_path.clone(),
-                |keys| (keys.get(&self.key), vec![]),
-                || self.inner.latest_keys(),
-            )
-            .flatten()
-            .map(|(_, idx)| idx)
-        };
-
-        let index = lookup();
-        if self.index_is_current(index) {
-            return index;
-        }
-
-        // the cached keys are out of date: regenerate them and try again
-        self.inner.update_keys();
-        lookup()
-    }
-
-    /// Checks whether `index` (or its absence) matches the current state of
-    /// the collection, by comparing the key of the element at that position.
-    fn index_is_current(&self, index: Option<usize>) -> bool {
-        let Some(reader) = self.inner.reader() else {
-            // nothing to compare against; nothing we can do
-            return true;
-        };
-        let key_fn = self.inner.key_fn;
-        match index {
-            Some(index) => reader
-                .deref()
-                .into_iter()
-                .nth(index)
-                .is_some_and(|item| key_fn(item) == self.key),
-            // the key was not found: this is only current if it is
-            // genuinely absent from the collection
-            None => !reader
-                .deref()
-                .into_iter()
-                .any(|item| key_fn(item) == self.key),
-        }
+        keys.with_field_keys(
+            inner_path,
+            |keys| (keys.get(&self.key), vec![]),
+            || collection.into_iter().map(self.inner.key_fn).collect(),
+        )
+        .flatten()
+        .map(|(_, idx)| idx)
     }
 }
 
@@ -692,7 +647,7 @@ where
             .keys()
             .expect("using keys on a store with no keys");
         let this = keys
-            .with_field_keys(
+            .try_with_field_keys(
                 inner.clone(),
                 |keys| (keys.get(&self.key), vec![]),
                 || self.inner.latest_keys(),
@@ -705,13 +660,14 @@ where
     fn path_unkeyed(&self) -> impl IntoIterator<Item = StorePathSegment> {
         let inner =
             self.inner.path_unkeyed().into_iter().collect::<StorePath>();
+        let keyed_inner = self.inner.path().into_iter().collect();
         let keys = self
             .inner
             .keys()
             .expect("using keys on a store with no keys");
         let this = keys
-            .with_field_keys(
-                inner.clone(),
+            .try_with_field_keys(
+                keyed_inner,
                 |keys| (keys.get(&self.key), vec![]),
                 || self.inner.latest_keys(),
             )
@@ -729,10 +685,8 @@ where
     }
 
     fn reader(&self) -> Option<Self::Reader> {
-        // resolve the index before taking the read guard: resolving may
-        // regenerate keys, which reads the store itself
-        let index = self.resolve_index()?;
         let inner = self.inner.reader()?;
+        let index = self.resolve_index(&inner)?;
         Some(MappedMutArc::new(
             inner,
             {
@@ -747,13 +701,10 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        // resolve the index (and the triggers, which depend on the current
-        // keys) *before* taking the write guard: resolving reads the store,
-        // which would deadlock against our own write lock
-        let index = self.resolve_index()?;
-        let triggers = self.triggers_for_current_path();
         let mut inner = self.inner.writer()?;
         inner.untrack();
+        let index = self.resolve_index(&inner)?;
+        let triggers = self.triggers_for_current_path();
         Some(WriteGuard::new(
             triggers,
             MappedMutArc::new(
@@ -919,12 +870,10 @@ where
         // nested keyed fields, the second field will not try to take a
         // read-lock on the key map to get the field while the first field
         // is still holding the write-lock in the closure below
-        let latest = self.latest_keys();
-        keys.with_field_keys(
-            inner_path,
-            |keys| ((), keys.update(latest)),
-            || self.latest_keys(),
-        );
+        if let Some(reader) = self.reader() {
+            let latest = reader.deref().into_iter().map(self.key_fn).collect();
+            keys.update_field_keys(inner_path, latest);
+        }
     }
 }
 

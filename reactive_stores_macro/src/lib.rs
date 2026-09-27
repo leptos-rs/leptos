@@ -707,89 +707,24 @@ impl PatchModel {
 
         let body = match ty {
             PatchModelTy::Struct { fields } => {
-                let fields = fields.iter().enumerate().map(|(idx, field)| {
-                    let Field {
-                        attrs, ident, ..
-                    } = &field;
-                    let locator = match &ident {
-                        Some(ident) => Either::Left(ident),
-                        None => Either::Right(Index::from(idx)),
-                    };
-                    let closure = parse_patch_closure(attrs)?;
-                    let modes = parse_store_modes(attrs)?.unwrap_or_default();
-                    // A field marked `#[store(skip)]` is opted out of store-field
-                    // generation; it must also be opted out of patching, so the
-                    // field's type need not implement `PatchField`.
-                    let skip = modes
-                        .iter()
-                        .any(|mode| matches!(mode, SubfieldMode::Skip));
-                    let keyed = modes
-                        .into_iter()
-                        .find_map(|subfield| match subfield {
-                            SubfieldMode::Keyed(closure, _ty) => Some(closure),
-                            SubfieldMode::Skip => None,
-                        });
-
-                    Ok(if skip {
-                        // leave the field untouched; only keep the running
-                        // path segment aligned for the following fields.
-                        quote! {
-                            new_path.replace_last(#idx + 1);
-                        }
-                    } else if let Some(closure) = closure {
-                        let params = closure.inputs;
-                        let body = closure.body;
-                        quote! {
-                            if new.#locator != self.#locator {
-                                _ = {
-                                    let (#params) = (&mut self.#locator, new.#locator);
-                                    #body
-                                };
-                                notify(&new_path);
-                            }
-                            new_path.replace_last(#idx + 1);
-                        }
-                    } else if let Some(closure) = keyed {
-                        quote! {
-                            let structure_changed = #library_path::PatchFieldKeyed::patch_field_keyed(
-                                &mut self.#locator,
-                                new.#locator,
-                                notify,
-                                keys,
-                                #closure,
-                                |key| {
-                                    let keys = keys.as_ref()?;
-                                    let segment = keys
-                                        .with_field_keys(
-                                            path.clone(),
-                                            |keys| (keys.get(key), vec![]),
-                                            || vec![],
-                                        )
-                                        .flatten()
-                                        .map(|(_, idx)| idx)?;
-                                    let mut path = path.clone();
-                                    path.push(segment);
-                                    Some(path)
-                                }
-                            );
-                            if structure_changed {
-                                notify(&new_path);
-                            }
-                            new_path.replace_last(#idx + 1);
-                        }
-                    } else {
-                        quote! {
-                            #library_path::PatchField::patch_field(
-                                &mut self.#locator,
-                                new.#locator,
-                                &new_path,
-                                notify,
-                                keys
-                            );
-                            new_path.replace_last(#idx + 1);
-                        }
+                let fields = fields
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, field)| {
+                        let locator = match &field.ident {
+                            Some(ident) => Either::Left(ident),
+                            None => Either::Right(Index::from(idx)),
+                        };
+                        patch_field_to_tokens(
+                            &library_path,
+                            field,
+                            idx,
+                            quote! { &mut self.#locator },
+                            quote! { new.#locator },
+                        )
                     })
-                }).collect::<Result<Vec<_>>>()?;
+                    .collect::<Result<Vec<_>>>()?;
+
                 quote! {
                     let mut new_path = path.clone();
                     new_path.push(0);
@@ -899,14 +834,13 @@ impl PatchModel {
             }
         };
 
-        let clear_generics = remove_constraint_from_generics(generics);
-        let params = clear_generics.params;
-        let where_clause = &generics.where_clause;
+        let (impl_generics, ty_generics, where_clause) =
+            generics.split_for_impl();
 
         // read access
         Ok(quote! {
             #[automatically_derived]
-            impl #generics #library_path::PatchField for #name <#params>
+            impl #impl_generics #library_path::PatchField for #name #ty_generics
                #where_clause
             {
                 fn patch_field(
@@ -921,6 +855,84 @@ impl PatchModel {
             }
         })
     }
+}
+
+fn patch_field_to_tokens(
+    library_path: &TokenStream,
+    field: &Field,
+    idx: usize,
+    current: TokenStream,
+    new: TokenStream,
+) -> Result<TokenStream> {
+    let closure = parse_patch_closure(&field.attrs)?;
+    let modes = parse_store_modes(&field.attrs)?.unwrap_or_default();
+    // Skipped fields must not require `PatchField`, even with a patch closure.
+    // Still advance the path so subsequent fields retain their original indices.
+    if modes.iter().any(|mode| matches!(mode, SubfieldMode::Skip)) {
+        return Ok(quote! {
+            new_path.replace_last(#idx + 1);
+        });
+    }
+    let keyed = parse_patch_key_closure(&field.attrs)?;
+
+    let patch = if let Some(closure) = closure {
+        let params = closure.inputs;
+        let body = closure.body;
+        let refresh = keyed.map(|(key_fn, key_ty)| {
+            quote! {
+                #library_path::refresh_keyed_field::<_, #key_ty>(
+                    &*(#current), &new_path, keys, #key_fn,
+                );
+            }
+        });
+        quote! {
+            if #new != *(#current) {
+                _ = {
+                    let (#params) = (&mut *(#current), #new);
+                    #body
+                };
+                #refresh
+                notify(&new_path);
+            }
+        }
+    } else if let Some((closure, key_ty)) = keyed {
+        quote! {
+            #library_path::patch_keyed_field::<_, #key_ty>(
+                #current,
+                #new,
+                &new_path,
+                notify,
+                keys,
+                #closure,
+            );
+        }
+    } else {
+        quote! {
+            #library_path::PatchField::patch_field(
+                #current,
+                #new,
+                &new_path,
+                notify,
+                keys
+            );
+        }
+    };
+    Ok(quote! {
+        #patch
+        new_path.replace_last(#idx + 1);
+    })
+}
+
+fn parse_patch_key_closure(
+    attrs: &[Attribute],
+) -> Result<Option<(ExprClosure, Type)>> {
+    Ok(parse_store_modes(attrs)?
+        .unwrap_or_default()
+        .into_iter()
+        .find_map(|subfield| match subfield {
+            SubfieldMode::Keyed(closure, ty) => Some((*closure, *ty)),
+            SubfieldMode::Skip => None,
+        }))
 }
 
 fn parse_patch_closure(attrs: &[Attribute]) -> Result<Option<ExprClosure>> {

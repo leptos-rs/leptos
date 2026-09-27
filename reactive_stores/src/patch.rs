@@ -68,12 +68,22 @@ where
     /// It is used in the same way as the [`Patch`] trait, but uses a keyed data diff for
     /// data structures that implement [`PatchFieldKeyed`].
     pub fn patch(&self, new: T) {
-        let path = self.path_unkeyed().into_iter().collect::<StorePath>();
         let keys = self.keys();
+        let Some(mut writer) = self.writer() else {
+            return;
+        };
+        writer.untrack();
+        let path = self.path_unkeyed().into_iter().collect::<StorePath>();
+        // Establish the old-index mapping while holding the value lock. A
+        // pre-lock refresh can be invalidated before the patch starts.
+        if let Some(keys) = &keys {
+            keys.update_field_keys(
+                self.path().into_iter().collect(),
+                (&*writer).into_iter().map(self.key_fn).collect(),
+            );
+        }
 
-        let structure_changed = if let Some(mut writer) = self.writer() {
-            // don't track the writer for the whole store
-            writer.untrack();
+        let structure_changed = {
             let mut notify = |path: &StorePath| {
                 self.triggers_for_path_unkeyed(path.to_owned()).notify();
             };
@@ -84,9 +94,8 @@ where
                 self.key_fn,
                 |key| self.path_at_key(&path, key),
             )
-        } else {
-            false
         };
+        drop(writer);
 
         if structure_changed {
             // Only notify `children` (not `this`) at the collection path, so that
@@ -104,6 +113,68 @@ where
         }
 
         self.update_keys();
+    }
+}
+
+/// Refreshes a derived keyed field after a custom patch or enum variant replacement.
+#[doc(hidden)]
+pub fn refresh_keyed_field<T, K>(
+    value: &T,
+    path: &StorePath,
+    keys: Option<&KeyMap>,
+    key_fn: impl Fn(<&T as IntoIterator>::Item) -> K,
+) where
+    for<'a> &'a T: IntoIterator,
+    K: Debug + Send + Sync + Eq + Hash + 'static,
+{
+    if let Some(keys) = keys {
+        let latest = value.into_iter().map(key_fn).collect::<Vec<_>>();
+        keys.update_field_keys(keys.keyed_path(path), latest);
+    }
+}
+
+/// Patches a derived keyed field and keeps its key-to-index mapping in sync.
+///
+/// This is an implementation detail shared by the `Patch` derive for structs and enums.
+#[doc(hidden)]
+pub fn patch_keyed_field<T, K>(
+    current: &mut T,
+    new: T,
+    path: &StorePath,
+    notify: &mut dyn FnMut(&StorePath),
+    keys: Option<&KeyMap>,
+    key_fn: impl Fn(<&T as IntoIterator>::Item) -> K,
+) where
+    T: PatchFieldKeyed<K>,
+    for<'a> &'a T: IntoIterator,
+    K: Clone + Debug + Send + Sync + Eq + Hash + 'static,
+{
+    let old_keys = (&*current).into_iter().map(&key_fn).collect::<Vec<_>>();
+    let keyed_path = keys.map(|keys| keys.keyed_path(path));
+    if let (Some(keys), Some(keyed_path)) = (keys, &keyed_path) {
+        keys.update_field_keys(keyed_path.clone(), old_keys.clone());
+    }
+    let old_indices = old_keys
+        .into_iter()
+        .enumerate()
+        .map(|(idx, key)| (key, idx))
+        .collect::<HashMap<_, _>>();
+
+    // Notifications use old indices while the old index-to-key mapping is still
+    // installed. Resolving paths must not depend on prior accessor/iterator use.
+    let structure_changed =
+        current.patch_field_keyed(new, notify, keys, &key_fn, |key| {
+            let mut item_path = path.clone();
+            item_path.push(*old_indices.get(key)?);
+            Some(item_path)
+        });
+
+    if let (Some(keys), Some(keyed_path)) = (keys, keyed_path) {
+        let latest = (&*current).into_iter().map(&key_fn).collect::<Vec<_>>();
+        keys.update_field_keys(keyed_path, latest);
+    }
+    if structure_changed {
+        notify(path);
     }
 }
 
@@ -127,7 +198,7 @@ pub trait PatchField {
 }
 
 /// Allows patching a collection in a store field with a new value, after doing a keyed diff.
-///     
+///
 /// This takes a `key_fn` that is applied to each entry in the collection and returns a
 /// unique key. Items in the old collection and new collection with the same key are treated
 /// as the same value, and the items are patched using [`PatchField`].
