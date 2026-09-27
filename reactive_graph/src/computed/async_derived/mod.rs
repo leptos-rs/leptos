@@ -138,6 +138,13 @@ pub mod suspense {
         empty_wakers: Arc<Mutex<Vec<Waker>>>,
     }
 
+    impl Default for SuspenseContext {
+        /// Creates a context with an empty set of active tasks of its own.
+        fn default() -> Self {
+            Self::new(ArcRwSignal::new(SlotMap::new()))
+        }
+    }
+
     impl SuspenseContext {
         /// Creates a context that tracks the given set of active tasks.
         pub fn new(tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>) -> Self {

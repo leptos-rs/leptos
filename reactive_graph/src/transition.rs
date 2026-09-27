@@ -65,6 +65,13 @@ impl AsyncTransition {
         value
     }
 
+    /// Whether a transition started with [`run`](Self::run) is currently
+    /// being polled on this thread, so that an async resource created now is
+    /// waited for by it.
+    pub fn is_active() -> bool {
+        TRANSITION.with_borrow(Option::is_some)
+    }
+
     pub(crate) fn register(rx: oneshot::Receiver<()>) {
         TRANSITION.with_borrow(|current| {
             if let Some(inner) = current.as_ref() {

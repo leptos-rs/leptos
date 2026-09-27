@@ -91,3 +91,21 @@ async fn overlapping_transitions_are_isolated() {
     t1.await.unwrap();
     t2.await.unwrap();
 }
+
+/// A transition is active only while its future is being polled.
+#[tokio::test]
+async fn transition_is_active_only_while_it_is_polled() {
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    assert!(!AsyncTransition::is_active());
+    let during = AsyncTransition::run(|| async {
+        let before_await = AsyncTransition::is_active();
+        Executor::tick().await;
+        before_await && AsyncTransition::is_active()
+    })
+    .await;
+    assert!(during);
+    assert!(!AsyncTransition::is_active());
+}
