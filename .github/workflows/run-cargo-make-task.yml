@@ -87,6 +87,13 @@ jobs:
           timeout_minutes: 30
           retry_wait_seconds: 15
           command: cargo binstall wasm-bindgen-cli --no-confirm
+      - name: Install wasm-pack
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 30
+          retry_wait_seconds: 15
+          command: cargo binstall wasm-pack --locked --no-confirm
       - name: Install cargo-leptos
         uses: nick-fields/retry@v4
         with:
