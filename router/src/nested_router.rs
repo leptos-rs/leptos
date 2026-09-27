@@ -13,14 +13,9 @@ use either_of::{Either, EitherOf3};
 use futures::{
     FutureExt,
     channel::oneshot,
-    future::{AbortHandle, Abortable, join_all},
+    future::{AbortHandle, AbortRegistration, Abortable, Aborted, join_all},
 };
-use leptos::{
-    attr::any_attribute::AnyAttribute,
-    component,
-    oco::Oco,
-    prelude::{ArcStoredValue, WriteValue},
-};
+use leptos::{attr::any_attribute::AnyAttribute, component, oco::Oco};
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
@@ -32,7 +27,7 @@ use reactive_graph::{
 };
 use send_wrapper::SendWrapper;
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     fmt::Debug,
     future::Future,
     iter, mem,
@@ -77,7 +72,9 @@ where
     // held to keep the Owner alive until the router is dropped
     #[allow(unused)]
     outer_owner: Owner,
-    abort_navigation: ArcStoredValue<Option<AbortHandle>>,
+    // incremented on every navigation, so that work started for an earlier
+    // one can tell that it has been superseded
+    navigation: Rc<Cell<u64>>,
 }
 
 impl<Loc, Defs, FalFn, Fal> Render for NestedRoutesView<Loc, Defs, FalFn>
@@ -127,20 +124,22 @@ where
             }
         };
 
-        let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let abort_navigation = ArcStoredValue::new(Some(abort_handle));
+        let navigation = Rc::new(Cell::new(0));
         Executor::spawn_local({
             let view = Rc::clone(&view);
             let loaders = mem::take(&mut loaders);
-            let abort_navigation = abort_navigation.clone();
+            let navigation = Rc::clone(&navigation);
             ScopedFuture::new(async move {
-                let triggers =
-                    Abortable::new(join_all(loaders), abort_registration).await;
-                if let Ok(triggers) = triggers {
-                    _ = abort_navigation.write_value().take();
-                    for trigger in triggers {
-                        trigger.notify();
-                    }
+                // a navigation cancels the preloads of the outlets it
+                // replaces or removes; the others still install their views,
+                // which that navigation reuses
+                let triggers = join_all(loaders).await.into_iter().flatten();
+                for trigger in triggers {
+                    trigger.notify();
+                }
+                // a navigation that started in the meantime has rendered the
+                // outlets it shows (or the fallback) itself
+                if navigation.get() == 0 {
                     matched_view.rebuild(&mut *view.borrow_mut());
                 }
             })
@@ -152,7 +151,7 @@ where
             outlets,
             view,
             outer_owner,
-            abort_navigation,
+            navigation,
         }
     }
 
@@ -175,11 +174,15 @@ where
         let new_match = self.routes.match_route(url_snapshot.path());
 
         *state.current_url.write_untracked() = url_snapshot;
+        state.navigation.set(state.navigation.get().wrapping_add(1));
 
         match new_match {
             None => {
                 EitherOf3::<(), Fal, AnyView>::B((self.fallback)())
                     .rebuild(&mut state.view.borrow_mut());
+                for outlet in &state.outlets {
+                    outlet.abort_preload();
+                }
                 state.outlets.clear();
                 if let Some(loc) = self.location {
                     loc.ready_to_complete();
@@ -204,26 +207,21 @@ where
                     &self.outer_owner,
                 );
 
-                let (abort_handle, abort_registration) =
-                    AbortHandle::new_pair();
-
-                if let Some(prev_handle) =
-                    state.abort_navigation.write_value().replace(abort_handle)
-                {
-                    prev_handle.abort();
-                }
-
                 let location = self.location.clone();
                 let is_back = location
                     .as_ref()
                     .map(|nav| nav.is_back().get_untracked())
                     .unwrap_or(false);
                 Executor::spawn_local(async move {
-                    let triggers = Abortable::new(
-                        join_all(preloaders),
-                        abort_registration,
-                    );
-                    if let Ok(triggers) = triggers.await {
+                    // a later navigation cancels the preloads of the outlets
+                    // it replaces or removes; the others still install their
+                    // views, which that navigation reuses
+                    let triggers = join_all(preloaders)
+                        .await
+                        .into_iter()
+                        .flatten()
+                        .collect::<Vec<_>>();
+                    if !triggers.is_empty() {
                         // tell each one of the outlet triggers that it's ready
                         let notify = move || {
                             for trigger in triggers {
@@ -242,10 +240,8 @@ where
                     }
                 });
 
-                let abort_navigation = state.abort_navigation.clone();
                 Executor::spawn_local(async move {
                     join_all(full_loaders).await;
-                    _ = abort_navigation.write_value().take();
                     if let Some(set_is_routing) = self.set_is_routing {
                         set_is_routing.set(false);
                     }
@@ -506,7 +502,7 @@ where
             outlets,
             view,
             outer_owner,
-            abort_navigation: Default::default(),
+            navigation: Default::default(),
         }
     }
 
@@ -559,7 +555,7 @@ where
             outlets,
             view,
             outer_owner,
-            abort_navigation: Default::default(),
+            navigation: Default::default(),
         }
     }
 
@@ -581,6 +577,10 @@ pub(crate) struct RouteContext {
     owner: Arc<Mutex<Option<Owner>>>,
     preload_owner: Owner,
     child: ChildRoute,
+    // cancels the pending preload of the view most recently scheduled for
+    // this outlet: a navigation that replaces or removes the outlet aborts
+    // it, while one that reuses the outlet leaves it alone
+    preload_abort: Arc<Mutex<Option<AbortHandle>>>,
 }
 
 #[derive(Clone)]
@@ -599,6 +599,28 @@ impl Debug for RouteContext {
     }
 }
 
+impl RouteContext {
+    /// Cancels the preload of the view most recently scheduled for this
+    /// outlet, if it is still pending.
+    fn abort_preload(&self) {
+        if let Some(handle) = self.preload_abort.lock().or_poisoned().take() {
+            handle.abort();
+        }
+    }
+
+    /// Registers a new preload for this outlet, cancelling the previous one,
+    /// and returns the registration that makes it abortable.
+    fn new_preload(&self) -> AbortRegistration {
+        let (handle, registration) = AbortHandle::new_pair();
+        if let Some(previous) =
+            self.preload_abort.lock().or_poisoned().replace(handle)
+        {
+            previous.abort();
+        }
+        registration
+    }
+}
+
 impl Clone for RouteContext {
     fn clone(&self) -> Self {
         Self {
@@ -612,16 +634,22 @@ impl Clone for RouteContext {
             owner: Arc::clone(&self.owner),
             child: self.child.clone(),
             preload_owner: self.preload_owner.clone(),
+            preload_abort: Arc::clone(&self.preload_abort),
         }
     }
 }
+
+/// Preloads an outlet's view, then installs it and resolves with the trigger
+/// that renders it, or with `Err` if the preload was cancelled (see
+/// `RouteContext::preload_abort`).
+type Preloader = Pin<Box<dyn Future<Output = Result<ArcTrigger, Aborted>>>>;
 
 trait AddNestedRoute {
     fn build_nested_route(
         self,
         url: &Url,
         base: Option<Oco<'static, str>>,
-        loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
+        loaders: &mut Vec<Preloader>,
         outlets: &mut Vec<RouteContext>,
         outer_owner: &Owner,
     );
@@ -632,7 +660,7 @@ trait AddNestedRoute {
         url: &Url,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
-        loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
+        loaders: &mut Vec<Preloader>,
         full_loaders: &mut Vec<oneshot::Receiver<Option<Owner>>>,
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
@@ -649,7 +677,7 @@ where
         self,
         url: &Url,
         base: Option<Oco<'static, str>>,
-        loaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
+        loaders: &mut Vec<Preloader>,
         outlets: &mut Vec<RouteContext>,
         outer_owner: &Owner,
     ) {
@@ -720,7 +748,9 @@ where
             child: ChildRoute(Arc::new(Mutex::new(None))),
             owner: Arc::new(Mutex::new(None)),
             preload_owner: outer_owner.child(),
+            preload_abort: Default::default(),
         };
+        let preload_registration = outlet.new_preload();
         if !outlets.is_empty() {
             let prev_index = outlets.len().saturating_sub(1);
             *outlets[prev_index].child.0.lock().or_poisoned() =
@@ -731,7 +761,7 @@ where
         // send the initial view through the channel, and recurse through the children
         let (view, child) = self.into_view_and_child();
 
-        loaders.push(Box::pin(ScopedFuture::new({
+        let preloader = ScopedFuture::new({
             let url = outlet.url.clone();
             let matched = Matched(matched_including_parents);
             let view_fn = Arc::clone(&outlet.view_fn);
@@ -793,7 +823,8 @@ where
                     });
                 trigger
             }
-        })));
+        });
+        loaders.push(Box::pin(Abortable::new(preloader, preload_registration)));
 
         // recursively continue building the tree
         // this is important because to build the view, we need access to the outlet
@@ -815,7 +846,7 @@ where
         url: &Url,
         base: Option<Oco<'static, str>>,
         items: &mut usize,
-        preloaders: &mut Vec<Pin<Box<dyn Future<Output = ArcTrigger>>>>,
+        preloaders: &mut Vec<Preloader>,
         full_loaders: &mut Vec<oneshot::Receiver<Option<Owner>>>,
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
@@ -920,7 +951,8 @@ where
                     // send the new view, with the new owner, through the channel to the Outlet,
                     // and notify the trigger so that the reactive view inside the Outlet tracking
                     // the trigger runs again
-                    preloaders.push(Box::pin(ScopedFuture::new({
+                    let preload_registration = current.new_preload();
+                    let preloader = ScopedFuture::new({
                         let trigger = current.trigger.clone();
                         let url = current.url.clone();
                         let matched = Matched(matched_including_parents);
@@ -1000,10 +1032,17 @@ where
                             drop(old_preload_owner);
                             trigger
                         }
-                    })));
+                    });
+                    preloaders.push(Box::pin(Abortable::new(
+                        preloader,
+                        preload_registration,
+                    )));
 
                     // remove all the items lower in the tree
                     // if this match is different, all its children will also be different
+                    for outlet in outlets.iter().skip(*items + 1) {
+                        outlet.abort_preload();
+                    }
                     outlets.truncate(*items + 1);
 
                     // if this children has matches, then rebuild the lower section of the tree
