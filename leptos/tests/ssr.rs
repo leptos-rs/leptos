@@ -207,6 +207,62 @@ fn ssr_option() {
 }
 
 #[cfg(feature = "ssr")]
+fn render_hydration_scripts(defer: bool) -> String {
+    use leptos::prelude::*;
+
+    let options: LeptosOptions =
+        serde_json::from_str(r#"{ "output-name": "app" }"#).unwrap();
+    let rendered = view! { <HydrationScripts options=options defer=defer /> };
+
+    rendered.to_html()
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn hydration_scripts_default_output() {
+    // The default `HydrationScripts` output is load-bearing for every existing
+    // app, so lock it down: no `fetchpriority` hints, and the hydration script
+    // invoked eagerly.
+    let html = render_hydration_scripts(false);
+
+    // no priority hints, and the idle branch is still present but unused
+    assert!(!html.contains("fetchpriority"), "{html}");
+    assert!(html.contains("requestIdleCallback"), "{html}");
+    // the script is handed `false`, so it takes the eager path
+    assert!(html.contains(r#""app_bg", false);"#), "{html}");
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn hydration_scripts_deferred_output() {
+    // With `defer`, the resource hints drop to `low` priority so they don't
+    // compete with the render-blocking resources, and the hydration script is
+    // told to wait for an idle callback.
+    let html = render_hydration_scripts(true);
+
+    assert_eq!(html.matches(r#"fetchpriority="low""#).count(), 2, "{html}");
+    assert!(html.contains(r#""app_bg", true);"#), "{html}");
+}
+
+#[cfg(feature = "ssr")]
+#[test]
+fn hydration_scripts_defer_is_a_no_op_in_islands_mode() {
+    // `islands` already hydrates on idle, and pushing it later would widen the
+    // window in which `islands_routing.js` can call `__hydrateIsland` before it
+    // exists, so `defer` must not reach that path.
+    use leptos::prelude::*;
+
+    let options: LeptosOptions =
+        serde_json::from_str(r#"{ "output-name": "app" }"#).unwrap();
+    let rendered =
+        view! { <HydrationScripts options=options islands=true defer=true /> };
+    let html = rendered.to_html();
+
+    assert!(!html.contains("fetchpriority"), "{html}");
+    assert!(html.contains(r#""app_bg", false);"#), "{html}");
+}
+
+#[cfg(feature = "ssr")]
 #[test]
 fn ssr_textarea_escapes_static_content() {
     use leptos::prelude::*;
