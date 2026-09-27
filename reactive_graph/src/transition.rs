@@ -5,6 +5,7 @@ use pin_project_lite::pin_project;
 use std::{
     cell::RefCell,
     future::Future,
+    iter,
     pin::Pin,
     sync::mpsc,
     task::{Context, Poll},
@@ -23,6 +24,9 @@ thread_local! {
 #[derive(Debug, Clone)]
 struct TransitionInner {
     tx: mpsc::Sender<oneshot::Receiver<()>>,
+    // whether a resource that a source notifies while this transition is
+    // active registers the load that follows with it (see `track`)
+    capture_notified: bool,
 }
 
 /// Transitions allow you to wait for all asynchronous resources created during them to resolve.
@@ -42,7 +46,10 @@ impl AsyncTransition {
         T: Future<Output = U>,
     {
         let (tx, rx) = mpsc::channel();
-        let inner = TransitionInner { tx };
+        let inner = TransitionInner {
+            tx,
+            capture_notified: false,
+        };
 
         // While the action is being run and its future polled, install `inner`
         // as the current transition. The guard inside `ScopedTransition::poll`
@@ -65,11 +72,62 @@ impl AsyncTransition {
         value
     }
 
-    /// Whether a transition started with [`run`](Self::run) is currently
-    /// being polled on this thread, so that an async resource created now is
-    /// waited for by it.
+    /// Runs `action` synchronously with a transition active, and returns its
+    /// value together with a future that resolves once every async resource
+    /// that was created during `action`, or that a signal update during
+    /// `action` notified (for example, a resource that depends on route
+    /// params when the params change), has finished the load that follows.
+    ///
+    /// A notification that turns out not to require a reload is not waited
+    /// for, and neither is work that effects start later because of the
+    /// updates. Dropping the returned future stops waiting, but does not
+    /// cancel the loads.
+    #[must_use = "await the returned future to wait for the loads"]
+    pub fn track<T>(
+        action: impl FnOnce() -> T,
+    ) -> (T, impl Future<Output = ()> + Send) {
+        struct Restore(Option<TransitionInner>);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                TRANSITION.with_borrow_mut(|slot| *slot = self.0.take());
+            }
+        }
+
+        let (tx, rx) = mpsc::channel();
+        let value = {
+            let _restore = TRANSITION.with_borrow_mut(|slot| {
+                Restore(slot.replace(TransitionInner {
+                    tx,
+                    capture_notified: true,
+                }))
+            });
+            action()
+        };
+        let pending = iter::from_fn(|| rx.try_recv().ok()).collect::<Vec<_>>();
+        (value, async move {
+            join_all(pending).await;
+        })
+    }
+
+    /// Whether a transition started with [`run`](Self::run) or
+    /// [`track`](Self::track) is currently active on this thread, so that an
+    /// async resource created now is waited for by it.
     pub fn is_active() -> bool {
         TRANSITION.with_borrow(Option::is_some)
+    }
+
+    /// If a transition started with [`track`](Self::track) is active,
+    /// registers a load with it and returns the sender that completes it.
+    pub(crate) fn register_notified() -> Option<oneshot::Sender<()>> {
+        TRANSITION.with_borrow(|current| {
+            current.as_ref().filter(|inner| inner.capture_notified).map(
+                |inner| {
+                    let (tx, rx) = oneshot::channel();
+                    _ = inner.tx.send(rx);
+                    tx
+                },
+            )
+        })
     }
 
     pub(crate) fn register(rx: oneshot::Receiver<()>) {

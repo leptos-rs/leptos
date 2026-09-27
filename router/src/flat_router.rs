@@ -9,7 +9,7 @@ use crate::{
 };
 use any_spawner::Executor;
 use either_of::Either;
-use futures::FutureExt;
+use futures::{FutureExt, channel::oneshot, future::Shared};
 use leptos::attr::{Attribute, any_attribute::AnyAttribute};
 use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
@@ -50,9 +50,13 @@ pub(crate) struct FlatRoutesViewState {
     // replaced whenever a route is rendered: identifies the route instance
     // that a navigation is loading
     owner: Owner,
-    // incremented whenever a navigation replaces the route instance, so that
-    // an earlier navigation can tell that it no longer completes
+    // incremented whenever a navigation starts, so that an earlier one can
+    // tell that it no longer completes
     navigation: u64,
+    // resolves once the view of the route instance has been rendered, if it
+    // was still loading: a navigation that only changes the route's params
+    // while an earlier navigation is still loading it waits for it
+    view_chosen: Option<Shared<oneshot::Receiver<()>>>,
     params: ArcRwSignal<ParamsMap>,
     path: String,
     url: ArcRwSignal<Url>,
@@ -132,6 +136,7 @@ where
                 id,
                 owner,
                 navigation: 0,
+                view_chosen: None,
                 params,
                 path,
                 url,
@@ -163,6 +168,7 @@ where
                         id,
                         owner,
                         navigation: 0,
+                        view_chosen: None,
                         params,
                         path,
                         url,
@@ -170,12 +176,14 @@ where
                     })),
                     None => {
                         let spawned_owner = owner.clone();
+                        let (chosen_tx, chosen_rx) = oneshot::channel();
                         let state =
                             Rc::new(RefCell::new(FlatRoutesViewState {
                                 view: ().into_any().build(),
                                 id,
                                 owner,
                                 navigation: 0,
+                                view_chosen: Some(chosen_rx.shared()),
                                 params,
                                 path,
                                 url,
@@ -192,6 +200,7 @@ where
                                     view.into_any()
                                         .rebuild(&mut state.borrow_mut().view);
                                 }
+                                _ = chosen_tx.send(());
                             }
                         });
 
@@ -241,20 +250,67 @@ where
             .map(|n| n.to_params().into_iter().collect())
             .unwrap_or_default();
 
+        initial_state.navigation = initial_state.navigation.wrapping_add(1);
+        let navigation_id = initial_state.navigation;
+
         // if it's the same route, we just update the params
         if new_id == initial_state.id {
-            initial_state.params.set(matched_params);
-            initial_state.matched.set(matched_string);
-            if let Some(location) = location {
-                location.ready_to_complete();
-            }
+            let params = initial_state.params.clone();
+            let matched = initial_state.matched.clone();
+            let view_chosen = initial_state.view_chosen.clone();
+            drop(initial_state);
+            let update = move || {
+                params.set(matched_params);
+                matched.set(matched_string);
+            };
+            // the route keeps its view, so nothing is chosen: the view is
+            // waited for if an earlier navigation is still loading it, and
+            // with set_is_routing, so are the resources that the new params
+            // make reload
+            let reloading = match set_is_routing {
+                Some(set_is_routing) => {
+                    set_is_routing.set(true);
+                    let ((), reloaded) = AsyncTransition::track(update);
+                    Some((set_is_routing, reloaded))
+                }
+                None => {
+                    update();
+                    None
+                }
+            };
+            Executor::spawn_local({
+                let state = Rc::clone(state);
+                async move {
+                    if let Some(view_chosen) = view_chosen {
+                        _ = view_chosen.await;
+                    }
+                    if state.borrow().navigation != navigation_id {
+                        return;
+                    }
+                    if let Some(location) = location {
+                        location.ready_to_complete();
+                    }
+                    if let Some((set_is_routing, reloaded)) = reloading {
+                        reloaded.await;
+                        if state.borrow().navigation == navigation_id {
+                            set_is_routing.set(false);
+                        }
+                    }
+                }
+            });
             return;
         }
 
         // otherwise, we need to update the retained path for diffing
         initial_state.id = new_id;
-        initial_state.navigation = initial_state.navigation.wrapping_add(1);
-        let navigation_id = initial_state.navigation;
+        let (chosen_tx, view_chosen) = match &new_match {
+            Some(_) => {
+                let (tx, rx) = oneshot::channel();
+                (Some(tx), Some(rx.shared()))
+            }
+            None => (None, None),
+        };
+        initial_state.view_chosen = view_chosen;
 
         // otherwise, it's a new route, so we'll need to
         // 1) create a new owner, URL signal, and params signal
@@ -345,6 +401,8 @@ where
                                                 &mut state.borrow_mut().view,
                                             );
                                         }
+                                        // resolves `view_chosen`
+                                        drop(chosen_tx);
                                     }
                                 };
                                 if transition {
@@ -712,6 +770,7 @@ where
                 id,
                 owner,
                 navigation: 0,
+                view_chosen: None,
                 params,
                 path,
                 url,
@@ -745,6 +804,7 @@ where
                         id,
                         owner,
                         navigation: 0,
+                        view_chosen: None,
                         params,
                         path,
                         url,
@@ -810,6 +870,7 @@ where
                 id,
                 owner,
                 navigation: 0,
+                view_chosen: None,
                 params,
                 path,
                 url,
@@ -842,6 +903,7 @@ where
                     id,
                     owner,
                     navigation: 0,
+                    view_chosen: None,
                     params,
                     path,
                     url,

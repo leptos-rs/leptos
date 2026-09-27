@@ -14,6 +14,7 @@ use leptos_router::{
         FlatRoutes, Outlet, ParentRoute, ProtectedParentRoute, ProtectedRoute,
         Route, Router, Routes,
     },
+    hooks::use_params_map,
     path,
 };
 use std::cell::{Cell, RefCell};
@@ -86,6 +87,26 @@ fn OtherPage() -> impl IntoView {
         <Suspense>
             <p id="other">{move || Suspend::new(async move { data.await })}</p>
         </Suspense>
+    }
+}
+
+/// A page whose resource depends on the `:id` param, and waits for the "item"
+/// gate every time it loads.
+#[component]
+fn ItemPage() -> impl IntoView {
+    let params = use_params_map();
+    let item = AsyncDerived::new(move || {
+        let id = params.with(|params| params.get("id").unwrap_or_default());
+        let loaded = gate("item");
+        async move {
+            loaded.await;
+            format!("item {id}")
+        }
+    });
+    view! {
+        <Transition>
+            <p id="item">{move || Suspend::new(async move { item.await })}</p>
+        </Transition>
     }
 }
 
@@ -235,10 +256,15 @@ macro_rules! app {
             <a id="to-page" href="/page">"page"</a>
             <a id="to-protected" href="/protected">"protected"</a>
             <a id="to-other" href="/other">"other"</a>
+            <a id="to-item-2" href="/items/2">"item 2"</a>
+            <a id="to-lazy-1" href="/lazy/1">"lazy 1"</a>
+            <a id="to-lazy-2" href="/lazy/2">"lazy 2"</a>
             <$routes fallback=|| view! { <p id="not-found">"not found"</p> }>
                 <Route path=path!("") view=|| view! { <p id="home">"home"</p> }/>
                 <Route path=path!("page") view=Page/>
                 <Route path=path!("other") view=OtherPage/>
+                <Route path=path!("items/:id") view=ItemPage/>
+                <Route path=path!("lazy/:id") view=lazy_page()/>
                 <Route path=path!("login") view=|| view! { <p id="login">"login"</p> }/>
                 <ProtectedRoute
                     path=path!("protected")
@@ -1025,6 +1051,7 @@ async fn replacing_the_child_of_a_loading_layout_shows_the_new_child_only() {
     settle().await;
     assert!(app.has("#home"), "the previous page is held");
     assert!(!app.has("#layout") && !app.has("#page"));
+    assert!(is_routing());
 
     release("other");
     settle().await;
@@ -1077,9 +1104,183 @@ async fn replacing_the_child_of_a_loading_layout_with_a_lazy_route() {
     settle().await;
     assert!(app.has("#home"), "the previous page is held");
     assert!(!app.has("#layout") && !app.has("#page"));
+    assert!(is_routing());
 
     load_lazy_page().await;
     assert!(app.has("#layout") && app.has("#lazy"));
     assert!(!app.has("#page"), "the replaced child is shown");
     assert!(!is_routing());
+}
+
+async fn a_params_only_navigation_holds_is_routing_while_its_resources_reload(
+    app: fn() -> AnyView,
+) {
+    start_at("/items/1");
+    let app = mount(app);
+    settle().await;
+    release("item");
+    settle().await;
+    assert_eq!(app.text("#item").as_deref(), Some("item 1"));
+
+    // the route is reused: only its params change, which reloads the item
+    app.click("#to-item-2");
+    settle().await;
+    assert!(is_routing(), "the item is reloading");
+    assert_eq!(app.text("#item").as_deref(), Some("item 1"));
+    assert_eq!(pathname(), "/items/2", "the page itself is already shown");
+
+    release("item");
+    settle().await;
+    assert_eq!(app.text("#item").as_deref(), Some("item 2"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn nested_params_only_navigation_holds_is_routing_while_its_resources_reload()
+ {
+    a_params_only_navigation_holds_is_routing_while_its_resources_reload(
+        || nested().into_any(),
+    )
+    .await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_params_only_navigation_holds_is_routing_while_its_resources_reload()
+ {
+    a_params_only_navigation_holds_is_routing_while_its_resources_reload(
+        || flat().into_any(),
+    )
+    .await;
+}
+
+/// A params-only navigation to a route that an earlier navigation is still
+/// loading holds the previous page, and is_routing, until that route has
+/// loaded, and then while its resources reload for the new params.
+async fn a_params_only_navigation_waits_for_the_route_it_reuses(
+    app: fn() -> AnyView,
+) {
+    start_at("/");
+    let app = mount(app);
+    settle().await;
+
+    navigate("/items/1");
+    settle().await;
+    navigate("/items/2");
+    settle().await;
+    assert!(app.has("#home"), "the previous page is held");
+    assert!(is_routing());
+
+    // the route loads for the first params, then reloads for the new ones
+    release_first("item");
+    settle().await;
+    assert!(is_routing(), "the item is reloading for the new params");
+
+    release("item");
+    settle().await;
+    assert_eq!(app.text("#item").as_deref(), Some("item 2"));
+    assert!(!is_routing());
+}
+
+#[wasm_bindgen_test]
+async fn nested_params_only_navigation_waits_for_the_route_it_reuses() {
+    a_params_only_navigation_waits_for_the_route_it_reuses(|| {
+        nested().into_any()
+    })
+    .await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_params_only_navigation_waits_for_the_route_it_reuses() {
+    a_params_only_navigation_waits_for_the_route_it_reuses(|| {
+        flat().into_any()
+    })
+    .await;
+}
+
+async fn a_navigation_away_from_a_reloading_route_completes(
+    app: fn() -> AnyView,
+) {
+    start_at("/items/1");
+    let app = mount(app);
+    settle().await;
+    release("item");
+    settle().await;
+
+    navigate("/items/2");
+    settle().await;
+    assert!(is_routing());
+    navigate("/other");
+    settle().await;
+    release("other");
+    settle().await;
+    assert_eq!(app.text("#other").as_deref(), Some("loaded"));
+    assert!(!is_routing(), "the abandoned reload holds the navigation");
+}
+
+#[wasm_bindgen_test]
+async fn nested_navigation_away_from_a_reloading_route_completes() {
+    a_navigation_away_from_a_reloading_route_completes(|| nested().into_any())
+        .await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_navigation_away_from_a_reloading_route_completes() {
+    a_navigation_away_from_a_reloading_route_completes(|| flat().into_any())
+        .await;
+}
+
+/// A navigation that only changes the params of a route that an earlier
+/// navigation is still loading completes once that route is on screen, with
+/// or without `set_is_routing`.
+async fn a_params_only_navigation_completes_with_the_route_it_reuses(
+    app: fn() -> AnyView,
+) {
+    start_at("/");
+    let app = mount(app);
+    settle().await;
+
+    app.click("#to-lazy-1");
+    settle().await;
+    app.click("#to-lazy-2");
+    settle().await;
+    assert!(app.has("#home"));
+    assert_eq!(pathname(), "/", "the URL changes with the page");
+
+    load_lazy_page().await;
+    assert!(app.has("#lazy"));
+    assert_eq!(pathname(), "/lazy/2");
+}
+
+#[wasm_bindgen_test]
+async fn nested_params_only_navigation_completes_with_the_route_it_reuses() {
+    a_params_only_navigation_completes_with_the_route_it_reuses(|| {
+        nested().into_any()
+    })
+    .await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_params_only_navigation_completes_with_the_route_it_reuses() {
+    a_params_only_navigation_completes_with_the_route_it_reuses(|| {
+        flat().into_any()
+    })
+    .await;
+}
+
+#[wasm_bindgen_test]
+async fn nested_params_only_navigation_completes_with_the_route_it_reuses_without_set_is_routing()
+ {
+    a_params_only_navigation_completes_with_the_route_it_reuses(|| {
+        nested_not_holding().into_any()
+    })
+    .await;
+}
+
+#[wasm_bindgen_test]
+async fn flat_params_only_navigation_completes_with_the_route_it_reuses_without_set_is_routing()
+ {
+    a_params_only_navigation_completes_with_the_route_it_reuses(|| {
+        flat_not_holding().into_any()
+    })
+    .await;
 }

@@ -210,6 +210,7 @@ where
 
                 let mut preloaders = Vec::new();
                 let mut full_loaders: Vec<FullLoader> = Vec::new();
+                let mut reloads = Vec::new();
                 // a navigation from the fallback (or while the initial load
                 // is still pending) that holds the previous page renders the
                 // new top-level view only once it has been chosen
@@ -223,6 +224,7 @@ where
                     &mut 0,
                     &mut preloaders,
                     &mut full_loaders,
+                    &mut reloads,
                     &mut state.outlets,
                     self.set_is_routing.is_some(),
                     0,
@@ -304,16 +306,21 @@ where
 
                 let navigation = Rc::clone(&state.navigation);
                 Executor::spawn_local(async move {
-                    join_all(full_loaders).await;
                     // a later navigation owns is_routing and the location
+                    join_all(full_loaders).await;
+                    if navigation.get() != navigation_id {
+                        return;
+                    }
+                    // the new page is on screen
+                    if let Some(loc) = location {
+                        loc.ready_to_complete();
+                    }
+                    join_all(reloads).await;
                     if navigation.get() != navigation_id {
                         return;
                     }
                     if let Some(set_is_routing) = self.set_is_routing {
                         set_is_routing.set(false);
-                    }
-                    if let Some(loc) = location {
-                        loc.ready_to_complete();
                     }
                 });
 
@@ -687,12 +694,16 @@ struct Views {
     // resolves once the newest view has been installed, or once its preload
     // has been cancelled
     installing: Option<Shared<oneshot::Receiver<()>>>,
+    // resolves once the newest view has been chosen: a navigation that reuses
+    // the outlet while an earlier one is still choosing its view waits for it
+    chosen: Option<Shared<oneshot::Receiver<()>>>,
 }
 
 /// A view scheduled for an outlet, whose preload reports through this.
 struct ScheduledView {
     id: usize,
     installed: oneshot::Sender<()>,
+    chosen: oneshot::Sender<()>,
 }
 
 #[derive(Clone)]
@@ -726,9 +737,12 @@ impl RouteContext {
         views.scheduled += 1;
         let (installed, installing) = oneshot::channel();
         views.installing = Some(installing.shared());
+        let (chosen, choosing) = oneshot::channel();
+        views.chosen = Some(choosing.shared());
         ScheduledView {
             id: views.scheduled,
             installed,
+            chosen,
         }
     }
 
@@ -748,6 +762,19 @@ impl RouteContext {
         } else {
             views.installing.clone()
         }
+    }
+
+    /// Resolves once the view scheduled for this outlet has been chosen, or,
+    /// for a child outlet (at `depth` > 0), once nothing renders it.
+    fn view_chosen(&self, depth: usize) -> Option<FullLoader> {
+        let chosen = self.views.lock().or_poisoned().chosen.clone()?;
+        Some(if depth == 0 {
+            Box::pin(async move {
+                _ = chosen.await;
+            })
+        } else {
+            Box::pin(chosen_while_rendered(chosen, Arc::clone(&self.renderers)))
+        })
     }
 
     /// Registers a new preload for this outlet, cancelling the previous one,
@@ -852,7 +879,7 @@ impl Renderers {
 /// nothing renders the outlet: a view that is not rendered is never chosen,
 /// and is not part of what the navigation shows.
 async fn chosen_while_rendered(
-    mut chosen: oneshot::Receiver<Option<Owner>>,
+    mut chosen: impl Future + Unpin,
     renderers: Arc<Renderers>,
 ) {
     let waker = Arc::new(AtomicWaker::new());
@@ -889,6 +916,7 @@ trait AddNestedRoute {
         items: &mut usize,
         loaders: &mut Vec<Preloader>,
         full_loaders: &mut Vec<FullLoader>,
+        reloads: &mut Vec<FullLoader>,
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
         level: u8,
@@ -981,7 +1009,12 @@ where
             renderers: Default::default(),
         };
         let preload_registration = outlet.new_preload();
-        let ScheduledView { id, installed } = outlet.schedule_view();
+        let ScheduledView {
+            id,
+            installed,
+            chosen,
+        } = outlet.schedule_view();
+        let view_chosen = Arc::new(Mutex::new(Some(chosen)));
         if !outlets.is_empty() {
             let prev_index = outlets.len().saturating_sub(1);
             *outlets[prev_index].child.0.lock().or_poisoned() =
@@ -1030,12 +1063,18 @@ where
                         let params = params.clone();
                         let url = url.clone();
                         let matched = matched.clone();
+                        let view_chosen = Arc::clone(&view_chosen);
                         Box::pin(with_owner(owner_where_used, async move {
                             provide_context(child);
                             provide_context(params);
                             provide_context(url);
                             provide_context(matched.clone());
                             let view = choose_view(view, navigating).await;
+                            if let Some(tx) =
+                                view_chosen.lock().or_poisoned().take()
+                            {
+                                _ = tx.send(());
+                            }
                             let view =
                                 MatchedRoute(matched.0.get_untracked(), view);
                             OwnedView::new(view).into_any()
@@ -1070,6 +1109,7 @@ where
         items: &mut usize,
         preloaders: &mut Vec<Preloader>,
         full_loaders: &mut Vec<FullLoader>,
+        reloads: &mut Vec<FullLoader>,
         outlets: &mut Vec<RouteContext>,
         set_is_routing: bool,
         level: u8,
@@ -1168,8 +1208,12 @@ where
 
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
-                    let ScheduledView { id, installed } =
-                        current.schedule_view();
+                    let ScheduledView {
+                        id,
+                        installed,
+                        chosen,
+                    } = current.schedule_view();
+                    let view_chosen = Arc::new(Mutex::new(Some(chosen)));
                     // the router always renders the top-level outlet, while a
                     // child outlet is only rendered if its parent's view has
                     // an <Outlet/> on screen
@@ -1227,6 +1271,7 @@ where
                                     let view = view.clone();
                                     let full_tx =
                                         full_tx.lock().or_poisoned().take();
+                                    let view_chosen = Arc::clone(&view_chosen);
                                     let child = child.clone();
                                     let params =
                                         params_including_parents.clone();
@@ -1246,6 +1291,13 @@ where
                                             .await;
                                             if let Some(tx) = full_tx {
                                                 _ = tx.send(prev_owner);
+                                            }
+                                            if let Some(tx) = view_chosen
+                                                .lock()
+                                                .or_poisoned()
+                                                .take()
+                                            {
+                                                _ = tx.send(());
                                             }
                                             OwnedView::new(view).into_any()
                                         },
@@ -1291,9 +1343,28 @@ where
 
                 // otherwise, set the params and URL signals,
                 // then just keep rebuilding recursively, checking the remaining routes in the list
-                current.matched.set(new_match);
-                current.params.set(new_params);
-                current.url.set(url.to_owned());
+                let update = {
+                    let matched = current.matched.clone();
+                    let params = current.params.clone();
+                    let current_url = current.url.clone();
+                    let url = url.to_owned();
+                    move || {
+                        matched.set(new_match);
+                        params.set(new_params);
+                        current_url.set(url);
+                    }
+                };
+                // the outlet keeps its view, so nothing is chosen: the view is
+                // waited for if an earlier navigation is still choosing it,
+                // and with set_is_routing, so are the resources that the new
+                // params make reload
+                if set_is_routing {
+                    let ((), reloaded) = AsyncTransition::track(update);
+                    reloads.push(Box::pin(reloaded));
+                } else {
+                    update();
+                }
+                full_loaders.extend(current.view_chosen(*items));
                 if let Some(child) = child {
                     *items += 1;
                     child.rebuild_nested_route(
@@ -1302,6 +1373,7 @@ where
                         items,
                         preloaders,
                         full_loaders,
+                        reloads,
                         outlets,
                         set_is_routing,
                         level + 1,

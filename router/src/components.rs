@@ -68,7 +68,8 @@ pub fn Router<Chil>(
     /// route's view has been created and the resources it created while doing so have loaded;
     /// for a [`ProtectedRoute`], that includes waiting for its `condition` to allow access.
     /// Content that only starts loading once the new page is shown (inside a `Suspend`, for
-    /// example) shows its own fallback instead.
+    /// example) shows its own fallback instead. A navigation that only changes the params of
+    /// the route on screen keeps the signal set while the resources that depend on them reload.
     #[prop(optional, into)]
     set_is_routing: Option<SignalSetter<bool>>,
     // TODO trailing slashes
