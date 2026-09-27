@@ -178,6 +178,16 @@ impl Model {
             ret,
         } = &self;
         let is_island = island.is_some();
+        // in erased mode, a component returns the view that its body erases
+        // into, whatever the body returns
+        let ret = if !is_transparent
+            && matches!(ret, ReturnType::Default)
+            && cfg!(feature = "__internal_erase_components")
+        {
+            quote! { -> impl ::leptos::IntoView }
+        } else {
+            quote! { #ret }
+        };
 
         let no_props = props.is_empty();
 
