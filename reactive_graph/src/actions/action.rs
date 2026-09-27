@@ -902,7 +902,8 @@ where
     /// The current argument that was dispatched to the async function. This value will
     /// be `Some` while we are waiting for it to resolve, and `None` after it has resolved.
     ///
-    /// Returns a thread-local signal using [`LocalStorage`].
+    /// Returns a thread-local signal using
+    /// [`LocalStorage`](crate::owner::LocalStorage).
     #[track_caller]
     #[deprecated = "You can now use .input() for any value, whether it's \
                     thread-safe or not."]
@@ -959,7 +960,8 @@ where
     /// the action has ever run successfully, and subsequently will always be `Some(_)`,
     /// holding the old value until a new value has been received.
     ///
-    /// Returns a thread-local signal using [`LocalStorage`].
+    /// Returns a thread-local signal using
+    /// [`LocalStorage`](crate::owner::LocalStorage).
     #[deprecated = "You can now use .value() for any value, whether it's \
                     thread-safe or not."]
     #[track_caller]

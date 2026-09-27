@@ -114,7 +114,7 @@ impl<T> SendOption<T> {
     /// Update a value in place with a callback.
     ///
     /// # Panics
-    /// If the value is [`Inner::Local`] and it is called from a different thread than the one the instance has been created with, it will panic.
+    /// If the value was created with [`SendOption::new_local`] and it is called from a different thread than the one the instance has been created with, it will panic.
     pub fn update(&mut self, cb: impl FnOnce(&mut Option<T>)) {
         match &mut self.inner {
             Inner::Threadsafe(value) => cb(value),
@@ -139,7 +139,7 @@ impl<T> SendOption<T> {
     /// Consume the value.
     ///
     /// # Panics
-    /// Panics if the [`Inner::Local`] variant and it is called from a different thread than the one the instance has been created with.
+    /// Panics if the value was created with [`SendOption::new_local`] and it is called from a different thread than the one the instance has been created with.
     pub fn take(self) -> Option<T> {
         match self.inner {
             Inner::Threadsafe(value) => value,
