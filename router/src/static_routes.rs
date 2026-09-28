@@ -1,14 +1,22 @@
 use crate::{PathSegment, hooks::RawParamsMap, params::ParamsMap};
 use futures::{Stream, StreamExt, channel::oneshot, stream};
 use leptos::task::spawn;
+use or_poisoned::OrPoisoned;
 use reactive_graph::{owner::Owner, traits::GetUntracked};
 use std::{
+    collections::HashSet,
     fmt::{Debug, Display},
     future::Future,
     ops::Deref,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, LazyLock, Mutex},
 };
+
+/// Prevents request bursts or repeated write failures from starting one
+/// never-ending regeneration loop per request. Keyed by path like the
+/// integrations' static header cache.
+static REGENERATING_PATHS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
@@ -368,6 +376,8 @@ impl ResolvedStaticPath {
                     // can ignore errors from channel here, because it just means we're not
                     // awaiting the Future
                     _ = tx.send((owner.clone(), StaticResponse::Error(html)));
+                    // Uncached errors will be rendered again on the next request.
+                    return;
                 } else {
                     // Clone once so the same bytes can be both written to the
                     // cache and handed back to the caller to serve directly,
@@ -383,24 +393,21 @@ impl ResolvedStaticPath {
                         .send((owner.clone(), StaticResponse::Generated(html)));
                 }
 
-                // if there's a regeneration function, keep looping
-                let params = if regenerate.is_empty() {
-                    None
-                } else {
-                    Some(
-                        owner
-                            .use_context_bidirectional::<RawParamsMap>()
-                            .expect(
-                                "using static routing, but couldn't find \
-                                 ParamsMap",
-                            )
-                            .get_untracked(),
-                    )
-                };
+                // Loop if configured and no other build regenerates this path.
+                if regenerate.is_empty()
+                    || !REGENERATING_PATHS
+                        .lock()
+                        .or_poisoned()
+                        .insert(self.path.clone())
+                {
+                    return;
+                }
+                let params = owner
+                    .use_context_bidirectional::<RawParamsMap>()
+                    .expect("using static routing, but couldn't find ParamsMap")
+                    .get_untracked();
                 let mut regenerate = stream::select_all(
-                    regenerate
-                        .into_iter()
-                        .map(|r| owner.with(|| r(params.as_ref().unwrap()))),
+                    regenerate.into_iter().map(|r| owner.with(|| r(&params))),
                 );
                 while regenerate.next().await.is_some() {
                     let (owner, html) = render_fn(&self).await;
@@ -415,6 +422,7 @@ impl ResolvedStaticPath {
                     }
                     owner.unset_with_forced_cleanup();
                 }
+                REGENERATING_PATHS.lock().or_poisoned().remove(&self.path);
             }
         });
 
