@@ -1,4 +1,5 @@
 use super::{PartialPathMatch, PathSegment, PossibleRouteMatch};
+use crate::AsPath;
 use core::iter;
 use std::borrow::Cow;
 
@@ -32,9 +33,9 @@ use std::borrow::Cow;
 /// # })().unwrap();
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ParamSegment(pub &'static str);
+pub struct ParamSegment<T: AsPath>(pub T);
 
-impl PossibleRouteMatch for ParamSegment {
+impl<T: AsPath> PossibleRouteMatch for ParamSegment<T> {
     fn optional(&self) -> bool {
         false
     }
@@ -68,14 +69,14 @@ impl PossibleRouteMatch for ParamSegment {
 
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = vec![(
-            Cow::Borrowed(self.0),
+            Cow::Borrowed(self.0.as_path()),
             path[param_offset..param_len + param_offset].to_string(),
         )];
         Some(PartialPathMatch::new(remaining, param_value, matched))
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
-        path.push(PathSegment::Param(self.0.into()));
+        path.push(PathSegment::Param(self.0.as_path().into()));
     }
 }
 
@@ -122,9 +123,9 @@ impl PossibleRouteMatch for ParamSegment {
 /// # })().unwrap();
 /// ```
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct WildcardSegment(pub &'static str);
+pub struct WildcardSegment<T: AsPath>(pub T);
 
-impl PossibleRouteMatch for WildcardSegment {
+impl<T: AsPath> PossibleRouteMatch for WildcardSegment<T> {
     fn optional(&self) -> bool {
         false
     }
@@ -147,7 +148,7 @@ impl PossibleRouteMatch for WildcardSegment {
 
         let (matched, remaining) = path.split_at(matched_len);
         let param_value = iter::once((
-            Cow::Borrowed(self.0),
+            Cow::Borrowed(self.0.as_path()),
             path[param_offset..param_len + param_offset].to_string(),
         ));
         Some(PartialPathMatch::new(
@@ -158,14 +159,14 @@ impl PossibleRouteMatch for WildcardSegment {
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
-        path.push(PathSegment::Splat(self.0.into()));
+        path.push(PathSegment::Splat(self.0.as_path().into()));
     }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct OptionalParamSegment(pub &'static str);
+pub struct OptionalParamSegment<T: AsPath>(pub T);
 
-impl PossibleRouteMatch for OptionalParamSegment {
+impl<T: AsPath> PossibleRouteMatch for OptionalParamSegment<T> {
     fn optional(&self) -> bool {
         true
     }
@@ -202,7 +203,7 @@ impl PossibleRouteMatch for OptionalParamSegment {
         let param_value = (matched_len > 0)
             .then(|| {
                 (
-                    Cow::Borrowed(self.0),
+                    Cow::Borrowed(self.0.as_path()),
                     path[param_offset..param_len + param_offset].to_string(),
                 )
             })
@@ -212,7 +213,7 @@ impl PossibleRouteMatch for OptionalParamSegment {
     }
 
     fn generate_path(&self, path: &mut Vec<PathSegment>) {
-        path.push(PathSegment::OptionalParam(self.0.into()));
+        path.push(PathSegment::OptionalParam(self.0.as_path().into()));
     }
 }
 
