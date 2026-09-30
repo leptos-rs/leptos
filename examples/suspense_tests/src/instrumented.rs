@@ -517,7 +517,9 @@ fn ItemInspect() -> impl IntoView {
                         .into()
                 ));
                 view! {
-                    <p>{format!("Inspecting {item:?}")}</p>
+                    <p id="inspect-result" data-field=item.field.clone()>
+                        {format!("Inspecting {item:?}")}
+                    </p>
                     <ul>
                         {fields
                             .iter()

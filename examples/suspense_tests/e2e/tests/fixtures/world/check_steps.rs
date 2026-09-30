@@ -1,6 +1,6 @@
 use crate::fixtures::{check, world::AppWorld};
 use anyhow::{Ok, Result};
-use cucumber::{gherkin::Step, then};
+use cucumber::{gherkin::Step, then, when};
 
 #[then(regex = r"^I see the page title is (.*)$")]
 async fn i_see_the_page_title_is(
@@ -76,6 +76,17 @@ async fn i_see_the_second_count_is(
 ) -> Result<()> {
     let client = &world.client;
     check::second_count_is(client, expected).await?;
+
+    Ok(())
+}
+
+#[when(regex = r"^I see the inspect result for field (.*)$")]
+async fn i_see_the_inspect_result_for_field(
+    world: &mut AppWorld,
+    field: String,
+) -> Result<()> {
+    let client = &world.client;
+    check::inspect_result_for_field_is_visible(client, &field).await?;
 
     Ok(())
 }
