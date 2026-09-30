@@ -44,6 +44,14 @@ pub trait ElementExt {
         S: IntoStyle;
 
     /// Adds an event listener to the element, at runtime.
+    ///
+    /// Dropping the returned handle also drops the closure and invalidates the event listener.
+    /// Consider using [on_cleanup](reactive_graph::owner::Owner::on_cleanup) to delay dropping:
+    ///
+    /// ```rust,ignore
+    /// let remove = element.on(ev::blur, move |_| /* ... */);
+    /// on_cleanup(move || std::mem::drop(remove));
+    /// ```
     fn on<E>(
         &self,
         ev: E,
