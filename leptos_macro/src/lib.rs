@@ -361,6 +361,7 @@ fn view_macro_impl(
         {
             #[allow(unused_braces)]
             {
+                use ::leptos::prelude::ElementChild;
                 #(#errors;)*
                 #nodes_output
             }
