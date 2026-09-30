@@ -9,13 +9,18 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   DEBIAN_FRONTEND: noninteractive
-  RUSTFLAGS: ${{ inputs.erased_mode && '--cfg erase_components' || '' }}
   LEPTOS_TAILWIND_VERSION: v4.0.14
   LEPTOS_SASS_VERSION: 1.86.0
 jobs:
   test:
     name: "Run (${{ matrix.toolchain }}) (erased_mode: ${{ matrix.erased_mode && 'enabled' || 'disabled' }})"
     runs-on: ubuntu-latest
+    env:
+      # the erased mode builds with `--cfg erase_components`: the examples use
+      # RUSTFLAGS as is, while the cargo-make tasks of the workspace members
+      # set their own and add CI_RUSTFLAGS to them (see cargo-make/main.toml)
+      RUSTFLAGS: ${{ matrix.erased_mode && '--cfg erase_components' || '' }}
+      CI_RUSTFLAGS: ${{ matrix.erased_mode && '--cfg erase_components' || '' }}
     strategy:
       fail-fast: false
       matrix:
