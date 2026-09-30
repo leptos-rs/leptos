@@ -131,6 +131,9 @@ impl SharedContext for HydrateSharedContext {
     fn write_async(&self, _id: SerializedDataId, _fut: PinnedFuture<String>) {}
 
     fn read_data(&self, id: &SerializedDataId) -> Option<String> {
+        if !self.during_hydration() {
+            return None;
+        }
         __RESOLVED_RESOURCES.with(|r| r.get(id.0 as u32).as_string())
     }
 
@@ -159,6 +162,9 @@ impl SharedContext for HydrateSharedContext {
     }
 
     fn errors(&self, boundary_id: &SerializedDataId) -> Vec<(ErrorId, Error)> {
+        if !self.during_hydration() {
+            return Vec::new();
+        }
         self.errors
             .iter()
             .filter_map(|(boundary, id, error)| {
@@ -199,6 +205,7 @@ impl SharedContext for HydrateSharedContext {
     fn set_incomplete_chunk(&self, _id: SerializedDataId) {}
 
     fn get_incomplete_chunk(&self, id: &SerializedDataId) -> bool {
-        self.incomplete.iter().any(|entry| entry == id)
+        self.during_hydration()
+            && self.incomplete.iter().any(|entry| entry == id)
     }
 }
