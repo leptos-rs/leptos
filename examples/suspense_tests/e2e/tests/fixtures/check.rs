@@ -80,6 +80,15 @@ pub async fn instrumented_counts(
     Ok(())
 }
 
+pub async fn inspect_result_for_field_is_visible(
+    client: &Client,
+    field: &str,
+) -> Result<()> {
+    find::inspect_result_for_field(client, field).await?;
+
+    Ok(())
+}
+
 pub async fn link_text_is_aria_current(
     client: &Client,
     text: &str,

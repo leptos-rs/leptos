@@ -103,7 +103,6 @@ fn remove_constraint_from_generics(generics: &Generics) -> Generics {
             GenericParam::Type(type_param) => {
                 type_param.bounds.clear(); // remove bounds
                 type_param.colon_token = None;
-                type_param.eq_token = None;
                 type_param.default = None;
             }
             GenericParam::Const(const_param) => {
@@ -113,7 +112,6 @@ fn remove_constraint_from_generics(generics: &Generics) -> Generics {
                     ident: const_param.ident.clone(),
                     colon_token: None,
                     bounds: Punctuated::new(),
-                    eq_token: None,
                     default: None,
                 });
             }
