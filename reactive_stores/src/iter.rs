@@ -15,6 +15,7 @@ use reactive_graph::{
     },
 };
 use std::{
+    borrow::Borrow,
     iter,
     marker::PhantomData,
     ops::{DerefMut, IndexMut},
@@ -87,11 +88,14 @@ where
             .chain(iter::once(self.index.into()))
     }
 
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger {
         self.inner.get_trigger_unkeyed(path)
     }
 
@@ -106,7 +110,8 @@ where
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(&path);
         let inner = WriteGuard::new(trigger.children, self.inner.writer()?);
         let index = self.index;
         Some(MappedMutArc::new(
@@ -123,7 +128,7 @@ where
 
     fn track_field(&self) {
         let mut full_path = self.path().into_iter().collect::<StorePath>();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let trigger = self.get_trigger(&full_path);
         trigger.this.track();
         trigger.children.track();
 
@@ -133,7 +138,7 @@ where
         // children of its parent)
         while !full_path.is_empty() {
             full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
+            let inner = self.get_trigger(&full_path);
             inner.this.track();
         }
     }
@@ -171,7 +176,8 @@ where
     Prev::Output: Sized,
 {
     fn notify(&self) {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(&path);
         trigger.this.notify();
     }
 }
@@ -248,7 +254,8 @@ where
     #[track_caller]
     fn iter_unkeyed(self) -> StoreFieldIter<Inner, Prev> {
         // reactively track changes to this field
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(&path);
         trigger.this.track();
         trigger.children.track();
 

@@ -14,6 +14,7 @@ use reactive_graph::{
     },
 };
 use std::{
+    borrow::Borrow,
     collections::VecDeque,
     fmt::Debug,
     hash::Hash,
@@ -173,11 +174,14 @@ where
             .chain(iter::once(self.path_segment))
     }
 
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger {
         self.inner.get_trigger_unkeyed(path)
     }
 
@@ -201,7 +205,7 @@ where
 
     fn track_field(&self) {
         let mut full_path = self.path().into_iter().collect::<StorePath>();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let trigger = self.get_trigger(&full_path);
         trigger.this.track();
         trigger.children.track();
 
@@ -211,7 +215,7 @@ where
         // children of its parent)
         while !full_path.is_empty() {
             full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
+            let inner = self.get_trigger(&full_path);
             inner.this.track();
         }
     }
@@ -397,7 +401,8 @@ where
     K: Debug + Send + Sync + PartialEq + Eq + Hash + 'static,
 {
     fn notify(&self) {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(&path);
         trigger.this.notify();
         trigger.children.notify();
     }
@@ -610,11 +615,14 @@ where
         inner.into_iter().chain(this)
     }
 
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger {
         self.inner.get_trigger_unkeyed(path)
     }
 
@@ -662,7 +670,7 @@ where
 
     fn track_field(&self) {
         let mut full_path = self.path().into_iter().collect::<StorePath>();
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let trigger = self.get_trigger(&full_path);
         trigger.this.track();
         trigger.children.track();
 
@@ -672,7 +680,7 @@ where
         // children of its parent)
         while !full_path.is_empty() {
             full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
+            let inner = self.get_trigger(&full_path);
             inner.this.track();
         }
     }
@@ -715,7 +723,8 @@ where
     T::Value: Sized,
 {
     fn notify(&self) {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(&path);
         trigger.this.notify();
         trigger.children.notify();
     }

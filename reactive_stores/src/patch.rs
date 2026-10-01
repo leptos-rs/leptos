@@ -41,7 +41,7 @@ where
             // don't track the writer for the whole store
             writer.untrack();
             let mut notify = |path: &StorePath| {
-                self.triggers_for_path_unkeyed(path.to_owned()).notify();
+                self.triggers_for_path_unkeyed(path).notify();
             };
             writer.patch_field(new, &path, &mut notify, keys.as_ref());
         }
@@ -71,7 +71,7 @@ where
             // don't track the writer for the whole store
             writer.untrack();
             let mut notify = |path: &StorePath| {
-                self.triggers_for_path_unkeyed(path.to_owned()).notify();
+                self.triggers_for_path_unkeyed(path).notify();
             };
             writer.patch_field_keyed(
                 new,
@@ -88,13 +88,13 @@ where
             // Only notify `children` (not `this`) at the collection path, so that
             // individual keyed items — which track `this` on all ancestor paths —
             // are not spuriously notified when only the collection order has changed.
-            let trigger = self.get_trigger_unkeyed(path.clone());
+            let trigger = self.get_trigger_unkeyed(&path);
             trigger.children.notify();
 
             let mut ancestor_path = path;
             while !ancestor_path.is_empty() {
                 ancestor_path.pop();
-                let inner = self.get_trigger_unkeyed(ancestor_path.clone());
+                let inner = self.get_trigger_unkeyed(&ancestor_path);
                 inner.children.notify();
             }
         }

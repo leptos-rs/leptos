@@ -11,6 +11,7 @@ use reactive_graph::{
     },
 };
 use std::{
+    borrow::Borrow,
     fmt::Debug,
     hash::Hash,
     ops::{Deref, DerefMut, IndexMut},
@@ -30,9 +31,9 @@ where
     defined_at: &'static Location<'static>,
     path: Arc<dyn Fn() -> StorePath + Send + Sync>,
     path_unkeyed: Arc<dyn Fn() -> StorePath + Send + Sync>,
-    get_trigger: Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
+    get_trigger: Arc<dyn Fn(&StorePath) -> StoreFieldTrigger + Send + Sync>,
     get_trigger_unkeyed:
-        Arc<dyn Fn(StorePath) -> StoreFieldTrigger + Send + Sync>,
+        Arc<dyn Fn(&StorePath) -> StoreFieldTrigger + Send + Sync>,
     read: Arc<dyn Fn() -> Option<StoreFieldReader<T>> + Send + Sync>,
     pub(crate) write:
         Arc<dyn Fn() -> Option<StoreFieldWriter<T>> + Send + Sync>,
@@ -102,12 +103,15 @@ impl<T> StoreField for ArcField<T> {
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
 
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
-        (self.get_trigger)(path)
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger {
+        (self.get_trigger)(path.borrow())
     }
 
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
-        (self.get_trigger_unkeyed)(path)
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger {
+        (self.get_trigger_unkeyed)(path.borrow())
     }
 
     fn path(&self) -> impl IntoIterator<Item = StorePathSegment> {
