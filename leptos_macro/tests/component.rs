@@ -121,6 +121,17 @@ fn returns_static_lifetime() {
 }
 
 #[component]
+fn WithoutReturnType() {}
+
+#[test]
+fn a_component_without_a_return_type_is_a_view() {
+    #[allow(unused)]
+    fn can_render_it() -> impl IntoView {
+        view! { <WithoutReturnType/> }
+    }
+}
+
+#[component]
 pub fn IntoReactiveValueTestComponentSignal(
     #[prop(into)] arg1: Signal<String>,
     #[prop(into)] arg2: Signal<String>,

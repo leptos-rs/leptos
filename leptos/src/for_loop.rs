@@ -143,6 +143,7 @@ where
         move || {
             let children = children.clone();
             let parent = parent.clone();
+            #[allow(clippy::type_complexity)]
             let view_fn: Box<
                 dyn Fn(usize, T) -> (fn(usize), OwnedView<AnyView>) + Send,
             > = Box::new(move |_, child| {
@@ -235,6 +236,7 @@ where
         move || {
             let children = children.clone();
             let parent = parent.clone();
+            #[allow(clippy::type_complexity)]
             let view_fn: Box<
                 dyn Fn(
                         usize,
@@ -340,6 +342,10 @@ mod signal_or_fn_tests {
     use tachys::{html::element::HtmlElement, prelude::ElementChild};
 
     #[test]
+    #[cfg_attr(
+        erase_components,
+        ignore = "erased views add hydration markers of their own"
+    )]
     fn for_accepts_bare_signal_each() {
         Owner::new().with(|| {
             let values = RwSignal::new(vec![1, 2, 3, 4, 5]);
@@ -359,6 +365,10 @@ mod signal_or_fn_tests {
     }
 
     #[test]
+    #[cfg_attr(
+        erase_components,
+        ignore = "erased views add hydration markers of their own"
+    )]
     fn for_still_accepts_closure_each() {
         Owner::new().with(|| {
             let values = RwSignal::new(vec![1, 2, 3]);

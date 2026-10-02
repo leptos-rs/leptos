@@ -7,7 +7,9 @@ use crate::{
         SubscriberSet,
     },
     owner::Owner,
+    transition::AsyncTransition,
 };
+use futures::channel::oneshot;
 use or_poisoned::OrPoisoned;
 use std::sync::RwLock;
 
@@ -24,6 +26,23 @@ pub(crate) struct ArcAsyncDerivedInner {
     pub version: usize,
     pub suspenses: Vec<SuspenseContext>,
     pub pending_suspenses: Vec<SharedTaskHandle>,
+    // the loads that `AsyncTransition::track` registered because a source
+    // notified this node: the worker completes them once the reload the
+    // notifications cause has finished, or drops them if they cause none
+    pub transitions: Vec<oneshot::Sender<()>>,
+    // whether a worker task handles notifications: a node without one (a
+    // server-side mock) must not register loads that nothing would complete
+    pub has_worker: bool,
+}
+
+impl ArcAsyncDerivedInner {
+    fn register_with_transition(&mut self) {
+        if self.has_worker
+            && let Some(tx) = AsyncTransition::register_notified()
+        {
+            self.transitions.push(tx);
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -38,6 +57,7 @@ impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
         let mut lock = self.write().or_poisoned();
         if lock.state != AsyncDerivedState::Notifying {
             lock.state = AsyncDerivedState::Dirty;
+            lock.register_with_transition();
             lock.notifier.notify();
         }
     }
@@ -45,6 +65,7 @@ impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
     fn mark_check(&self) {
         let mut lock = self.write().or_poisoned();
         if lock.state != AsyncDerivedState::Notifying {
+            lock.register_with_transition();
             lock.notifier.notify();
         }
     }
