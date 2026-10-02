@@ -8,8 +8,8 @@ pub fn CredentialsForm(
     error: Signal<Option<String>>,
     disabled: Signal<bool>,
 ) -> impl IntoView {
-    let (password, set_password) = create_signal(String::new());
-    let (email, set_email) = create_signal(String::new());
+    let (password, set_password) = signal(String::new());
+    let (email, set_email) = signal(String::new());
 
     let dispatch_action =
         move || action.dispatch((email.get(), password.get()));

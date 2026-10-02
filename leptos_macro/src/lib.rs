@@ -82,7 +82,7 @@ mod slot;
 /// # use leptos::prelude::*;
 ///
 /// # fn test() -> impl IntoView {
-/// let (count, set_count) = create_signal(0);
+/// let (count, set_count) = signal(0);
 ///
 /// view! {
 ///   // ❌ not like this: `count.get()` returns an `i32`, not a function
@@ -117,7 +117,7 @@ mod slot;
 /// ```rust
 /// # use leptos::prelude::*;
 /// # fn test() -> impl IntoView {
-/// let (name, set_name) = create_signal("Alice".to_string());
+/// let (name, set_name) = signal("Alice".to_string());
 ///
 /// view! {
 ///   <input
@@ -135,7 +135,7 @@ mod slot;
 /// ```rust
 /// # use leptos::prelude::*;
 /// # fn test() -> impl IntoView {
-/// let (count, set_count) = create_signal(2);
+/// let (count, set_count) = signal(2);
 /// view! { <div class:hidden-div={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # }
 /// ```
@@ -144,7 +144,7 @@ mod slot;
 /// ```rust
 /// # use leptos::prelude::*;
 /// # fn test() -> impl IntoView {
-/// let (count, set_count) = create_signal(2);
+/// let (count, set_count) = signal(2);
 /// view! { <div class:hidden-div-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # }
 /// ```
@@ -153,7 +153,7 @@ mod slot;
 /// ```rust,compile_fail
 /// # use leptos::prelude::*;
 /// # fn test() -> impl IntoView {
-/// let (count, set_count) = create_signal(2);
+/// let (count, set_count) = signal(2);
 /// // class:hidden-[div]-25 is invalid attribute name
 /// view! { <div class:hidden-[div]-25={move || count.get() < 3}>"Now you see me, now you don’t."</div> }
 /// # }
@@ -163,7 +163,7 @@ mod slot;
 /// ```rust
 /// # use leptos::prelude::*;
 /// # fn test() -> impl IntoView {
-/// let (count, set_count) = create_signal(2);
+/// let (count, set_count) = signal(2);
 /// // this allows you to use CSS frameworks that include complex class names
 /// view! {
 ///   <div
@@ -180,8 +180,8 @@ mod slot;
 /// # use leptos::prelude::*;
 ///
 /// # fn test() -> impl IntoView {
-/// let (x, set_x) = create_signal(0);
-/// let (y, set_y) = create_signal(0);
+/// let (x, set_x) = signal(0);
+/// let (y, set_y) = signal(0);
 /// view! {
 ///   <div
 ///     style="position: absolute"
@@ -245,7 +245,7 @@ mod slot;
 /// # use leptos::prelude::*;
 /// pub fn SimpleCounter() -> impl IntoView {
 ///     // create a reactive signal with the initial value
-///     let (value, set_value) = create_signal(0);
+///     let (value, set_value) = signal(0);
 ///
 ///     // create event handlers for our buttons
 ///     // note that `value` and `set_value` are `Copy`, so it's super easy to move them into closures
@@ -443,7 +443,7 @@ fn include_view_impl(
 ///     age: u8,
 /// ) -> impl IntoView {
 ///     // create the signals (reactive values) that will update the UI
-///     let (age, set_age) = create_signal(age);
+///     let (age, set_age) = signal(age);
 ///     // increase `age` by 1 every second
 ///     set_interval(
 ///         move || set_age.update(|age| *age += 1),
