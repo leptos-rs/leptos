@@ -1,7 +1,7 @@
 use crate::{
     issue_4005::Routes4005, issue_4088::Routes4088, issue_4217::Routes4217,
     issue_4285::Routes4285, issue_4296::Routes4296, issue_4324::Routes4324,
-    issue_4492::Routes4492, issue_4881::Routes4881, pr_4015::Routes4015,
+    issue_4492::Routes4492, issue_4881::Routes4881, issue_4897::Routes4897, pr_4015::Routes4015,
     pr_4091::Routes4091,
 };
 use leptos::prelude::*;
@@ -51,6 +51,7 @@ pub fn App() -> impl IntoView {
                     <Routes4324/>
                     <Routes4492/>
                     <Routes4881/>
+                    <Routes4897/>
                 </Routes>
             </main>
         </Router>
@@ -80,6 +81,7 @@ fn HomePage() -> impl IntoView {
                 <li><a href="/4324/">"4324"</a></li>
                 <li><a href="/4492/">"4492"</a></li>
                 <li><a href="/4881">"4881"</a></li>
+                <li><a href="/4897">"4897"</a></li>
             </ul>
         </nav>
     }

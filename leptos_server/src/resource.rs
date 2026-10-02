@@ -309,7 +309,7 @@ where
         let shared_context = Owner::current_shared_context();
         let id = shared_context
             .as_ref()
-            .map(|sc| sc.next_id())
+            .map(|sc| Owner::next_serialized_data_id(&**sc))
             .unwrap_or_default();
 
         let initial = initial_value::<T, Ser>(&id, shared_context.as_ref());

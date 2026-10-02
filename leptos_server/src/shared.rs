@@ -195,7 +195,10 @@ where
             use std::borrow::Borrow;
 
             let sc = Owner::current_shared_context();
-            let id = sc.as_ref().map(|sc| sc.next_id()).unwrap_or_default();
+            let id = sc
+                .as_ref()
+                .map(|sc| Owner::next_serialized_data_id(&**sc))
+                .unwrap_or_default();
             let serialized = sc.as_ref().and_then(|sc| sc.read_data(&id));
             let hydrating =
                 sc.as_ref().map(|sc| sc.during_hydration()).unwrap_or(false);
