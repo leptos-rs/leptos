@@ -50,11 +50,6 @@ pub const fn const_concat(
 
 /// Concatenates `strs` and, if any byte was written, wraps the result with
 /// `prefix` and `suffix`.
-///
-/// The body copy is bounded by the byte count written during the first pass
-/// rather than by scanning for a `0` sentinel, so embedded `\0` bytes inside
-/// `strs` are preserved verbatim and const evaluation does not walk the full
-/// 4096-byte buffer.
 pub const fn const_concat_with_prefix(
     strs: &'static [&'static str],
     prefix: &'static str,
@@ -179,8 +174,6 @@ mod tests {
 
     #[test]
     fn separator_does_not_corrupt_buffer_when_separator_longer_than_input() {
-        // Regression: a previous implementation shadowed the write cursor and
-        // wrote separator bytes back to offset 0, destroying earlier output.
         const PARTS: &[&str] = &["a"];
         let out = const_concat_with_separator(PARTS, "xxxxx");
         assert_eq!(as_str(&out), "a");
@@ -216,38 +209,27 @@ mod tests {
 
     #[test]
     fn prefix_preserves_embedded_nul_in_body() {
-        // Regression: the previous implementation scanned the concatenated
-        // body for `0` and broke out at the first match, silently truncating
-        // any input that legitimately contained `\0`.
         const PARTS: &[&str] = &["foo\0bar", "baz"];
         let out = const_concat_with_prefix(PARTS, "<", ">");
 
         let expected: &[u8] = b"<foo\0barbaz>";
         assert_eq!(&out[..expected.len()], expected);
-        // And nothing leaks past the suffix.
         assert_eq!(out[expected.len()], 0);
     }
 
     #[test]
     fn prefix_does_not_rescan_full_buffer() {
-        // Regression: the body-copy pass previously iterated up to
-        // `buffer.len()` (4096) per call, looking for the `0` sentinel.
-        // We assert byte-for-byte equality with the bounded copy so that
-        // any future reintroduction of the unbounded scan is caught.
         const PARTS: &[&str] = &["hello"];
         let out = const_concat_with_prefix(PARTS, "(", ")");
 
         let expected: &[u8] = b"(hello)";
         assert_eq!(&out[..expected.len()], expected);
         assert_eq!(out[expected.len()], 0);
-        // Sanity check the trailing region was never touched.
         assert!(out[expected.len()..].iter().all(|&b| b == 0));
     }
 
     #[test]
     fn prefix_evaluable_in_const_context_with_nul() {
-        // Verifies the const-context path is also bounded by the tracked
-        // position, not by a buffer-wide scan.
         const OUT: [u8; MAX_TEMPLATE_SIZE] =
             const_concat_with_prefix(&["a\0b"], "[", "]");
         let expected: &[u8] = b"[a\0b]";
