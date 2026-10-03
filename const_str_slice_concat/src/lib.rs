@@ -218,7 +218,7 @@ mod tests {
     }
 
     #[test]
-    fn prefix_does_not_rescan_full_buffer() {
+    fn prefix_wraps_body_and_zero_pads() {
         const PARTS: &[&str] = &["hello"];
         let out = const_concat_with_prefix(PARTS, "(", ")");
 
