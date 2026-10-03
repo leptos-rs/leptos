@@ -4,7 +4,7 @@ use crate::{
     error::ErrorBoundarySuspendedChildren,
 };
 use futures::{FutureExt, channel::oneshot, future::poll_fn, select};
-use hydration_context::SerializedDataId;
+use hydration_context::{SerializedDataId, SerializedDataIdScope};
 use leptos_macro::component;
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
@@ -120,7 +120,8 @@ where
         let (starts_local, id) = {
             Owner::current_shared_context()
                 .map(|sc| {
-                    let id = sc.next_id();
+                    let id = Owner::next_serialized_data_id(&*sc);
+                    provide_context(SerializedDataIdScope::new(id.clone()));
                     (sc.get_incomplete_chunk(&id), id)
                 })
                 .unwrap_or_else(|| (false, Default::default()))

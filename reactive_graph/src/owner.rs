@@ -1,7 +1,9 @@
 //! The reactive ownership model, which manages effect cancellation, cleanups, and arena allocation.
 
 #[cfg(feature = "hydration")]
-use hydration_context::SharedContext;
+use hydration_context::{
+    SerializedDataId, SerializedDataIdScope, SharedContext,
+};
 use or_poisoned::OrPoisoned;
 use rustc_hash::FxHashMap;
 use std::{
@@ -413,6 +415,23 @@ impl Owner {
                 .and_then(|o| o.upgrade())
                 .and_then(|current| current.shared_context.clone())
         })
+    }
+
+    /// Returns the next [`SerializedDataId`] from the given [`SharedContext`].
+    ///
+    /// If a [`SerializedDataIdScope`] has been provided via context (for example, by a
+    /// `<Suspense/>` boundary), the ID will be allocated from that scope.
+    #[cfg(feature = "hydration")]
+    pub fn next_serialized_data_id(
+        shared_context: &(dyn SharedContext + Send + Sync),
+    ) -> SerializedDataId {
+        if shared_context.get_is_hydrating()
+            && let Some(scope) = use_context::<SerializedDataIdScope>()
+        {
+            scope.next_id()
+        } else {
+            shared_context.next_id()
+        }
     }
 
     /// Runs the given function, after indicating that the current [`SharedContext`] should be

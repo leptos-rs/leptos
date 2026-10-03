@@ -82,7 +82,14 @@ pub trait ErrorHook: Send + Sync {
 /// A unique identifier for an error. This is returned when you call [`throw`], which calls a
 /// global error handler.
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Default)]
-pub struct ErrorId(usize);
+pub struct ErrorId(Arc<str>);
+
+impl ErrorId {
+    /// Returns the identifier as a string.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 impl Display for ErrorId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -92,7 +99,19 @@ impl Display for ErrorId {
 
 impl From<usize> for ErrorId {
     fn from(value: usize) -> Self {
-        Self(value)
+        Self(value.to_string().into())
+    }
+}
+
+impl From<String> for ErrorId {
+    fn from(value: String) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<&str> for ErrorId {
+    fn from(value: &str) -> Self {
+        Self(value.into())
     }
 }
 

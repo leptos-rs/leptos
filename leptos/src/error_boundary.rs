@@ -89,7 +89,10 @@ where
     Chil: IntoView + Send + 'static,
 {
     let sc = Owner::current_shared_context();
-    let boundary_id = sc.as_ref().map(|sc| sc.next_id()).unwrap_or_default();
+    let boundary_id = sc
+        .as_ref()
+        .map(|sc| Owner::next_serialized_data_id(&**sc))
+        .unwrap_or_default();
     let initial_errors =
         sc.map(|sc| sc.errors(&boundary_id)).unwrap_or_default();
 
@@ -631,7 +634,7 @@ impl ErrorHook for ErrorBoundaryErrorHook {
     fn throw(&self, error: Error) -> ErrorId {
         // generate a unique ID
         let key: ErrorId = Owner::current_shared_context()
-            .map(|sc| sc.next_id())
+            .map(|sc| Owner::next_serialized_data_id(&*sc))
             .unwrap_or_default()
             .into();
 
