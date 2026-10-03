@@ -4,7 +4,7 @@ async fn main() {
     use axum::Router;
     use leptos::prelude::*;
     use leptos_axum::{
-        generate_route_list, site_pkg_dir_service, ErrorHandler, LeptosRoutes,
+        generate_route_list, serve_site_root_service, ErrorHandler, LeptosRoutes,
     };
     use regression::app::{shell, App};
 
@@ -20,7 +20,7 @@ async fn main() {
             move || shell(leptos_options.clone())
         })
         .fallback_service(
-            site_pkg_dir_service(&leptos_options)
+            serve_site_root_service(&leptos_options)
                 .fallback(ErrorHandler::new(shell, leptos_options.clone())),
         )
         .with_state(leptos_options);
