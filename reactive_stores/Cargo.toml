@@ -36,6 +36,13 @@ tokio-test = { workspace = true, default-features = true }
 any_spawner = { workspace = true, features = ["futures-executor", "tokio"] }
 reactive_graph = { workspace = true, features = ["effects"] }
 leptos = { path = "../leptos", features = ["csr"] }
+criterion = { version = "0.5", default-features = false, features = [
+	"cargo_bench_support",
+] }
+
+[[bench]]
+name = "store_path"
+harness = false
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(leptos_debuginfo)'] }
