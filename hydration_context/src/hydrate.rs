@@ -15,12 +15,12 @@ use std::{
     },
 };
 use throw_error::{Error, ErrorId};
-use wasm_bindgen::{JsCast, prelude::wasm_bindgen};
+use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
 
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(thread_local)]
-    static __RESOLVED_RESOURCES: Array;
+    static __RESOLVED_RESOURCES: JsValue;
 
     #[wasm_bindgen(thread_local)]
     static __SERIALIZED_ERRORS: Array;
@@ -39,8 +39,8 @@ fn serialized_errors() -> Vec<(SerializedDataId, ErrorId, Error)> {
         s.iter()
             .filter_map(|value| {
                 let entry = value.dyn_ref::<Array>()?;
-                let error_boundary_id = entry.get(0).as_f64()? as usize;
-                let error_id = entry.get(1).as_f64()? as usize;
+                let error_boundary_id = entry.get(0).as_string()?;
+                let error_id = entry.get(1).as_string()?;
                 let msg = entry.get(2).as_string()?;
                 Some((
                     SerializedDataId(error_boundary_id),
@@ -60,7 +60,7 @@ fn incomplete_chunks() -> Vec<SerializedDataId> {
     __INCOMPLETE_CHUNKS.with(|i| {
         i.iter()
             .filter_map(|value| {
-                let id = value.as_f64()? as usize;
+                let id = value.as_string()?;
                 Some(SerializedDataId(id))
             })
             .collect()
@@ -129,13 +129,17 @@ impl SharedContext for HydrateSharedContext {
 
     fn next_id(&self) -> SerializedDataId {
         let id = self.id.fetch_add(1, Ordering::Relaxed);
-        SerializedDataId(id)
+        SerializedDataId::new(id)
     }
 
     fn write_async(&self, _id: SerializedDataId, _fut: PinnedFuture<String>) {}
 
     fn read_data(&self, id: &SerializedDataId) -> Option<String> {
-        __RESOLVED_RESOURCES.with(|r| r.get(id.0 as u32).as_string())
+        __RESOLVED_RESOURCES.with(|r| {
+            js_sys::Reflect::get(r, &JsValue::from_str(&id.0))
+                .ok()?
+                .as_string()
+        })
     }
 
     fn await_data(&self, _id: &SerializedDataId) -> Option<String> {

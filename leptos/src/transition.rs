@@ -4,6 +4,7 @@ use crate::{
     error::ErrorBoundarySuspendedChildren,
     suspense_component::SuspenseBoundary,
 };
+use hydration_context::SerializedDataIdScope;
 use leptos_macro::component;
 use reactive_graph::{
     computed::{ArcMemo, suspense::SuspenseContext},
@@ -103,7 +104,8 @@ where
         let (starts_local, id) = {
             Owner::current_shared_context()
                 .map(|sc| {
-                    let id = sc.next_id();
+                    let id = Owner::next_serialized_data_id(&*sc);
+                    provide_context(SerializedDataIdScope::new(id.clone()));
                     (sc.get_incomplete_chunk(&id), id)
                 })
                 .unwrap_or_else(|| (false, Default::default()))

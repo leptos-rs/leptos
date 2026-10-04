@@ -26,7 +26,15 @@ use futures::Stream;
 pub use hydrate::*;
 use serde::{Deserialize, Serialize};
 pub use ssr::*;
-use std::{fmt::Debug, future::Future, pin::Pin};
+use std::{
+    fmt::{Debug, Display},
+    future::Future,
+    pin::Pin,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 use throw_error::{Error, ErrorId};
 
 /// Type alias for a boxed [`Future`].
@@ -42,23 +50,66 @@ pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync>>;
 #[serde(transparent)]
 /// A unique identifier for a piece of data that will be serialized
 /// from the server to the client.
-pub struct SerializedDataId(usize);
+///
+/// IDs are either top-level (like `3`), or nested within some other ID using a
+/// [`SerializedDataIdScope`] (like `3-0`).
+pub struct SerializedDataId(String);
 
 impl SerializedDataId {
     /// Create a new instance of [`SerializedDataId`].
     pub fn new(id: usize) -> Self {
-        SerializedDataId(id)
+        SerializedDataId(id.to_string())
     }
 
-    /// Consume into the inner usize identifier.
-    pub fn into_inner(self) -> usize {
+    /// Returns the ID as a string, which is used as its key when serialized.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Consume into the inner identifier.
+    pub fn into_inner(self) -> String {
         self.0
+    }
+}
+
+impl Display for SerializedDataId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
 impl From<SerializedDataId> for ErrorId {
     fn from(value: SerializedDataId) -> Self {
         value.0.into()
+    }
+}
+
+/// Allocates [`SerializedDataId`]s nested within some parent ID.
+///
+/// A `<Suspense/>` boundary may create resources after it has waited for some async data. On the
+/// server, sibling boundaries resolve in whatever order their data happen to load, but in the
+/// browser they are hydrated in the order in which they appear in the tree. Allocating IDs from
+/// a scope that belongs to each boundary means that the IDs created inside one boundary do not
+/// depend on the timing of any other boundary.
+#[derive(Debug, Clone)]
+pub struct SerializedDataIdScope {
+    parent: SerializedDataId,
+    next: Arc<AtomicUsize>,
+}
+
+impl SerializedDataIdScope {
+    /// Creates a new scope, in which IDs are nested within the given parent ID.
+    pub fn new(parent: SerializedDataId) -> Self {
+        Self {
+            parent,
+            next: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    /// Returns the next ID in this scope.
+    pub fn next_id(&self) -> SerializedDataId {
+        let id = self.next.fetch_add(1, Ordering::Relaxed);
+        SerializedDataId(format!("{}-{id}", self.parent.0))
     }
 }
 
