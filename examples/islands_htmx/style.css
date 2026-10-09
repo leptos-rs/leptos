@@ -1,0 +1,18 @@
+body {
+	font-family: system-ui, sans-serif;
+	max-width: 40rem;
+	margin: 2rem auto;
+	padding: 0 1rem;
+}
+
+nav a {
+	margin-right: 1rem;
+}
+
+button {
+	font-size: 1rem;
+}
+
+leptos-island {
+	display: contents;
+}
