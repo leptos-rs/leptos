@@ -77,6 +77,15 @@ pub fn HydrationScripts(
     /// A base url, not including a trailing slash
     #[prop(optional, into)]
     root: Option<String>,
+    /// Should be `true` to load and run the hydration scripts during browser idle
+    /// time, keeping the JS and WASM off the critical rendering path.
+    ///
+    /// This delays interactivity by a few hundred milliseconds, so forms and links
+    /// that rely on hydration should be avoided before the page is idle. Forms with
+    /// a plain `method`/`action` continue to work. Has no effect in `islands` mode,
+    /// which already hydrates on idle.
+    #[prop(optional)]
+    defer: bool,
 ) -> impl IntoView {
     static SPLIT_MANIFEST: OnceLock<Option<WasmSplitManifest>> =
         OnceLock::new();
@@ -212,8 +221,19 @@ pub fn HydrationScripts(
     let root = root.unwrap_or_default();
     // Trim a trailing slash so the base URL joins cleanly with `pkg_path`.
     let root = root.trim_end_matches('/');
+    // `islands` already hydrates on idle, so `defer` would be a no-op there
+    let defer = defer && !islands;
+    // the resource hints are still useful to warm the cache before the idle
+    // callback fires, but at `low` priority so they don't compete with the
+    // render-blocking resources that determine LCP
+    let priority = defer.then_some("low");
     view! {
-        <link rel="modulepreload" href=format!("{root}/{pkg_path}/{js_file_name}.js") crossorigin=nonce.clone()/>
+        <link
+            rel="modulepreload"
+            href=format!("{root}/{pkg_path}/{js_file_name}.js")
+            crossorigin=nonce.clone()
+            fetchpriority=priority
+        />
         <link
             rel="preload"
             href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
@@ -223,9 +243,10 @@ pub fn HydrationScripts(
                 .as_ref()
                 .map(|n| Oco::Counted(n.as_inner().clone()))
                 .unwrap_or(Oco::Borrowed(""))
+            fetchpriority=priority
         />
         <script type="module" nonce=nonce>
-            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?});{islands_router}")}
+            {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?}, {defer});{islands_router}")}
         </script>
     }
 }
