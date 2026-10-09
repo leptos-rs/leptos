@@ -58,7 +58,7 @@ leptos_macro = { path = "./leptos_macro", version = "=0.9.0-beta2" }
 leptos_router = { path = "./router", version = "0.9.0-beta2" }
 leptos_router_macro = { path = "./router_macro", version = "=0.9.0-beta2" }
 leptos_server = { path = "./leptos_server", version = "0.9.0-beta3" }
-leptos_meta = { path = "./meta", version = "0.9.0-bet2" }
+leptos_meta = { path = "./meta", version = "0.9.0-beta2" }
 next_tuple = { path = "./next_tuple", version = "0.1.0" }
 oco_ref = { path = "./oco", version = "0.2.1" }
 or_poisoned = { path = "./or_poisoned", version = "0.1.0" }
