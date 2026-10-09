@@ -121,11 +121,11 @@ impl<T> StoreField for ArcField<T> {
     }
 
     fn reader(&self) -> Option<Self::Reader> {
-        (self.read)().map(StoreFieldReader::new)
+        (self.read)()
     }
 
     fn writer(&self) -> Option<Self::Writer> {
-        (self.write)().map(StoreFieldWriter::new)
+        (self.write)()
     }
 
     fn keys(&self) -> Option<KeyMap> {
@@ -133,41 +133,26 @@ impl<T> StoreField for ArcField<T> {
     }
 }
 
-impl<T, S> From<Store<T, S>> for ArcField<T>
-where
-    T: 'static,
-    S: Storage<ArcStore<T>>,
-{
+impl<T: 'static> ArcField<T> {
+    /// Erases `value` into the closures stored by `ArcField`.
+    ///
+    /// Every `From` conversion below delegates here, so the conversion site's
+    /// caller location is captured once and all conversions erase the field in
+    /// exactly the same way.
     #[track_caller]
-    fn from(value: Store<T, S>) -> Self {
-        ArcField {
-            #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at: Location::caller(),
-            path: Arc::new(move || value.path().into_iter().collect()),
-            path_unkeyed: Arc::new(move || {
-                value.path_unkeyed().into_iter().collect()
-            }),
-            get_trigger: Arc::new(move |path| value.get_trigger(path)),
-            get_trigger_unkeyed: Arc::new(move |path| {
-                value.get_trigger_unkeyed(path)
-            }),
-            read: Arc::new(move || value.reader().map(StoreFieldReader::new)),
-            write: Arc::new(move || value.writer().map(StoreFieldWriter::new)),
-            keys: Arc::new(move || value.keys()),
-            track_field: Arc::new(move || value.track_field()),
-            notify: Arc::new(move || value.notify()),
-            is_disposed: Arc::new(move || value.is_disposed()),
-        }
-    }
-}
-
-impl<T> From<ArcStore<T>> for ArcField<T>
-where
-    T: Send + Sync + 'static,
-{
-    #[track_caller]
-    fn from(value: ArcStore<T>) -> Self {
-        ArcField {
+    fn from_field<F>(value: F) -> Self
+    where
+        F: StoreField<Value = T>
+            + Clone
+            + Notify
+            + IsDisposed
+            + Send
+            + Sync
+            + 'static,
+        F::Reader: 'static,
+        F::Writer: 'static,
+    {
+        Self {
             #[cfg(any(debug_assertions, leptos_debuginfo))]
             defined_at: Location::caller(),
             path: Arc::new({
@@ -206,11 +191,29 @@ where
                 let value = value.clone();
                 move || value.notify()
             }),
-            is_disposed: Arc::new({
-                let value = value.clone();
-                move || value.is_disposed()
-            }),
+            is_disposed: Arc::new(move || value.is_disposed()),
         }
+    }
+}
+
+impl<T, S> From<Store<T, S>> for ArcField<T>
+where
+    T: 'static,
+    S: Storage<ArcStore<T>>,
+{
+    #[track_caller]
+    fn from(value: Store<T, S>) -> Self {
+        Self::from_field(value)
+    }
+}
+
+impl<T> From<ArcStore<T>> for ArcField<T>
+where
+    T: Send + Sync + 'static,
+{
+    #[track_caller]
+    fn from(value: ArcStore<T>) -> Self {
+        Self::from_field(value)
     }
 }
 
@@ -223,50 +226,7 @@ where
 {
     #[track_caller]
     fn from(value: Subfield<Inner, Prev, T>) -> Self {
-        ArcField {
-            #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at: Location::caller(),
-            path: Arc::new({
-                let value = value.clone();
-                move || value.path().into_iter().collect()
-            }),
-            path_unkeyed: Arc::new({
-                let value = value.clone();
-                move || value.path_unkeyed().into_iter().collect()
-            }),
-            get_trigger: Arc::new({
-                let value = value.clone();
-                move |path| value.get_trigger(path)
-            }),
-            get_trigger_unkeyed: Arc::new({
-                let value = value.clone();
-                move |path| value.get_trigger_unkeyed(path)
-            }),
-            read: Arc::new({
-                let value = value.clone();
-                move || value.reader().map(StoreFieldReader::new)
-            }),
-            write: Arc::new({
-                let value = value.clone();
-                move || value.writer().map(StoreFieldWriter::new)
-            }),
-            keys: Arc::new({
-                let value = value.clone();
-                move || value.keys()
-            }),
-            track_field: Arc::new({
-                let value = value.clone();
-                move || value.track_field()
-            }),
-            notify: Arc::new({
-                let value = value.clone();
-                move || value.notify()
-            }),
-            is_disposed: Arc::new({
-                let value = value.clone();
-                move || value.is_disposed()
-            }),
-        }
+        Self::from_field(value)
     }
 }
 
@@ -278,50 +238,7 @@ where
 {
     #[track_caller]
     fn from(value: DerefedField<Inner>) -> Self {
-        ArcField {
-            #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at: Location::caller(),
-            path: Arc::new({
-                let value = value.clone();
-                move || value.path().into_iter().collect()
-            }),
-            path_unkeyed: Arc::new({
-                let value = value.clone();
-                move || value.path_unkeyed().into_iter().collect()
-            }),
-            get_trigger: Arc::new({
-                let value = value.clone();
-                move |path| value.get_trigger(path)
-            }),
-            get_trigger_unkeyed: Arc::new({
-                let value = value.clone();
-                move |path| value.get_trigger_unkeyed(path)
-            }),
-            read: Arc::new({
-                let value = value.clone();
-                move || value.reader().map(StoreFieldReader::new)
-            }),
-            write: Arc::new({
-                let value = value.clone();
-                move || value.writer().map(StoreFieldWriter::new)
-            }),
-            keys: Arc::new({
-                let value = value.clone();
-                move || value.keys()
-            }),
-            track_field: Arc::new({
-                let value = value.clone();
-                move || value.track_field()
-            }),
-            notify: Arc::new({
-                let value = value.clone();
-                move || value.notify()
-            }),
-            is_disposed: Arc::new({
-                let value = value.clone();
-                move || value.is_disposed()
-            }),
-        }
+        Self::from_field(value)
     }
 }
 
@@ -334,50 +251,7 @@ where
 {
     #[track_caller]
     fn from(value: AtIndex<Inner, Prev>) -> Self {
-        ArcField {
-            #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at: Location::caller(),
-            path: Arc::new({
-                let value = value.clone();
-                move || value.path().into_iter().collect()
-            }),
-            path_unkeyed: Arc::new({
-                let value = value.clone();
-                move || value.path_unkeyed().into_iter().collect()
-            }),
-            get_trigger: Arc::new({
-                let value = value.clone();
-                move |path| value.get_trigger(path)
-            }),
-            get_trigger_unkeyed: Arc::new({
-                let value = value.clone();
-                move |path| value.get_trigger_unkeyed(path)
-            }),
-            read: Arc::new({
-                let value = value.clone();
-                move || value.reader().map(StoreFieldReader::new)
-            }),
-            write: Arc::new({
-                let value = value.clone();
-                move || value.writer().map(StoreFieldWriter::new)
-            }),
-            keys: Arc::new({
-                let value = value.clone();
-                move || value.keys()
-            }),
-            track_field: Arc::new({
-                let value = value.clone();
-                move || value.track_field()
-            }),
-            notify: Arc::new({
-                let value = value.clone();
-                move || value.notify()
-            }),
-            is_disposed: Arc::new({
-                let value = value.clone();
-                move || value.is_disposed()
-            }),
-        }
+        Self::from_field(value)
     }
 }
 
@@ -395,50 +269,7 @@ where
 {
     #[track_caller]
     fn from(value: AtKeyed<Inner, Prev, K, T>) -> Self {
-        ArcField {
-            #[cfg(any(debug_assertions, leptos_debuginfo))]
-            defined_at: Location::caller(),
-            path: Arc::new({
-                let value = value.clone();
-                move || value.path().into_iter().collect()
-            }),
-            path_unkeyed: Arc::new({
-                let value = value.clone();
-                move || value.path_unkeyed().into_iter().collect()
-            }),
-            get_trigger: Arc::new({
-                let value = value.clone();
-                move |path| value.get_trigger(path)
-            }),
-            get_trigger_unkeyed: Arc::new({
-                let value = value.clone();
-                move |path| value.get_trigger_unkeyed(path)
-            }),
-            read: Arc::new({
-                let value = value.clone();
-                move || value.reader().map(StoreFieldReader::new)
-            }),
-            write: Arc::new({
-                let value = value.clone();
-                move || value.writer().map(StoreFieldWriter::new)
-            }),
-            keys: Arc::new({
-                let value = value.clone();
-                move || value.keys()
-            }),
-            track_field: Arc::new({
-                let value = value.clone();
-                move || value.track_field()
-            }),
-            notify: Arc::new({
-                let value = value.clone();
-                move || value.notify()
-            }),
-            is_disposed: Arc::new({
-                let value = value.clone();
-                move || value.is_disposed()
-            }),
-        }
+        Self::from_field(value)
     }
 }
 
@@ -518,8 +349,23 @@ impl<T> IsDisposed for ArcField<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as reactive_stores, ArcField, Store};
-    use reactive_graph::{owner::Owner, traits::IsDisposed};
+    use super::{StoreFieldReader, StoreFieldWriter};
+    use crate::{
+        self as reactive_stores, ArcField, ArcStore, DerefField, Store,
+        StoreField, StoreFieldIterator,
+    };
+    use reactive_graph::{
+        effect::ImmediateEffect,
+        owner::Owner,
+        traits::{IsDisposed, ReadUntracked, Track, UntrackableGuard, Write},
+    };
+    use std::{
+        rc::Rc,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+    };
 
     #[derive(Default, reactive_stores_macro::Store)]
     struct State {
@@ -542,5 +388,106 @@ mod tests {
         owner.cleanup();
         drop(owner);
         assert!(field.is_disposed());
+    }
+
+    #[test]
+    fn local_store_with_non_send_payload_can_be_erased() {
+        let owner = Owner::new();
+        let field: ArcField<Rc<i32>> =
+            owner.with(|| Store::new_local(Rc::new(42)).into());
+        let cloned = field.clone();
+        let reader: StoreFieldReader<Rc<i32>> = field.reader().unwrap();
+        assert_eq!(**reader, 42);
+        drop(reader);
+        let mut writer: StoreFieldWriter<Rc<i32>> = cloned.writer().unwrap();
+        *writer = Rc::new(43);
+        drop(writer);
+        assert_eq!(**field.read_untracked(), 43);
+        owner.cleanup();
+        assert!(field.is_disposed());
+        assert!(cloned.reader().is_none());
+        assert!(cloned.writer().is_none());
+    }
+
+    #[test]
+    #[cfg(any(debug_assertions, leptos_debuginfo))]
+    fn conversions_preserve_caller_location() {
+        use reactive_graph::traits::DefinedAt;
+        use std::panic::Location;
+
+        #[track_caller]
+        fn check<T: 'static, F>(value: F)
+        where
+            ArcField<T>: From<F>,
+        {
+            let expected = Location::caller();
+            let field = ArcField::from(value);
+            assert_eq!(field.defined_at(), Some(expected));
+            assert_eq!(field.clone().defined_at(), Some(expected));
+        }
+
+        #[derive(reactive_stores_macro::Store)]
+        struct Collection {
+            #[store(key: i32 = |item| item.value)]
+            items: Vec<State>,
+        }
+
+        let owner = Owner::new();
+        owner.with(|| {
+            check(Store::new_local(Rc::new(42)));
+            check(ArcStore::new(42));
+            check(Store::new(State { value: 42 }).value());
+            check(Store::new(Box::new(42)).deref_field());
+            check(Store::new(vec![42]).at_unkeyed(0));
+            let store = Store::new(Collection {
+                items: vec![State { value: 42 }],
+            });
+            check(store.items().at_key(42));
+        });
+    }
+
+    #[test]
+    fn erased_guards_preserve_notifications_and_untracking() {
+        let owner = Owner::new();
+        owner.with(|| {
+            for field in [
+                ArcField::from(Store::new(0)),
+                ArcField::from(ArcStore::new(0)),
+            ] {
+                let runs = Arc::new(AtomicUsize::new(0));
+                let _effect = ImmediateEffect::new({
+                    let field = field.clone();
+                    let runs = Arc::clone(&runs);
+                    move || {
+                        field.track();
+                        runs.fetch_add(1, Ordering::Relaxed);
+                    }
+                });
+                assert_eq!(runs.load(Ordering::Relaxed), 1);
+                let reader: StoreFieldReader<i32> = field.reader().unwrap();
+                assert_eq!(*reader, 0);
+                drop(reader);
+
+                let mut writer: StoreFieldWriter<i32> = field.writer().unwrap();
+                *writer = 1;
+                assert_eq!(runs.load(Ordering::Relaxed), 1);
+                drop(writer);
+                assert_eq!(runs.load(Ordering::Relaxed), 2);
+                assert_eq!(*field.read_untracked(), 1);
+
+                let mut writer = field.writer().unwrap();
+                writer.untrack();
+                *writer = 2;
+                drop(writer);
+                assert_eq!(*field.reader().unwrap(), 2);
+                assert_eq!(runs.load(Ordering::Relaxed), 2);
+
+                *field.write() = 3;
+                assert_eq!(runs.load(Ordering::Relaxed), 3);
+                *field.write_untracked() = 4;
+                assert_eq!(*field.read_untracked(), 4);
+                assert_eq!(runs.load(Ordering::Relaxed), 3);
+            }
+        });
     }
 }
