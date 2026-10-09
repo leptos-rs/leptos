@@ -80,6 +80,7 @@ Feature: Instrumented Counters showing the expected values
             | Item 2               |
             | Inspect path3        |
             | Inspect path3/field1 |
+        And I see the inspect result for field field1
         And I access the instrumented counters via CSR
         Then I see the following counters under section
             | Suspend Calls      |   |

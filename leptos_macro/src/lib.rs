@@ -55,7 +55,7 @@ mod stable_hash;
 /// # }
 /// ```
 ///
-/// 3. Components (functions annotated with `#[component]`) can be inserted as camel-cased tags. (Generics
+/// 3. Components (functions annotated with `#[component]`) can be inserted as PascalCased tags. (Generics
 ///    on components are specified as `<Component<T>/>`, not the turbofish `<Component::<T>/>`.)
 /// ```rust
 /// # use leptos::prelude::*;

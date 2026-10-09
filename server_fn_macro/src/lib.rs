@@ -914,6 +914,7 @@ fn type_from_ident(ident: Ident) -> Type {
         arguments: PathArguments::None,
     });
     Type::Path(TypePath {
+        attrs: Vec::new(),
         qself: None,
         path: Path {
             leading_colon: None,

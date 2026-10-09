@@ -1351,6 +1351,7 @@ fn prop_to_doc(
 
     let file = syn::File {
         shebang: None,
+        frontmatter: None,
         attrs: vec![],
         items: vec![type_item],
     };
@@ -1429,6 +1430,7 @@ fn convert_impl_trait_to_generic(sig: &mut Signature) {
             if matches!(ty, Type::ImplTrait(_)) {
                 let ident = new_generic_ident(self.0.len(), ty.span());
                 let generic_type = Type::Path(TypePath {
+                    attrs: Vec::new(),
                     qself: None,
                     path: Path::from(ident),
                 });
@@ -1462,7 +1464,6 @@ fn convert_impl_trait_to_generic(sig: &mut Signature) {
             ident,
             colon_token: Some(Colon { spans: [span] }),
             bounds: impl_trait.bounds,
-            eq_token: None,
             default: None,
         }));
     }

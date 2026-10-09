@@ -93,6 +93,22 @@ pub async fn instrumented_count(
     Ok(count)
 }
 
+pub async fn inspect_result_for_field(
+    client: &Client,
+    field: &str,
+) -> Result<Element> {
+    let selector = format!(r#"#inspect-result[data-field="{field}"]"#);
+    let element = client
+        .wait()
+        .for_element(Locator::Css(&selector))
+        .await
+        .expect(
+            format!("Inspect result for field `{field}` not found.").as_str(),
+        );
+
+    Ok(element)
+}
+
 pub async fn reset_counter(client: &Client) -> Result<Element> {
     let reset_button = client
         .wait()
