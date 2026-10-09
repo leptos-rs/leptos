@@ -22,7 +22,7 @@ pub fn App() -> impl IntoView {
 
     // -- actions -- //
 
-    let fetch_user_info = create_action(move |_| async move {
+    let fetch_user_info = Action::new(move |_| async move {
         match authorized_api.get() {
             Some(api) => match api.user_info().await {
                 Ok(info) => {
@@ -38,7 +38,7 @@ pub fn App() -> impl IntoView {
         }
     });
 
-    let logout = create_action(move |_| async move {
+    let logout = Action::new(move |_| async move {
         match authorized_api.get() {
             Some(api) => match api.logout().await {
                 Ok(_) => {
@@ -74,7 +74,7 @@ pub fn App() -> impl IntoView {
 
     // -- effects -- //
 
-    create_effect(move |_| {
+    Effect::new(move |_| {
         log::debug!("API authorization state changed");
         match authorized_api.get() {
             Some(api) => {

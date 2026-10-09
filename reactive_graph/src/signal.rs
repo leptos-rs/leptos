@@ -146,7 +146,7 @@ pub fn signal_local<T: 'static>(
 /// ```
 /// # use reactive_graph::prelude::*;
 /// # use reactive_graph::signal::*; let owner = reactive_graph::owner::Owner::new(); owner.set();
-/// let (count, set_count) = create_signal(0);
+/// let (count, set_count) = signal(0);
 ///
 /// // ✅ calling the getter clones and returns the value
 /// //    this can be `count()` on nightly

@@ -34,8 +34,8 @@ pub fn App() -> impl IntoView {
 
 #[component]
 pub fn ComponentA() -> impl IntoView {
-    let (value, set_value) = create_signal("Hello?".to_string());
-    let (counter, set_counter) = create_signal(0);
+    let (value, set_value) = signal("Hello?".to_string());
+    let (counter, set_counter) = signal(0);
 
     // Test to make sure hydration isn't broken by
     // something like this
