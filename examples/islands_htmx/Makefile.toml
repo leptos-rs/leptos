@@ -1,0 +1,10 @@
+extend = [
+    { path = "../cargo-make/main.toml" },
+    { path = "../cargo-make/playwright.toml" },
+    { path = "../cargo-make/cargo-leptos-test.toml" },
+    { path = "../cargo-make/wasm-test.toml" },
+]
+
+# The collector's tests live in the browser half, so they are built with the hydrate feature.
+[tasks.test-wasm]
+env = { CARGO_MAKE_WASM_TEST_ARGS = "--headless --chrome -- --lib --features hydrate" }
