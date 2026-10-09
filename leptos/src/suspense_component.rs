@@ -3,10 +3,9 @@ use crate::{
     children::{TypedChildren, ViewFnOnce},
     error::ErrorBoundarySuspendedChildren,
 };
-use futures::{FutureExt, channel::oneshot, future::poll_fn, select};
+use futures::{FutureExt, channel::oneshot, select};
 use hydration_context::{SerializedDataId, SerializedDataIdScope};
 use leptos_macro::component;
-use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
         ArcMemo, ScopedFuture,
@@ -18,10 +17,7 @@ use reactive_graph::{
     traits::{Get, Track, With, WithUntracked, WriteValue},
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::{
-    sync::{Arc, Mutex},
-    task::Poll,
-};
+use std::sync::Arc;
 #[cfg(erase_components)]
 use tachys::view::any_view::IntoMaybeErased;
 use tachys::{
@@ -105,13 +101,6 @@ pub fn Suspense<Chil>(
     /// Children will be rendered once initially to catch any resource reads, then hidden until all
     /// data have loaded.
     children: TypedChildren<Chil>,
-    /// If `true`, disables the SSR "double-check" pass that re-walks the
-    /// children after initial resources resolve in order to discover
-    /// conditional/nested resource reads. Enable this when the children body
-    /// has no conditional resource reads but does have side effects that
-    /// should not fire more than once per render.
-    #[prop(optional)]
-    strict: bool,
 ) -> impl IntoView
 where
     Chil: IntoView + Send + 'static,
@@ -157,7 +146,6 @@ where
             children,
             error_boundary_parent,
             has_tasks,
-            strict,
         })
     })
 }
@@ -181,10 +169,6 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     pub children: Chil,
     pub error_boundary_parent: Option<ErrorBoundarySuspendedChildren>,
     pub has_tasks: Arc<dyn Fn() -> bool + Send + Sync>,
-    /// If `true`, the children are only walked once to register resources.
-    /// Conditional resource reads that depend on other resources will not be
-    /// discovered, but side effects in the children body run fewer times.
-    pub strict: bool,
 }
 
 impl<const TRANSITION: bool, Fal, Chil> Render
@@ -280,7 +264,6 @@ where
             children,
             error_boundary_parent,
             has_tasks,
-            strict,
         } = self;
         SuspenseBoundary {
             id,
@@ -289,7 +272,6 @@ where
             children: children.add_any_attr(attr),
             error_boundary_parent,
             has_tasks,
-            strict,
         }
     }
 }
@@ -353,41 +335,13 @@ where
             futures::channel::oneshot::channel::<()>();
         provide_context(LocalResourceNotifier::from(local_tx));
 
-        let children = Arc::new(Mutex::new(Some(self.children)));
+        // walk over the tree of children once to make sure that all resource loads are registered
+        let mut children = self.children;
+        children.dry_resolve();
 
         // `tasks_ready` is a `Future` that is ready once every task registered with this
         // `<Suspense/>` has finished.
-        let strict = self.strict;
-        let mut tasks_ready = Box::pin(
-            {
-                let suspense_context = suspense_context.clone();
-                let children = Arc::clone(&children);
-                // whether walking the tree again could reveal a resource read
-                // we haven't tracked yet
-                let mut may_reveal_more = true;
-                poll_fn(move |cx| {
-                    loop {
-                        if !suspense_context.poll_empty(cx.waker()) {
-                            return Poll::Pending;
-                        }
-
-                        if !may_reveal_more {
-                            return Poll::Ready(());
-                        }
-
-                        if let Some(children) =
-                            children.lock().or_poisoned().as_mut()
-                        {
-                            children.dry_resolve();
-                        }
-
-                        may_reveal_more =
-                            !strict && !suspense_context.poll_empty(cx.waker());
-                    }
-                })
-            }
-            .fuse(),
-        );
+        let mut tasks_ready = Box::pin(suspense_context.until_empty().fuse());
 
         let mut fut = Box::pin(ScopedFuture::new(ErrorHookFuture::new(
             async move {
@@ -416,19 +370,6 @@ where
                         None
                     }
                     _ = tasks_ready => {
-                        // every task has finished, so the error boundary can
-                        // render its children too
-                        if let Some(tx) =
-                            notify_error_boundary.write_value().take()
-                        {
-                            let _ = tx.send(());
-                        }
-
-                        let children = {
-                            let mut children_lock = children.lock().or_poisoned();
-                            children_lock.take().expect("children should not be removed until we render here")
-                        };
-
                         // if we ran this earlier, reactive reads would always be registered as None
                         // this is fine in the case where we want to use Suspend and .await on some future
                         // but in situations like a <For each=|| some_resource.snapshot()/> we actually
@@ -450,6 +391,13 @@ where
                                 None
                             }
                             children = children => {
+                                // every task has finished, so the error boundary can
+                                // render its children too
+                                if let Some(tx) =
+                                    notify_error_boundary.write_value().take()
+                                {
+                                    let _ = tx.send(());
+                                }
                                 Some(OwnedView::new_with_owner(children, owner))
                             }
                         }

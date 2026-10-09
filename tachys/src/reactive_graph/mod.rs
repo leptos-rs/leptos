@@ -8,7 +8,10 @@ use crate::{
         ToTemplate, add_attr::AddAnyAttr,
     },
 };
-use reactive_graph::effect::RenderEffect;
+use reactive_graph::{
+    computed::suspense::SuspenseContext, effect::RenderEffect,
+    owner::use_context,
+};
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -144,7 +147,7 @@ where
     }
 
     async fn resolve(mut self) -> Self::AsyncOutput {
-        self.invoke().resolve().await
+        invoke_settled(&mut self).await.resolve().await
     }
 
     fn html_len(&self) -> usize {
@@ -467,7 +470,7 @@ where
     }
 
     async fn resolve(mut self) -> Self::AsyncOutput {
-        self.invoke().resolve().await
+        invoke_settled(&mut self).await.resolve().await
     }
 }
 
@@ -560,6 +563,30 @@ where
 
     async fn resolve(self) -> Self::AsyncOutput {
         self.inner.await
+    }
+}
+
+/// Calls the function, and if that call registered tasks with the current
+/// [`SuspenseContext`] that are still pending, waits for them and calls it again.
+pub(crate) async fn invoke_settled<F>(fun: &mut F) -> F::Output
+where
+    F: ReactiveFunction,
+{
+    let suspense_context = use_context::<SuspenseContext>();
+    loop {
+        let registered =
+            suspense_context.as_ref().map(SuspenseContext::registered);
+        let value = fun.invoke();
+        match (&suspense_context, registered) {
+            (Some(suspense_context), Some(registered))
+                if suspense_context.registered() > registered
+                    && !suspense_context.is_empty() =>
+            {
+                drop(value);
+                suspense_context.until_empty().await;
+            }
+            _ => return value,
+        }
     }
 }
 

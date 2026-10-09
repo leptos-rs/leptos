@@ -82,7 +82,7 @@ where
     }
 
     async fn resolve(mut self) -> Self::AsyncOutput {
-        self.invoke().resolve().await
+        super::invoke_settled(&mut self).await.resolve().await
     }
 }
 

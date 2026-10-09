@@ -1,9 +1,7 @@
-//! These test and record the current trade-off between:
-//! - #4430 / commit 4f3a26c: re-running children so that conditional resource
-//!   reads that depend on *other* resources are discovered before the
-//!   Suspense resolves.
-//! - #4688: side effects in the Suspense body running multiple times per SSR
-//!   render.
+//! These test and record how many times a Suspense body runs during one SSR
+//! render: once for the initial `dry_resolve` that registers resource reads,
+//! once for `resolve`, plus one more run for every round of reads that
+//! `resolve` finds still pending (#4430, #4688).
 
 #![cfg(feature = "ssr")]
 
@@ -19,9 +17,7 @@ async fn render(app: impl IntoView + 'static) -> String {
     app.to_html_stream_in_order().collect::<String>().await
 }
 
-/// No resources read in the Suspense body at all. The "double-check" added
-/// by 4f3a26c cannot possibly discover anything new, yet the body still runs
-/// more than once.
+/// No resources read in the Suspense body at all.
 #[tokio::test]
 async fn body_runs_with_no_resources() {
     _ = Executor::init_tokio();
@@ -41,17 +37,13 @@ async fn body_runs_with_no_resources() {
     let html = render(app).await;
     assert!(html.contains("hi"), "rendered html was: {html:?}");
 
-    // With no async resources, the double-check pass is skipped, so the
-    // body only runs once for the initial `dry_resolve` and once for the
-    // final `resolve`.
     let runs = count.load(Ordering::SeqCst);
     println!("no-resource case: body ran {runs} times");
     assert_eq!(runs, 2, "expected 2 runs in the no-resource case");
 }
 
-/// One top-level resource, read unconditionally. The framework only needs a
-/// single tracking pass to discover it — the double-check cannot reveal
-/// anything new.
+/// One top-level resource, read unconditionally. It is registered by the
+/// initial walk and has resolved by the time the body runs again.
 #[tokio::test]
 async fn body_runs_with_one_resource() {
     _ = Executor::init_tokio();
@@ -81,13 +73,11 @@ async fn body_runs_with_one_resource() {
 
     let runs = count.load(Ordering::SeqCst);
     println!("single-resource case: body ran {runs} times");
-    assert_eq!(runs, 3, "expected 3 runs in the single-resource case");
+    assert_eq!(runs, 2, "expected 2 runs in the single-resource case");
 }
 
-/// The case the double-check exists for: a resource whose completion reveals
-/// a nested resource read. Here the double-check is necessary for
-/// correctness — the second resource must be discovered before the Suspense
-/// resolves, otherwise we'd render stale/None content.
+/// A resource whose completion reveals a nested resource read. The read is
+/// discovered while resolving, waited for, and the body runs once more.
 #[tokio::test]
 async fn body_runs_with_conditional_nested_resource() {
     _ = Executor::init_tokio();
@@ -115,9 +105,6 @@ async fn body_runs_with_conditional_nested_resource() {
     let app = view! {
         <Suspense>{move || {
             count_in.fetch_add(1, Ordering::SeqCst);
-            // `inner` is only read on runs where `outer` has resolved. The
-            // double-check is what makes us notice that read and wait for
-            // `inner` before resolving the Suspense.
             outer.get().and_then(|flag| {
                 if flag { inner.get() } else { None }
             })
@@ -133,75 +120,7 @@ async fn body_runs_with_conditional_nested_resource() {
 
     let runs = count.load(Ordering::SeqCst);
     println!("nested-resource case: body ran {runs} times");
-    assert_eq!(runs, 4, "expected 4 runs in the nested-resource case");
-}
-
-/// `strict=true` disables the double-check pass, so a Suspense with one
-/// top-level resource runs the body twice (initial `dry_resolve` + final
-/// `resolve`) rather than three times.
-#[tokio::test]
-async fn body_runs_with_strict_suspense() {
-    _ = Executor::init_tokio();
-    let owner = Owner::new();
-    owner.set();
-
-    let count = Arc::new(AtomicUsize::new(0));
-    let count_in = Arc::clone(&count);
-
-    let res = Resource::new(
-        || (),
-        |_| async move {
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-            42
-        },
-    );
-
-    let app = view! {
-        <Suspense strict=true>{move || {
-            count_in.fetch_add(1, Ordering::SeqCst);
-            res.get().map(|v| v.to_string())
-        }}</Suspense>
-    };
-
-    let html = render(app).await;
-    assert!(html.contains("42"), "rendered html was: {html:?}");
-
-    let runs = count.load(Ordering::SeqCst);
-    println!("strict single-resource case: body ran {runs} times");
-    assert_eq!(runs, 2, "expected 2 runs in strict mode");
-}
-
-/// Same behavior for `<Transition strict=true/>`.
-#[tokio::test]
-async fn body_runs_with_strict_transition() {
-    _ = Executor::init_tokio();
-    let owner = Owner::new();
-    owner.set();
-
-    let count = Arc::new(AtomicUsize::new(0));
-    let count_in = Arc::clone(&count);
-
-    let res = Resource::new(
-        || (),
-        |_| async move {
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-            42
-        },
-    );
-
-    let app = view! {
-        <Transition strict=true>{move || {
-            count_in.fetch_add(1, Ordering::SeqCst);
-            res.get().map(|v| v.to_string())
-        }}</Transition>
-    };
-
-    let html = render(app).await;
-    assert!(html.contains("42"), "rendered html was: {html:?}");
-
-    let runs = count.load(Ordering::SeqCst);
-    println!("strict transition case: body ran {runs} times");
-    assert_eq!(runs, 2, "expected 2 runs in strict transition mode");
+    assert_eq!(runs, 3, "expected 3 runs in the nested-resource case");
 }
 
 #[tokio::test]
@@ -246,7 +165,7 @@ async fn out_of_order_body_runs_with_conditional_nested_resource() {
 
     let runs = count.load(Ordering::SeqCst);
     println!("out-of-order nested case: body ran {runs} times");
-    assert_eq!(runs, 4, "expected 4 runs in the out-of-order nested case");
+    assert_eq!(runs, 3, "expected 3 runs in the out-of-order nested case");
 }
 
 #[tokio::test]
@@ -297,6 +216,6 @@ async fn body_runs_with_two_levels_of_nesting() {
 
     let runs = count.load(Ordering::SeqCst);
     println!("two-level nested case: body ran {runs} times");
-    // one walk per level discovered, plus the confirming walk, plus resolve
-    assert_eq!(runs, 5, "expected 5 runs in the two-level nested case");
+    // the initial walk, then one run per level revealed, then the final run
+    assert_eq!(runs, 4, "expected 4 runs in the two-level nested case");
 }

@@ -100,9 +100,13 @@ pub mod suspense {
     use or_poisoned::OrPoisoned;
     use slotmap::{DefaultKey, SlotMap};
     use std::{
+        future::{Future, poll_fn},
         mem,
-        sync::{Arc, Mutex},
-        task::Waker,
+        sync::{
+            Arc, Mutex,
+            atomic::{AtomicUsize, Ordering},
+        },
+        task::{Poll, Waker},
     };
 
     /// Sends a one-time notification that the resource being read from is "local only," i.e.,
@@ -136,6 +140,7 @@ pub mod suspense {
         /// The set of active tasks.
         pub tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
         empty_wakers: Arc<Mutex<Vec<Waker>>>,
+        registered: Arc<AtomicUsize>,
     }
 
     impl SuspenseContext {
@@ -144,12 +149,14 @@ pub mod suspense {
             Self {
                 tasks,
                 empty_wakers: Default::default(),
+                registered: Default::default(),
             }
         }
 
         /// Generates a unique task ID.
         pub fn task_id(&self) -> TaskHandle {
             let key = self.tasks.write().insert(());
+            self.registered.fetch_add(1, Ordering::Relaxed);
             TaskHandle {
                 tasks: self.tasks.clone(),
                 empty_wakers: Arc::clone(&self.empty_wakers),
@@ -157,16 +164,37 @@ pub mod suspense {
             }
         }
 
+        /// The number of tasks registered so far, including ones that have already finished.
+        pub fn registered(&self) -> usize {
+            self.registered.load(Ordering::Relaxed)
+        }
+
+        /// Whether the set of active tasks is currently empty.
+        pub fn is_empty(&self) -> bool {
+            self.tasks
+                .try_read_untracked()
+                .map(|tasks| tasks.is_empty())
+                .unwrap_or(false)
+        }
+
+        /// Resolves once the set of active tasks is empty.
+        pub fn until_empty(&self) -> impl Future<Output = ()> + Send + use<> {
+            let this = self.clone();
+            poll_fn(move |cx| {
+                if this.poll_empty(cx.waker()) {
+                    Poll::Ready(())
+                } else {
+                    Poll::Pending
+                }
+            })
+        }
+
         /// Whether the set of active tasks is currently empty.
         ///
         /// If not, `waker` will be woken when the last [`TaskHandle`] is dropped.
         pub fn poll_empty(&self, waker: &Waker) -> bool {
             let mut wakers = self.empty_wakers.lock().or_poisoned();
-            let empty = self
-                .tasks
-                .try_read_untracked()
-                .map(|tasks| tasks.is_empty())
-                .unwrap_or(false);
+            let empty = self.is_empty();
             if empty {
                 wakers.clear();
             } else if !wakers.iter().any(|w| w.will_wake(waker)) {

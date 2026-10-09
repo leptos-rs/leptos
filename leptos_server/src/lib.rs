@@ -137,7 +137,7 @@ mod view_implementations {
         T: RenderHtml + Send + Sync + Clone,
         Ser: Send + 'static,
     {
-        type AsyncOutput = Option<T>;
+        type AsyncOutput = Option<T::AsyncOutput>;
         type Owned = Self;
 
         const MIN_LENGTH: usize = 0;

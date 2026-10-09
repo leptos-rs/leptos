@@ -288,7 +288,7 @@ impl<T> RenderHtml for Suspend<T>
 where
     T: RenderHtml + Sized + 'static,
 {
-    type AsyncOutput = Option<T>;
+    type AsyncOutput = Option<T::AsyncOutput>;
     type Owned = Self;
 
     const MIN_LENGTH: usize = T::MIN_LENGTH;
@@ -474,7 +474,7 @@ where
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
-        Some(self.inner.await)
+        Some(self.inner.await.resolve().await)
     }
 
     fn dry_resolve(&mut self) {
