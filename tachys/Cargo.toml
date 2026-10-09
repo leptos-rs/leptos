@@ -17,6 +17,7 @@ either_of = { workspace = true }
 next_tuple = { workspace = true }
 or_poisoned = { workspace = true }
 reactive_graph = { workspace = true, optional = true }
+hydration_context = { workspace = true, optional = true }
 reactive_stores = { workspace = true, optional = true }
 slotmap = { optional = true, workspace = true, default-features = true }
 oco_ref = { workspace = true, optional = true }
@@ -178,14 +179,19 @@ rustc_version = { workspace = true, default-features = true }
 default = ["testing"]
 delegation = []                                                       # enables event delegation
 error-hook = []
-hydrate = []
+hydrate = ["hydration"]
 lazy = []
 islands = ["dep:serde", "dep:serde_json"]
-ssr = []
+ssr = [ "hydration",]
 oco = ["dep:oco_ref"]
 nightly = ["reactive_graph/nightly"]
 testing = ["dep:slotmap"]
 reactive_graph = ["dep:reactive_graph", "dep:any_spawner"]
+hydration = [
+    "reactive_graph",
+    "dep:hydration_context",
+    "reactive_graph/hydration",
+]
 reactive_stores = ["reactive_graph", "dep:reactive_stores"]
 sledgehammer = ["dep:sledgehammer_bindgen", "dep:sledgehammer_utils"]
 tracing = ["dep:tracing"]

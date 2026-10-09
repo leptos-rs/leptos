@@ -85,6 +85,14 @@ where
 
     // create a new reactive owner and use it as the root node to run the app
     let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
+    // Anchor the walk's id allocations at the tree root, so top-level ids
+    // mirror the server's sequence; allocations outside the walk fall back to
+    // browser-local ids that can never collide with serialized data.
+    let _id_scope = hydration_context::enter_id_scope(
+        hydration_context::SerializedDataIdScope::new(
+            hydration_context::SerializedDataId::root_anchor(),
+        ),
+    );
     let mountable = owner.with(move || {
         let view = f().into_view();
         view.hydrate::<true>(
@@ -92,6 +100,7 @@ where
             &PositionState::default(),
         )
     });
+    drop(_id_scope);
 
     if let Some(sc) = Owner::current_shared_context() {
         sc.hydration_complete();
@@ -137,8 +146,16 @@ where
 
     // create a new reactive owner and use it as the root node to run the app
     let owner = Owner::new_root(Some(Arc::new(HydrateSharedContext::new())));
-    let mountable = owner
-        .with(move || {
+    // Anchor the walk's id allocations at the tree root, so top-level ids
+    // mirror the server's sequence. The scope is re-entered on every poll:
+    // client-side work that runs at the walk's await points (effect re-runs,
+    // post-chunk-load mounts) sees no scope and receives browser-local ids
+    // that can never collide with serialized data.
+    let mountable = hydration_context::IdScopedFuture::new(
+        hydration_context::SerializedDataIdScope::new(
+            hydration_context::SerializedDataId::root_anchor(),
+        ),
+        owner.with(move || {
             use reactive_graph::computed::ScopedFuture;
 
             ScopedFuture::new(async move {
@@ -149,8 +166,9 @@ where
                 )
                 .await
             })
-        })
-        .await;
+        }),
+    )
+    .await;
 
     if let Some(sc) = Owner::current_shared_context() {
         sc.hydration_complete();

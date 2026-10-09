@@ -118,13 +118,28 @@ impl<T> Suspend<T> {
     /// Creates a new suspended view.
     pub fn new<Fut>(fut: Fut) -> Self
     where
+        T: 'static,
         Fut: IntoFuture<Output = T>,
         Fut::IntoFuture: Send + 'static,
     {
         let subscriber = SuspendSubscriber::new();
         let any_subscriber = subscriber.to_any_subscriber();
-        let inner = any_subscriber
+        let inner: Pin<Box<dyn Future<Output = T> + Send>> = any_subscriber
             .with_observer(|| Box::pin(ScopedFuture::new(fut.into_future())));
+        // Anchor the future's serialized-data allocations at this Suspend's
+        // tree position: the future may execute at a different time on the
+        // server (deferred by out-of-order streaming) than in the browser
+        // (deferred by a lazy chunk), and a shared sequential counter would
+        // hand the same data different ids on the two sides.
+        #[cfg(feature = "hydration")]
+        let inner: Pin<Box<dyn Future<Output = T> + Send>> =
+            match reactive_graph::owner::Owner::current_shared_context() {
+                Some(sc) => Box::pin(hydration_context::IdScopedFuture::new(
+                    hydration_context::SerializedDataIdScope::new(sc.next_id()),
+                    inner,
+                )),
+                None => inner,
+            };
         Self { subscriber, inner }
     }
 }

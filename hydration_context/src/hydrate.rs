@@ -128,8 +128,11 @@ impl SharedContext for HydrateSharedContext {
     }
 
     fn next_id(&self) -> SerializedDataId {
+        if let Some(id) = crate::scoped_next_id() {
+            return id;
+        }
         let id = self.id.fetch_add(1, Ordering::Relaxed);
-        SerializedDataId::new(id)
+        SerializedDataId::browser_local(id)
     }
 
     fn write_async(&self, _id: SerializedDataId, _fut: PinnedFuture<String>) {}

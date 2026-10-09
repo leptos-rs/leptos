@@ -113,7 +113,6 @@ where
             Owner::current_shared_context()
                 .map(|sc| {
                     let id = Owner::next_serialized_data_id(&*sc);
-                    provide_context(SerializedDataIdScope::new(id.clone()));
                     (sc.get_incomplete_chunk(&id), id)
                 })
                 .unwrap_or_else(|| (false, Default::default()))
@@ -140,10 +139,10 @@ where
             Arc::new(move || !tasks.with_untracked(SlotMap::is_empty));
 
         OwnedView::new(SuspenseBoundary::<false, _, _> {
-            id,
+            id: id.clone(),
             none_pending,
             fallback,
-            children,
+            children: IdScopedView::new(id, children),
             error_boundary_parent,
             has_tasks,
         })
@@ -169,6 +168,150 @@ pub(crate) struct SuspenseBoundary<const TRANSITION: bool, Fal, Chil> {
     pub children: Chil,
     pub error_boundary_parent: Option<ErrorBoundarySuspendedChildren>,
     pub has_tasks: Arc<dyn Fn() -> bool + Send + Sync>,
+}
+
+/// Wraps a suspense boundary's children so that every phase that runs them —
+/// server-side resolution, out-of-order chunk rendering, client-side
+/// hydration — allocates serialized-data ids under the boundary's own id with
+/// one shared sequence. Discovery walks (`dry_resolve`) instead allocate
+/// throwaway ids: they re-run view closures whose creations are discarded
+/// with the walked tree.
+pub(crate) struct IdScopedView<T> {
+    scope: SerializedDataIdScope,
+    inner: T,
+}
+
+impl<T> IdScopedView<T> {
+    pub(crate) fn new(anchor: SerializedDataId, inner: T) -> Self {
+        Self {
+            scope: SerializedDataIdScope::new(anchor),
+            inner,
+        }
+    }
+}
+
+impl<T> Render for IdScopedView<T>
+where
+    T: Render,
+{
+    type State = T::State;
+
+    fn build(self) -> Self::State {
+        let _guard = hydration_context::enter_id_scope(self.scope.clone());
+        self.inner.build()
+    }
+
+    fn rebuild(self, state: &mut Self::State) {
+        let _guard = hydration_context::enter_id_scope(self.scope.clone());
+        self.inner.rebuild(state)
+    }
+}
+
+impl<T> AddAnyAttr for IdScopedView<T>
+where
+    T: AddAnyAttr,
+{
+    type Output<SomeNewAttr: Attribute> = IdScopedView<T::Output<SomeNewAttr>>;
+
+    fn add_any_attr<NewAttr: Attribute>(
+        self,
+        attr: NewAttr,
+    ) -> Self::Output<NewAttr>
+    where
+        Self::Output<NewAttr>: RenderHtml,
+    {
+        IdScopedView {
+            scope: self.scope,
+            inner: self.inner.add_any_attr(attr),
+        }
+    }
+}
+
+impl<T> RenderHtml for IdScopedView<T>
+where
+    T: RenderHtml,
+{
+    type AsyncOutput = IdScopedView<T::AsyncOutput>;
+    type Owned = IdScopedView<T::Owned>;
+
+    const MIN_LENGTH: usize = T::MIN_LENGTH;
+    const EXISTS: bool = T::EXISTS;
+
+    fn dry_resolve(&mut self) {
+        let _guard = hydration_context::enter_throwaway_id_scope();
+        self.inner.dry_resolve();
+    }
+
+    async fn resolve(self) -> Self::AsyncOutput {
+        let scope = self.scope.clone();
+        let inner = hydration_context::IdScopedFuture::new(
+            self.scope,
+            self.inner.resolve(),
+        )
+        .await;
+        IdScopedView { scope, inner }
+    }
+
+    fn html_len(&self) -> usize {
+        self.inner.html_len()
+    }
+
+    fn to_html_with_buf(
+        self,
+        buf: &mut String,
+        position: &mut Position,
+        flags: RenderFlags,
+        extra_attrs: Vec<AnyAttribute>,
+    ) {
+        let _guard = hydration_context::enter_id_scope(self.scope.clone());
+        self.inner.to_html_with_buf(buf, position, flags, extra_attrs);
+    }
+
+    fn to_html_async_with_buf<const OUT_OF_ORDER: bool>(
+        self,
+        buf: &mut StreamBuilder,
+        position: &mut Position,
+        flags: RenderFlags,
+        extra_attrs: Vec<AnyAttribute>,
+    ) where
+        Self: Sized,
+    {
+        let _guard = hydration_context::enter_id_scope(self.scope.clone());
+        self.inner.to_html_async_with_buf::<OUT_OF_ORDER>(
+            buf,
+            position,
+            flags,
+            extra_attrs,
+        );
+    }
+
+    fn hydrate<const FROM_SERVER: bool>(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let _guard = hydration_context::enter_id_scope(self.scope.clone());
+        self.inner.hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        hydration_context::IdScopedFuture::new(
+            self.scope,
+            self.inner.hydrate_async(cursor, position),
+        )
+        .await
+    }
+
+    fn into_owned(self) -> Self::Owned {
+        IdScopedView {
+            scope: self.scope,
+            inner: self.inner.into_owned(),
+        }
+    }
 }
 
 impl<const TRANSITION: bool, Fal, Chil> Render
@@ -336,8 +479,15 @@ where
         provide_context(LocalResourceNotifier::from(local_tx));
 
         // walk over the tree of children once to make sure that all resource loads are registered
+        //
+        // discovery walks re-run view closures; the resources those re-runs
+        // create are thrown away with the walked tree, so they must not
+        // consume serialized-data ids the client will also allocate
         let mut children = self.children;
-        children.dry_resolve();
+        {
+            let _discard = hydration_context::enter_throwaway_id_scope();
+            children.dry_resolve();
+        }
 
         // `tasks_ready` is a `Future` that is ready once every task registered with this
         // `<Suspense/>` has finished.

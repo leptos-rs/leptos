@@ -51,12 +51,15 @@ pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send + Sync>>;
 /// A unique identifier for a piece of data that will be serialized
 /// from the server to the client.
 ///
-/// IDs are either top-level (like `3`), or nested within some other ID using a
-/// [`SerializedDataIdScope`] (like `3-0`).
+/// IDs are either top-level (like `3`), or nested within some other ID (like
+/// `3-0`). Allocations inside a deferred subtree — a suspense boundary's
+/// resolution, a `Suspend`ed future — extend that subtree's anchor, so the
+/// same resource receives the same identifier on the server and in the
+/// browser regardless of the order in which deferred subtrees run.
 pub struct SerializedDataId(String);
 
 impl SerializedDataId {
-    /// Create a new instance of [`SerializedDataId`].
+    /// Create a new root-level instance of [`SerializedDataId`].
     pub fn new(id: usize) -> Self {
         SerializedDataId(id.to_string())
     }
@@ -70,6 +73,32 @@ impl SerializedDataId {
     pub fn into_inner(self) -> String {
         self.0
     }
+
+    fn child(&self, n: usize) -> Self {
+        if self.0.is_empty() {
+            SerializedDataId(n.to_string())
+        } else {
+            SerializedDataId(format!("{}-{n}", self.0))
+        }
+    }
+
+    /// The anchor for the tree's root scope: its children are the plain
+    /// top-level identifiers (`"0"`, `"1"`, …). The browser's hydration walk
+    /// enters a scope anchored here so that walk allocations mirror the
+    /// server's top-level sequence even when unrelated client-side work runs
+    /// between the walk's await points.
+    pub fn root_anchor() -> Self {
+        SerializedDataId(String::new())
+    }
+
+    /// A browser-local identifier that can never collide with an identifier
+    /// the server serialized. Allocations that happen outside the hydration
+    /// walk — post-hydration mounts, effect re-runs at the walk's await
+    /// points — have no serialized data to read, so they must not consume
+    /// identifiers from the walk's sequence.
+    pub fn browser_local(n: usize) -> Self {
+        SerializedDataId(format!("c{n}"))
+    }
 }
 
 impl Display for SerializedDataId {
@@ -81,6 +110,100 @@ impl Display for SerializedDataId {
 impl From<SerializedDataId> for ErrorId {
     fn from(value: SerializedDataId) -> Self {
         value.0.into()
+    }
+}
+
+thread_local! {
+    static ID_SCOPES: std::cell::RefCell<Vec<IdScopeFrame>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+enum IdScopeFrame {
+    /// Allocations extend the scope's parent with its shared sequence.
+    Anchored(SerializedDataIdScope),
+    /// Allocations are handed throwaway identifiers that are never
+    /// serialized — used for server-side discovery walks, which re-run view
+    /// closures whose creations must not consume real identifiers.
+    Throwaway,
+}
+
+/// Restores the previous id-allocation scope when dropped.
+pub struct IdScopeGuard(());
+
+impl Drop for IdScopeGuard {
+    fn drop(&mut self) {
+        ID_SCOPES.with(|scopes| {
+            scopes.borrow_mut().pop();
+        });
+    }
+}
+
+/// Enters the given id-allocation scope: until the returned guard is dropped,
+/// identifiers allocated on this thread come from `scope`.
+pub fn enter_id_scope(scope: SerializedDataIdScope) -> IdScopeGuard {
+    ID_SCOPES.with(|scopes| {
+        scopes.borrow_mut().push(IdScopeFrame::Anchored(scope))
+    });
+    IdScopeGuard(())
+}
+
+/// Enters a scope in which allocated identifiers are throwaway: they are
+/// syntactically valid but can never collide with serialized data. Server-side
+/// discovery walks re-run view closures, and the resources those re-runs
+/// create must not consume identifiers the client will also allocate.
+pub fn enter_throwaway_id_scope() -> IdScopeGuard {
+    ID_SCOPES.with(|scopes| {
+        scopes.borrow_mut().push(IdScopeFrame::Throwaway)
+    });
+    IdScopeGuard(())
+}
+
+pub(crate) fn scoped_next_id() -> Option<SerializedDataId> {
+    ID_SCOPES.with(|scopes| {
+        let scopes = scopes.borrow();
+        match scopes.last()? {
+            IdScopeFrame::Anchored(scope) => Some(scope.next_id()),
+            IdScopeFrame::Throwaway => {
+                Some(SerializedDataId("discard".to_string()))
+            }
+        }
+    })
+}
+
+pin_project_lite::pin_project! {
+    /// Allocates serialized-data identifiers from `scope` during every poll of
+    /// the wrapped future, so that data created inside a deferred subtree
+    /// receives the same identifiers on the server and in the browser no
+    /// matter when the subtree actually runs. Clones of a scope share one
+    /// sequence, so the numbering continues across several futures and
+    /// synchronous phases that belong to the same subtree.
+    pub struct IdScopedFuture<Fut> {
+        scope: SerializedDataIdScope,
+        #[pin]
+        inner: Fut,
+    }
+}
+
+impl<Fut> IdScopedFuture<Fut> {
+    /// Wraps the future so its allocations come from `scope`.
+    pub fn new(scope: SerializedDataIdScope, inner: Fut) -> Self {
+        Self { scope, inner }
+    }
+}
+
+impl<Fut> Future for IdScopedFuture<Fut>
+where
+    Fut: Future,
+{
+    type Output = Fut::Output;
+
+    fn poll(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let this = self.project();
+        let _guard = enter_id_scope(this.scope.clone());
+        this.inner.poll(cx)
     }
 }
 
@@ -108,8 +231,7 @@ impl SerializedDataIdScope {
 
     /// Returns the next ID in this scope.
     pub fn next_id(&self) -> SerializedDataId {
-        let id = self.next.fetch_add(1, Ordering::Relaxed);
-        SerializedDataId(format!("{}-{id}", self.parent.0))
+        self.parent.child(self.next.fetch_add(1, Ordering::Relaxed))
     }
 }
 
