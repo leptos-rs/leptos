@@ -244,7 +244,7 @@ use reactive_graph::{
     owner::{ArenaItem, LocalStorage, Storage, SyncStorage},
     signal::{
         ArcTrigger,
-        guards::{Plain, ReadGuard, WriteGuard},
+        guards::{Plain, ReadGuard},
     },
     traits::{
         DefinedAt, Dispose, IsDisposed, Notify, ReadUntracked, Track,
@@ -629,7 +629,6 @@ where
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
         self.writer()
-            .map(|writer| WriteGuard::new(self.clone(), writer))
     }
 
     fn try_write_untracked(
@@ -800,7 +799,7 @@ where
     type Value = T;
 
     fn try_write(&self) -> Option<impl UntrackableGuard<Target = Self::Value>> {
-        self.writer().map(|writer| WriteGuard::new(*self, writer))
+        self.writer()
     }
 
     fn try_write_untracked(
