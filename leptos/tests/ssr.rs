@@ -217,6 +217,20 @@ fn render_hydration_scripts(defer: bool) -> String {
     rendered.to_html()
 }
 
+/// The tail of the hydration script invocation for the `app` output name.
+///
+/// Outside of cargo-leptos (no `LEPTOS_OUTPUT_NAME` at compile time),
+/// `HydrationScripts` assumes wasm-bindgen's default `<name>_bg.wasm`.
+#[cfg(feature = "ssr")]
+fn hydration_script_args(defer: bool) -> String {
+    let wasm_name = if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
+        "app_bg"
+    } else {
+        "app"
+    };
+    format!(r#""pkg", "app", "{wasm_name}", {defer});"#)
+}
+
 #[cfg(feature = "ssr")]
 #[test]
 fn hydration_scripts_default_output() {
@@ -229,7 +243,7 @@ fn hydration_scripts_default_output() {
     assert!(!html.contains("fetchpriority"), "{html}");
     assert!(html.contains("requestIdleCallback"), "{html}");
     // the script is handed `false`, so it takes the eager path
-    assert!(html.contains(r#""pkg", "app", "app", false);"#), "{html}");
+    assert!(html.contains(&hydration_script_args(false)), "{html}");
 }
 
 #[cfg(feature = "ssr")]
@@ -241,7 +255,7 @@ fn hydration_scripts_deferred_output() {
     let html = render_hydration_scripts(true);
 
     assert_eq!(html.matches(r#"fetchpriority="low""#).count(), 2, "{html}");
-    assert!(html.contains(r#""pkg", "app", "app", true);"#), "{html}");
+    assert!(html.contains(&hydration_script_args(true)), "{html}");
 }
 
 #[cfg(feature = "ssr")]
@@ -259,7 +273,7 @@ fn hydration_scripts_defer_is_a_no_op_in_islands_mode() {
     let html = rendered.to_html();
 
     assert!(!html.contains("fetchpriority"), "{html}");
-    assert!(html.contains(r#""pkg", "app", "app", false);"#), "{html}");
+    assert!(html.contains(&hydration_script_args(false)), "{html}");
 }
 
 #[cfg(feature = "ssr")]
