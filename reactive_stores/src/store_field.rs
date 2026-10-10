@@ -127,7 +127,7 @@ where
 {
     type Value = T;
     type Reader = Plain<T>;
-    type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
+    type Writer = WriteGuard<Vec<ArcTrigger>, UntrackedWriteGuard<T>>;
 
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
@@ -181,9 +181,11 @@ where
 
     #[track_caller]
     fn writer(&self) -> Option<Self::Writer> {
-        let trigger = self.get_trigger(Default::default());
+        // Like every other field, the root writer carries its own `this` and
+        // `children` triggers, so `Write` does not need to notify again.
+        let triggers = self.triggers_for_current_path();
         let guard = UntrackedWriteGuard::try_new(Arc::clone(&self.value))?;
-        Some(WriteGuard::new(trigger.children, guard))
+        Some(WriteGuard::new(triggers, guard))
     }
 
     #[track_caller]
@@ -199,7 +201,7 @@ where
 {
     type Value = T;
     type Reader = Plain<T>;
-    type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
+    type Writer = WriteGuard<Vec<ArcTrigger>, UntrackedWriteGuard<T>>;
 
     #[track_caller]
     fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
