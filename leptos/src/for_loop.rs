@@ -143,6 +143,7 @@ where
         move || {
             let children = children.clone();
             let parent = parent.clone();
+            #[allow(clippy::type_complexity)]
             let view_fn: Box<
                 dyn Fn(usize, T) -> (fn(usize), OwnedView<AnyView>) + Send,
             > = Box::new(move |_, child| {
@@ -235,6 +236,7 @@ where
         move || {
             let children = children.clone();
             let parent = parent.clone();
+            #[allow(clippy::type_complexity)]
             let view_fn: Box<
                 dyn Fn(
                         usize,

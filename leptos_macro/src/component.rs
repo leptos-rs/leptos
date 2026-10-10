@@ -354,9 +354,12 @@ impl Model {
             }
         };
 
+        // a component with no return type returns `()`, so it can't be erased
         let component = if *is_transparent {
             body_expr
-        } else if cfg!(feature = "__internal_erase_components") {
+        } else if cfg!(feature = "__internal_erase_components")
+            && !matches!(ret, ReturnType::Default)
+        {
             quote! {
                 ::leptos::prelude::IntoMaybeErased::into_maybe_erased(
                     ::leptos::reactive::graph::untrack_with_diagnostics(
