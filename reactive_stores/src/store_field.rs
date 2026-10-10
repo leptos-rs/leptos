@@ -83,12 +83,20 @@ pub trait StoreField: Sized {
     }
 
     /// Reactively tracks this field.
+    ///
+    /// Subscribes to direct and child changes at this field's path, and to
+    /// direct changes to each ancestor, so that replacing a containing value
+    /// (including the whole store) re-runs the observer. Changes to a *child*
+    /// of an ancestor (i.e., a sibling) are not tracked.
     #[track_caller]
     fn track_field(&self) {
-        let path = self.path().into_iter().collect();
-        let trigger = self.get_trigger(path);
+        let mut path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(path.clone());
         trigger.this.track();
         trigger.children.track();
+        while path.pop().is_some() {
+            self.get_trigger(path.clone()).this.track();
+        }
     }
 
     /// Tracks direct changes to this field and its ancestors, but not its children.
