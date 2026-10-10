@@ -73,52 +73,42 @@ pub trait StoreField: Sized {
 
     /// Returns triggers for the field at the given path, and all parent fields
     fn triggers_for_path(&self, path: StorePath) -> Vec<ArcTrigger> {
-        let trigger = self.get_trigger(path.clone());
-        let mut full_path = path;
-
-        // build a list of triggers, starting with the full path to this node and ending with the root
-        // this will mean that the root is the final item, and this path is first
-        let mut triggers = Vec::with_capacity(full_path.len() + 2);
-        triggers.push(trigger.this.clone());
-        triggers.push(trigger.children.clone());
-        while !full_path.is_empty() {
-            full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
-            triggers.push(inner.children.clone());
-        }
-
-        // when the WriteGuard is dropped, each trigger will be notified, in order
-        // reversing the list will cause the triggers to be notified starting from the root,
-        // then to each child down to this one
-        //
-        // notifying from the root down is important for things like OptionStoreExt::map()/unwrap(),
-        // where it's really important that any effects that subscribe to .is_some() run before effects
-        // that subscribe to the inner value, so that the inner effect can be canceled if the outer switches to `None`
-        // (see https://github.com/leptos-rs/leptos/issues/3704)
-        triggers.reverse();
-
-        triggers
+        collect_triggers(path, |path| self.get_trigger(path))
     }
 
     /// Returns triggers for the field at the given path, and all parent fields
     fn triggers_for_path_unkeyed(&self, path: StorePath) -> Vec<ArcTrigger> {
-        // see notes on triggers_for_path() for additional comments on implementation
-
-        let trigger = self.get_trigger_unkeyed(path.clone());
-        let mut full_path = path;
-
-        let mut triggers = Vec::with_capacity(full_path.len() + 2);
-        triggers.push(trigger.this.clone());
-        triggers.push(trigger.children.clone());
-        while !full_path.is_empty() {
-            full_path.pop();
-            let inner = self.get_trigger_unkeyed(full_path.clone());
-            triggers.push(inner.children.clone());
-        }
-        triggers.reverse();
-
-        triggers
+        collect_triggers(path, |path| self.get_trigger_unkeyed(path))
     }
+}
+
+/// Collects the triggers a write at `path` notifies: `this` and `children` of
+/// the field itself, then `children` of each ancestor up to the root.
+fn collect_triggers(
+    mut path: StorePath,
+    get_trigger: impl Fn(StorePath) -> StoreFieldTrigger,
+) -> Vec<ArcTrigger> {
+    // build a list of triggers, starting with the full path to this node and ending with the root
+    // this will mean that the root is the final item, and this path is first
+    let trigger = get_trigger(path.clone());
+    let mut triggers = Vec::with_capacity(path.len() + 2);
+    triggers.push(trigger.this);
+    triggers.push(trigger.children);
+    while path.pop().is_some() {
+        triggers.push(get_trigger(path.clone()).children);
+    }
+
+    // when the WriteGuard is dropped, each trigger will be notified, in order
+    // reversing the list will cause the triggers to be notified starting from the root,
+    // then to each child down to this one
+    //
+    // notifying from the root down is important for things like OptionStoreExt::map()/unwrap(),
+    // where it's really important that any effects that subscribe to .is_some() run before effects
+    // that subscribe to the inner value, so that the inner effect can be canceled if the outer switches to `None`
+    // (see https://github.com/leptos-rs/leptos/issues/3704)
+    triggers.reverse();
+
+    triggers
 }
 
 impl<T> StoreField for ArcStore<T>
