@@ -138,30 +138,7 @@ where
 
     #[track_caller]
     fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
-        let caller = std::panic::Location::caller();
-        let orig_path = path.clone();
-
-        let mut path = StorePath::with_capacity(orig_path.len());
-        for segment in &orig_path {
-            let parent_is_keyed = self.keys.contains_key(&path);
-
-            if parent_is_keyed {
-                let key = self
-                    .keys
-                    .get_key_for_index(&(path.clone(), segment.0))
-                    .unwrap_or_else(|| {
-                        panic!(
-                            "could not find key for index {:?} at {}",
-                            (path.clone(), segment.0),
-                            caller
-                        )
-                    });
-                path.push(key);
-            } else {
-                path.push(*segment);
-            }
-        }
-        self.get_trigger(path)
+        self.get_trigger(self.keys.keyed_path(&path))
     }
 
     #[track_caller]
