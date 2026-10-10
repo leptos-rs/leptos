@@ -72,8 +72,8 @@ tachys = { path = "./tachys", version = "0.3.0-beta3" }
 
 # members deps
 async-once-cell = { default-features = false, version = "0.5" }
-itertools = { default-features = false, version = "0.14" }
-convert_case = { default-features = false, version = "0.11" }
+itertools = { default-features = false, version = "0.15" }
+convert_case = { default-features = false, version = "0.12" }
 convert_case_extras = { default-features = false, version = "0.2" }
 serde_json = { default-features = false, version = "1.0" }
 trybuild = { default-features = false, version = "1.0" }
@@ -100,7 +100,7 @@ const_format = { default-features = false, version = "0.2" }
 gloo-net = { default-features = false, version = "0.7" }
 url = { default-features = false, version = "2.5" }
 tokio = { default-features = false, version = "1.49" }
-base64 = { default-features = false, version = "0.22" }
+base64 = { default-features = false, version = "0.23" }
 cfg-if = { default-features = false, version = "1.0" }
 wasm-bindgen-futures = { default-features = false, version = "0.4" }
 tower = { default-features = false, version = "0.5" }
@@ -117,8 +117,8 @@ web-sys = { default-features = false, version = "0.3" }
 js-sys = { default-features = false, version = "0.3" }
 rand = { default-features = false, version = "0.10" }
 serde-lite = { default-features = false, version = "0.5" }
-tokio-tungstenite = { default-features = false, version = "0.29" }
-serial_test = { default-features = false, version = "3.3" }
+tokio-tungstenite = { default-features = false, version = "0.30" }
+serial_test = { default-features = false, version = "4.0" }
 erased = { default-features = false, version = "0.1" }
 glib = { default-features = false, version = "0.22" }
 async-trait = { default-features = false, version = "0.1" }
@@ -136,7 +136,7 @@ multer = { default-features = false, version = "3.1" }
 leptos-spin-macro = { default-features = false, version = "0.2" }
 sledgehammer_utils = { default-features = false, version = "0.3" }
 sledgehammer_bindgen = { default-features = false, version = "0.6" }
-wasm-streams = { default-features = false, version = "0.6" }
+wasm-streams = { default-features = false, version = "0.7" }
 rkyv = { default-features = false, version = "0.8" }
 temp-env = { default-features = false, version = "0.3" }
 uuid = { default-features = false, version = "1.20" }
@@ -163,7 +163,7 @@ actix-http = { default-features = false, version = "3.12" }
 wasm-bindgen-test = { default-features = false, version = "0.3" }
 rustversion = { default-features = false, version = "1.0" }
 getrandom = { default-features = false, version = "0.4" }
-actix-files = { default-features = false, version = "0.6" }
+actix-files = { default-features = false, version = "0.7" }
 async-lock = { default-features = false, version = "3.4" }
 base16 = { default-features = false, version = "0.2" }
 digest = { default-features = false, version = "0.11" }
