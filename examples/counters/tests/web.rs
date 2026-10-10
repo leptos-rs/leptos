@@ -21,11 +21,12 @@ async fn inc() {
         .unwrap();
 
     assert_eq!(
-        div.inner_html(),
+        div.inner_html().replace("<!---->", ""),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: <span \
          data-testid=\"total\">0</span> from <span \
          data-testid=\"counters\">0</span> counters.</p><ul><!----></ul>"
+            .replace("<!---->", "")
     );
 
     // add 3 counters
@@ -35,9 +36,9 @@ async fn inc() {
 
     tick().await;
 
-    // check HTML
+    // check HTML (erased views add a comment marker after every nested view)
     assert_eq!(
-        div.inner_html(),
+        div.inner_html().replace("<!---->", ""),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: <span \
          data-testid=\"total\">0</span> from <span \
@@ -49,6 +50,7 @@ async fn inc() {
          li><li><button>-1</button><input \
          type=\"text\"><span>0</span><button>+1</button><button>x</button></\
          li><!----></ul>"
+            .replace("<!---->", "")
     );
 
     let counters = div
@@ -63,13 +65,8 @@ async fn inc() {
     for idx in 0..counters.length() {
         let counter = counters.item(idx).unwrap();
         let inc_button = counter
-            .first_child()
-            .unwrap()
-            .next_sibling()
-            .unwrap()
-            .next_sibling()
-            .unwrap()
-            .next_sibling()
+            .children()
+            .item(3)
             .unwrap()
             .unchecked_into::<HtmlElement>();
         for _ in 0..=idx {
@@ -80,7 +77,7 @@ async fn inc() {
     tick().await;
 
     assert_eq!(
-        div.inner_html(),
+        div.inner_html().replace("<!---->", ""),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: <span \
          data-testid=\"total\">6</span> from <span \
@@ -92,13 +89,14 @@ async fn inc() {
          li><li><button>-1</button><input \
          type=\"text\"><span>3</span><button>+1</button><button>x</button></\
          li><!----></ul>"
+            .replace("<!---->", "")
     );
 
     // remove the first counter
     counters
         .item(0)
         .unwrap()
-        .last_child()
+        .last_element_child()
         .unwrap()
         .unchecked_into::<HtmlElement>()
         .click();
@@ -106,7 +104,7 @@ async fn inc() {
     tick().await;
 
     assert_eq!(
-        div.inner_html(),
+        div.inner_html().replace("<!---->", ""),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: <span \
          data-testid=\"total\">5</span> from <span \
@@ -116,5 +114,6 @@ async fn inc() {
          li><li><button>-1</button><input \
          type=\"text\"><span>3</span><button>+1</button><button>x</button></\
          li><!----></ul>"
+            .replace("<!---->", "")
     );
 }

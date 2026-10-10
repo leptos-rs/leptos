@@ -119,6 +119,7 @@ where
 
 /// Creates an [`Attribute`] that will add an event listener to an element.
 #[cfg(erase_components)]
+#[allow(clippy::type_complexity)]
 pub fn on<E, F>(event: E, cb: F) -> On<E, Box<dyn FnMut(E::EventType)>>
 where
     F: FnMut(E::EventType) + 'static,
@@ -130,6 +131,7 @@ where
 }
 
 #[cfg(erase_components)]
+#[allow(clippy::type_complexity)]
 fn on_erased<E>(
     event: E,
     cb: Box<dyn FnMut(E::EventType)>,

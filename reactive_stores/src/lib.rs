@@ -89,9 +89,9 @@
 //!   use crate::foo::{ Foo, FooStoreFields };
 //!
 //!   #[component]
-//!   pub fn UseFoo(foo: Field<Foo>) {
+//!   pub fn UseFoo(foo: Field<Foo>) -> impl IntoView {
 //!     // Without FooStoreFields, foo.field() would fail to compile.
-//!     println!("field: {}", foo.field().read());
+//!     move || foo.field().get()
 //!   }
 //! }
 //!

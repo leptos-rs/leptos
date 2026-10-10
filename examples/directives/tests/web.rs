@@ -50,8 +50,15 @@ async fn test_directives() {
         .unwrap()
         .dyn_into::<HtmlElement>()
         .unwrap();
-    assert_eq!(a.inner_html(), "Copy \"Hello World!\" to clipboard");
+    // erased views add a comment marker after every nested view
+    assert_eq!(
+        a.inner_html().replace("<!---->", ""),
+        "Copy \"Hello World!\" to clipboard"
+    );
 
     a.click();
-    assert_eq!(a.inner_html(), "Copied \"Hello World!\"");
+    assert_eq!(
+        a.inner_html().replace("<!---->", ""),
+        "Copied \"Hello World!\""
+    );
 }

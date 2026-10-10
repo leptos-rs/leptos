@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+#[allow(unused_imports)]
 use leptos_router::{components::Route, path, MatchNestedRoutes};
 
 // https://github.com/leptos-rs/leptos/issues/4881

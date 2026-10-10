@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+#[allow(unused_imports)]
 use leptos_router::{components::Route, path, MatchNestedRoutes};
 #[cfg(feature = "ssr")]
 use std::time::Duration;

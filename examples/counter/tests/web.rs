@@ -40,7 +40,8 @@ async fn clear() {
 
     // now let's test the <div> against the expected value
     // we can do this by testing its `outerHTML`
-    assert_eq!(div.outer_html(), {
+    // erased views add a comment marker after every nested view
+    assert_eq!(div.outer_html().replace("<!---->", ""), {
         // it's as if we're creating it with a value of 0, right?
         let (value, _set_value) = signal(0);
 
@@ -63,6 +64,7 @@ async fn clear() {
         // a DOM element. So we can still just call .outer_html(), which access the outerHTML on
         // the actual DOM element
         .outer_html()
+        .replace("<!---->", "")
     });
 
     // There's actually an easier way to do this...
@@ -135,7 +137,7 @@ async fn inc() {
 
     // Or you can test against a sample view!
     assert_eq!(
-        div.outer_html(),
+        div.outer_html().replace("<!---->", ""),
         {
             let (value, _) = signal(0);
             view! {
@@ -150,6 +152,7 @@ async fn inc() {
         .into_view()
         .build()
         .outer_html()
+        .replace("<!---->", ""),
     );
 
     inc.click();
@@ -157,7 +160,7 @@ async fn inc() {
     tick().await;
 
     assert_eq!(
-        div.outer_html(),
+        div.outer_html().replace("<!---->", ""),
         {
             // because we've clicked, it's as if the signal is starting at 1
             let (value, _) = signal(1);
@@ -173,5 +176,6 @@ async fn inc() {
         .into_view()
         .build()
         .outer_html()
+        .replace("<!---->", ""),
     );
 }

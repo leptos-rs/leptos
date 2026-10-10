@@ -143,6 +143,7 @@ where
         move || {
             let children = children.clone();
             let parent = parent.clone();
+            #[allow(clippy::type_complexity)]
             let view_fn: Box<
                 dyn Fn(usize, T) -> (fn(usize), OwnedView<AnyView>) + Send,
             > = Box::new(move |_, child| {
@@ -235,6 +236,7 @@ where
         move || {
             let children = children.clone();
             let parent = parent.clone();
+            #[allow(clippy::type_complexity)]
             let view_fn: Box<
                 dyn Fn(
                         usize,
@@ -350,10 +352,10 @@ mod signal_or_fn_tests {
                     </For>
                 </ol>
             };
+            // erased views add a hydration marker after every nested view
             assert_eq!(
-                list.to_html(),
-                "<ol><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><!></\
-                 ol>"
+                list.to_html().replace("<!>", ""),
+                "<ol><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li></ol>"
             );
         });
     }
@@ -370,8 +372,8 @@ mod signal_or_fn_tests {
                 </ol>
             };
             assert_eq!(
-                list.to_html(),
-                "<ol><li>1</li><li>2</li><li>3</li><!></ol>"
+                list.to_html().replace("<!>", ""),
+                "<ol><li>1</li><li>2</li><li>3</li></ol>"
             );
         });
     }

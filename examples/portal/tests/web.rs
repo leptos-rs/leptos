@@ -80,9 +80,9 @@ async fn portal() {
 
     tick().await;
 
-    // check HTML
+    // check HTML (erased views add a comment marker after every nested view)
     assert_eq!(
-        minify(div.inner_html().as_str()),
+        minify(div.inner_html().as_str()).replace("<!---->", ""),
         minify(
             "<div><button id=\"btn-show\">Show \
              Overlay</button><div>Show</div><!----></div><div><div \
@@ -92,6 +92,7 @@ async fn portal() {
              id=\"btn-hide\">Close Overlay</button><button \
              id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
         )
+        .replace("<!---->", "")
     );
 
     let toggle_button = document
@@ -102,7 +103,7 @@ async fn portal() {
     toggle_button.click();
 
     assert_eq!(
-        minify(div.inner_html().as_str()),
+        minify(div.inner_html().as_str()).replace("<!---->", ""),
         minify(
             "<div><button id=\"btn-show\">Show \
              Overlay</button><div>Show</div><!----></div><div><div \
@@ -112,6 +113,7 @@ async fn portal() {
              id=\"btn-hide\">Close Overlay</button><button \
              id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
         )
+        .replace("<!---->", "")
     );
 
     let hide_button = document
@@ -122,7 +124,7 @@ async fn portal() {
     hide_button.click();
 
     assert_eq!(
-        minify(div.inner_html().as_str()),
+        minify(div.inner_html().as_str()).replace("<!---->", ""),
         minify(
             "<div><button id=\"btn-show\">Show \
              Overlay</button><div>Show</div><!----></div><div><div \
@@ -132,6 +134,7 @@ async fn portal() {
              id=\"btn-hide\">Close Overlay</button><button \
              id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
         )
+        .replace("<!---->", "")
     );
 }
 
