@@ -512,25 +512,44 @@ impl KeyMap {
         let entry = entry.downcast_mut::<FieldKeys<K>>()?;
         let (result, new_keys) = fun(entry);
         if !new_keys.is_empty() {
+            let mut index_to_key = self.1.write().or_poisoned();
             for (idx, segment) in new_keys {
-                self.1
-                    .write()
-                    .or_poisoned()
-                    .insert((path.clone(), idx), segment);
+                index_to_key.insert((path.clone(), idx), segment);
             }
         }
         Some(result)
     }
 
-    fn contains_key(&self, key: &StorePath) -> bool {
-        self.0.read().or_poisoned().contains_key(key)
-    }
-
-    fn get_key_for_index(
-        &self,
-        key: &(StorePath, usize),
-    ) -> Option<StorePathSegment> {
-        self.1.read().or_poisoned().get(key).copied()
+    /// Translates a path that addresses keyed collections by index into the
+    /// path that uses the stable key segments registered for those items.
+    ///
+    /// Panics if an index has no registered key, reporting the caller.
+    #[track_caller]
+    fn keyed_path(&self, unkeyed: &StorePath) -> StorePath {
+        let caller = std::panic::Location::caller();
+        // Both locks are held for the whole translation, rather than being
+        // taken again for every segment.
+        let keyed_fields = self.0.read().or_poisoned();
+        let index_to_key = self.1.read().or_poisoned();
+        let mut path = StorePath::with_capacity(unkeyed.len());
+        for segment in unkeyed {
+            let segment = if keyed_fields.contains_key(&path) {
+                index_to_key
+                    .get(&(path.clone(), segment.0))
+                    .copied()
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "could not find key for index {:?} at {}",
+                            (path.clone(), segment.0),
+                            caller
+                        )
+                    })
+            } else {
+                *segment
+            };
+            path.push(segment);
+        }
+        path
     }
 }
 
