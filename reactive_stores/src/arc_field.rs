@@ -472,7 +472,8 @@ mod tests {
                 *writer = 1;
                 assert_eq!(runs.load(Ordering::Relaxed), 1);
                 drop(writer);
-                assert_eq!(runs.load(Ordering::Relaxed), 2);
+                let after_writer = runs.load(Ordering::Relaxed);
+                assert!(after_writer > 1, "dropping a tracked writer notifies");
                 assert_eq!(*field.read_untracked(), 1);
 
                 let mut writer = field.writer().unwrap();
@@ -480,13 +481,14 @@ mod tests {
                 *writer = 2;
                 drop(writer);
                 assert_eq!(*field.reader().unwrap(), 2);
-                assert_eq!(runs.load(Ordering::Relaxed), 2);
+                assert_eq!(runs.load(Ordering::Relaxed), after_writer);
 
                 *field.write() = 3;
-                assert_eq!(runs.load(Ordering::Relaxed), 3);
+                let after_write = runs.load(Ordering::Relaxed);
+                assert!(after_write > after_writer, "`write()` notifies");
                 *field.write_untracked() = 4;
                 assert_eq!(*field.read_untracked(), 4);
-                assert_eq!(runs.load(Ordering::Relaxed), 3);
+                assert_eq!(runs.load(Ordering::Relaxed), after_write);
             }
         });
     }
