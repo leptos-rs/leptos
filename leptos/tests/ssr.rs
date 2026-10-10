@@ -51,9 +51,9 @@ fn ssr_test_with_components() {
 
     let expected = if cfg!(erase_components) {
         "<div class=\"counters\"><div><button>-1<!></button><span>Value: \
-         <!>1<!>!<!><!></span><button>+1<!></button><!><!></div><div><button>\
-         -1<!></button><span>Value: <!>2<!>!<!><!></span><button>+1<!></\
-         button><!><!></div><!><!></div>"
+         <!>1<!>!<!><!></span><button>+1<!></button><!><!></\
+         div><div><button>-1<!></button><span>Value: \
+         <!>2<!>!<!><!></span><button>+1<!></button><!><!></div><!><!></div>"
     } else {
         "<div class=\"counters\"><div><button>-1</button><span>Value: \
          <!>1<!>!</span><button>+1</button></div><div><button>-1</\
@@ -87,9 +87,9 @@ fn ssr_test_with_snake_case_components() {
 
     let expected = if cfg!(erase_components) {
         "<div class=\"counters\"><div><button>-1<!></button><span>Value: \
-         <!>1<!>!<!><!></span><button>+1<!></button><!><!></div><div><button>\
-         -1<!></button><span>Value: <!>2<!>!<!><!></span><button>+1<!></\
-         button><!><!></div><!><!></div>"
+         <!>1<!>!<!><!></span><button>+1<!></button><!><!></\
+         div><div><button>-1<!></button><span>Value: \
+         <!>2<!>!<!><!></span><button>+1<!></button><!><!></div><!><!></div>"
     } else {
         "<div class=\"counters\"><div><button>-1</button><span>Value: \
          <!>1<!>!</span><button>+1</button></div><div><button>-1</\
@@ -205,8 +205,7 @@ fn ssr_with_styles() {
         "<div class=\"myclass\"><button class=\"btn \
          myclass\">-1<!></button><!></div>"
     } else {
-        "<div class=\"myclass\"><button class=\"btn \
-         myclass\">-1</button></div>"
+        "<div class=\"myclass\"><button class=\"btn myclass\">-1</button></div>"
     };
     assert_eq!(rendered.to_html(), expected);
 }
