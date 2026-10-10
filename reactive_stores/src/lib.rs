@@ -308,12 +308,12 @@ impl StoreFieldTrigger {
 }
 
 impl TriggerMap {
-    fn get_or_insert(&mut self, key: StorePath) -> StoreFieldTrigger {
-        if let Some(trigger) = self.0.get(&key) {
+    fn get_or_insert(&mut self, key: &StorePath) -> StoreFieldTrigger {
+        if let Some(trigger) = self.0.get(key) {
             trigger.clone()
         } else {
             let new = StoreFieldTrigger::new();
-            self.0.insert(key, new.clone());
+            self.0.insert(key.clone(), new.clone());
             new
         }
     }
@@ -648,7 +648,8 @@ impl<T: 'static> Track for ArcStore<T> {
 
 impl<T: 'static> Notify for ArcStore<T> {
     fn notify(&self) {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(&path);
         trigger.this.notify();
         trigger.children.notify();
     }
@@ -993,6 +994,27 @@ mod tests {
         tick().await;
         // the effect reads from `todos`, so it shouldn't trigger every time
         assert_eq!(combined_count.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn borrowed_paths_avoid_consuming_store_paths() {
+        use crate::StoreField;
+
+        let store = Store::new(data());
+
+        // `get_trigger`, `triggers_for_path`, and `triggers_for_path_unkeyed`
+        // accept borrowed paths, so the same `StorePath` can be reused across
+        // calls — e.g. while walking ancestors — without cloning at each step.
+        let path: crate::StorePath = store.todos().path().into_iter().collect();
+        let borrowed = &path;
+
+        let _ = store.get_trigger(borrowed);
+        let _ = store.get_trigger_unkeyed(borrowed);
+        let _ = store.triggers_for_path(borrowed);
+        let _ = store.triggers_for_path_unkeyed(borrowed);
+
+        // owned paths are still accepted
+        let _ = store.get_trigger(path);
     }
 
     #[tokio::test]

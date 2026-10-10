@@ -12,6 +12,7 @@ use reactive_graph::{
     },
 };
 use std::{
+    borrow::Borrow,
     fmt::Debug,
     hash::Hash,
     ops::{Deref, DerefMut, IndexMut},
@@ -52,14 +53,17 @@ where
     type Reader = StoreFieldReader<T>;
     type Writer = StoreFieldWriter<T>;
 
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger {
         self.inner
             .try_get_value()
             .map(|inner| inner.get_trigger(path))
             .unwrap_or_default()
     }
 
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger {
         self.inner
             .try_get_value()
             .map(|inner| inner.get_trigger_unkeyed(path))

@@ -11,7 +11,7 @@ use reactive_graph::{
     },
     traits::{Track, UntrackableGuard},
 };
-use std::{iter, ops::Deref, sync::Arc};
+use std::{borrow::Borrow, iter, ops::Deref, sync::Arc};
 
 /// Describes a type that can be accessed as a reactive store field.
 pub trait StoreField: Sized {
@@ -24,7 +24,7 @@ pub trait StoreField: Sized {
 
     /// Returns the trigger that tracks access and updates for this field.
     #[track_caller]
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger;
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger;
 
     /// Returns the trigger that tracks access and updates for this field.
     ///
@@ -32,7 +32,10 @@ pub trait StoreField: Sized {
     /// try to look up the key for the item at the index given in the path, rather than
     /// the keyed item.
     #[track_caller]
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger;
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger;
 
     /// The path of this field (see [`StorePath`]).
     #[track_caller]
@@ -48,8 +51,8 @@ pub trait StoreField: Sized {
     /// Reactively tracks this field.
     #[track_caller]
     fn track_field(&self) {
-        let path = self.path().into_iter().collect();
-        let trigger = self.get_trigger(path);
+        let path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(&path);
         trigger.this.track();
         trigger.children.track();
     }
@@ -68,13 +71,17 @@ pub trait StoreField: Sized {
 
     /// Returns triggers for this field, and all parent fields.
     fn triggers_for_current_path(&self) -> Vec<ArcTrigger> {
-        self.triggers_for_path(self.path().into_iter().collect())
+        let path = self.path().into_iter().collect::<StorePath>();
+        self.triggers_for_path(&path)
     }
 
     /// Returns triggers for the field at the given path, and all parent fields
-    fn triggers_for_path(&self, path: StorePath) -> Vec<ArcTrigger> {
-        let trigger = self.get_trigger(path.clone());
-        let mut full_path = path;
+    fn triggers_for_path(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> Vec<ArcTrigger> {
+        let trigger = self.get_trigger(path.borrow());
+        let mut full_path = path.borrow().clone();
 
         // build a list of triggers, starting with the full path to this node and ending with the root
         // this will mean that the root is the final item, and this path is first
@@ -83,7 +90,7 @@ pub trait StoreField: Sized {
         triggers.push(trigger.children.clone());
         while !full_path.is_empty() {
             full_path.pop();
-            let inner = self.get_trigger(full_path.clone());
+            let inner = self.get_trigger(&full_path);
             triggers.push(inner.children.clone());
         }
 
@@ -101,18 +108,21 @@ pub trait StoreField: Sized {
     }
 
     /// Returns triggers for the field at the given path, and all parent fields
-    fn triggers_for_path_unkeyed(&self, path: StorePath) -> Vec<ArcTrigger> {
+    fn triggers_for_path_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> Vec<ArcTrigger> {
         // see notes on triggers_for_path() for additional comments on implementation
 
-        let trigger = self.get_trigger_unkeyed(path.clone());
-        let mut full_path = path;
+        let trigger = self.get_trigger_unkeyed(path.borrow());
+        let mut full_path = path.borrow().clone();
 
         let mut triggers = Vec::with_capacity(full_path.len() + 2);
         triggers.push(trigger.this.clone());
         triggers.push(trigger.children.clone());
         while !full_path.is_empty() {
             full_path.pop();
-            let inner = self.get_trigger_unkeyed(full_path.clone());
+            let inner = self.get_trigger_unkeyed(&full_path);
             triggers.push(inner.children.clone());
         }
         triggers.reverse();
@@ -130,19 +140,23 @@ where
     type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
 
     #[track_caller]
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger {
         let triggers = &self.signals;
-        let trigger = triggers.write().or_poisoned().get_or_insert(path);
+        let trigger =
+            triggers.write().or_poisoned().get_or_insert(path.borrow());
         trigger
     }
 
     #[track_caller]
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger {
         let caller = std::panic::Location::caller();
-        let orig_path = path.clone();
+        let orig_path = path.borrow();
 
         let mut path = StorePath::with_capacity(orig_path.len());
-        for segment in &orig_path {
+        for segment in orig_path {
             let parent_is_keyed = self.keys.contains_key(&path);
 
             if parent_is_keyed {
@@ -181,7 +195,7 @@ where
 
     #[track_caller]
     fn writer(&self) -> Option<Self::Writer> {
-        let trigger = self.get_trigger(Default::default());
+        let trigger = self.get_trigger(StorePath::default());
         let guard = UntrackedWriteGuard::try_new(Arc::clone(&self.value))?;
         Some(WriteGuard::new(trigger.children, guard))
     }
@@ -202,7 +216,7 @@ where
     type Writer = WriteGuard<ArcTrigger, UntrackedWriteGuard<T>>;
 
     #[track_caller]
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger {
         self.inner
             .try_get_value()
             .map(|n| n.get_trigger(path))
@@ -210,7 +224,10 @@ where
     }
 
     #[track_caller]
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger {
         self.inner
             .try_get_value()
             .map(|n| n.get_trigger_unkeyed(path))

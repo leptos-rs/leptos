@@ -11,6 +11,7 @@ use reactive_graph::{
     },
 };
 use std::{
+    borrow::Borrow,
     ops::{Deref, DerefMut},
     panic::Location,
 };
@@ -65,11 +66,14 @@ where
     type Reader = Mapped<S::Reader, Self::Value>;
     type Writer = MappedMut<S::Writer, Self::Value>;
 
-    fn get_trigger(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger(&self, path: impl Borrow<StorePath>) -> StoreFieldTrigger {
         self.inner.get_trigger(path)
     }
 
-    fn get_trigger_unkeyed(&self, path: StorePath) -> StoreFieldTrigger {
+    fn get_trigger_unkeyed(
+        &self,
+        path: impl Borrow<StorePath>,
+    ) -> StoreFieldTrigger {
         self.inner.get_trigger_unkeyed(path)
     }
 
@@ -127,7 +131,8 @@ where
     <S::Value as Deref>::Target: Sized + 'static,
 {
     fn notify(&self) {
-        let trigger = self.get_trigger(self.path().into_iter().collect());
+        let path = self.path().into_iter().collect::<StorePath>();
+        let trigger = self.get_trigger(&path);
         trigger.this.notify();
         trigger.children.notify();
     }
