@@ -3,6 +3,10 @@ use leptos::html::HtmlElement;
 
 #[cfg(feature = "ssr")]
 #[test]
+#[cfg_attr(
+    erase_components,
+    ignore = "erased views add hydration markers of their own"
+)]
 fn simple_ssr_test() {
     use leptos::prelude::*;
 
@@ -24,6 +28,10 @@ fn simple_ssr_test() {
 
 #[cfg(feature = "ssr")]
 #[test]
+#[cfg_attr(
+    erase_components,
+    ignore = "erased views add hydration markers of their own"
+)]
 fn ssr_test_with_components() {
     use leptos::prelude::*;
 
@@ -56,6 +64,10 @@ fn ssr_test_with_components() {
 
 #[cfg(feature = "ssr")]
 #[test]
+#[cfg_attr(
+    erase_components,
+    ignore = "erased views add hydration markers of their own"
+)]
 fn ssr_test_with_snake_case_components() {
     use leptos::prelude::*;
 
@@ -175,6 +187,10 @@ fn test_multiple_class_attributes_overwrite() {
 
 #[cfg(feature = "ssr")]
 #[test]
+#[cfg_attr(
+    erase_components,
+    ignore = "erased views add hydration markers of their own"
+)]
 fn ssr_with_styles() {
     use leptos::prelude::*;
 
@@ -264,6 +280,10 @@ fn hydration_scripts_defer_is_a_no_op_in_islands_mode() {
 
 #[cfg(feature = "ssr")]
 #[test]
+#[cfg_attr(
+    erase_components,
+    ignore = "erased views add hydration markers of their own"
+)]
 fn ssr_textarea_escapes_static_content() {
     use leptos::prelude::*;
 

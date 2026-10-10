@@ -20,6 +20,10 @@ impl fmt::Display for MyErr {
 impl Error for MyErr {}
 
 #[test]
+#[cfg_attr(
+    erase_components,
+    ignore = "erased views add hydration markers of their own"
+)]
 fn error_boundary_renders_children_when_no_error() {
     use leptos::prelude::*;
 
@@ -38,6 +42,10 @@ fn error_boundary_renders_children_when_no_error() {
 }
 
 #[test]
+#[cfg_attr(
+    erase_components,
+    ignore = "erased views add hydration markers of their own"
+)]
 fn error_boundary_rolls_back_children_and_renders_fallback_on_error() {
     use leptos::prelude::*;
 

@@ -15,4 +15,7 @@ CI_RUSTFLAGS = { value = "", condition = { env_not_set = ["CI_RUSTFLAGS"] } }
 RUSTFLAGS = "-D warnings ${CI_RUSTFLAGS}"
 
 [tasks.ci]
-dependencies = ["lint", "test-each-feature", "doctests"]
+dependencies = ["lint", "test-each-feature", "doctests", "test-wasm"]
+
+# runs the browser tests of the crates that have some (see wasm-test.toml)
+[tasks.test-wasm]
