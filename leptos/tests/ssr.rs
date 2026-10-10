@@ -15,11 +15,14 @@ fn simple_ssr_test() {
         </div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div><button>-1<!></button><span>Value: \
+         <!>0<!>!<!><!></span><button>+1<!></button><!><!></div>"
+    } else {
         "<div><button>-1</button><span>Value: \
          <!>0<!>!</span><button>+1</button></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 #[cfg(feature = "ssr")]
@@ -46,12 +49,17 @@ fn ssr_test_with_components() {
         </div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div class=\"counters\"><div><button>-1<!></button><span>Value: \
+         <!>1<!>!<!><!></span><button>+1<!></button><!><!></div><div><button>\
+         -1<!></button><span>Value: <!>2<!>!<!><!></span><button>+1<!></\
+         button><!><!></div><!><!></div>"
+    } else {
         "<div class=\"counters\"><div><button>-1</button><span>Value: \
          <!>1<!>!</span><button>+1</button></div><div><button>-1</\
          button><span>Value: <!>2<!>!</span><button>+1</button></div></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 #[cfg(feature = "ssr")]
@@ -77,12 +85,17 @@ fn ssr_test_with_snake_case_components() {
         </div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div class=\"counters\"><div><button>-1<!></button><span>Value: \
+         <!>1<!>!<!><!></span><button>+1<!></button><!><!></div><div><button>\
+         -1<!></button><span>Value: <!>2<!>!<!><!></span><button>+1<!></\
+         button><!><!></div><!><!></div>"
+    } else {
         "<div class=\"counters\"><div><button>-1</button><span>Value: \
          <!>1<!>!</span><button>+1</button></div><div><button>-1</\
          button><span>Value: <!>2<!>!</span><button>+1</button></div></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 #[cfg(feature = "ssr")]
@@ -188,11 +201,14 @@ fn ssr_with_styles() {
         </div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div class=\"myclass\"><button class=\"btn \
+         myclass\">-1<!></button><!></div>"
+    } else {
         "<div class=\"myclass\"><button class=\"btn \
          myclass\">-1</button></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 #[cfg(feature = "ssr")]
@@ -287,10 +303,12 @@ fn ssr_textarea_escapes_static_content() {
         <div><textarea>"a < b & c"</textarea></div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div><textarea>a &lt; b &amp; c</textarea><!></div>"
+    } else {
         "<div><textarea>a &lt; b &amp; c</textarea></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 // NOTE: This test was added in 12e1d7c.

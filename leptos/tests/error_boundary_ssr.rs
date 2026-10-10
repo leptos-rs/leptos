@@ -30,10 +30,13 @@ fn error_boundary_renders_children_when_no_error() {
     }
     .to_html();
 
-    assert_eq!(
-        rendered,
+    let expected = if cfg!(erase_components) {
+        "<ul><li>0<!></li><li>1<!></li><li>2<!></li><li>3<!></li><li>4<!></\
+         li><!><!></ul>"
+    } else {
         "<ul><li>0</li><li>1</li><li>2</li><li>3</li><li>4</li><!></ul>"
-    );
+    };
+    assert_eq!(rendered, expected);
     assert!(!rendered.contains("FALLBACK"));
 }
 
@@ -54,6 +57,11 @@ fn error_boundary_rolls_back_children_and_renders_fallback_on_error() {
     }
     .to_html();
 
-    assert_eq!(rendered, "<p>FALLBACK</p>");
+    let expected = if cfg!(erase_components) {
+        "<p>FALLBACK<!></p>"
+    } else {
+        "<p>FALLBACK</p>"
+    };
+    assert_eq!(rendered, expected);
     assert!(!rendered.contains("before"));
 }

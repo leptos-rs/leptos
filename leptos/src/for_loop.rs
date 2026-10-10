@@ -291,11 +291,14 @@ mod tests {
                     </For>
                 </ol>
             };
-            assert_eq!(
-                list.to_html(),
+            let expected = if cfg!(erase_components) {
+                "<ol><li>1<!></li><li>2<!></li><li>3<!></li><li>4<!></li><li>\
+                 5<!></li><!><!></ol>"
+            } else {
                 "<ol><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><!></\
                  ol>"
-            );
+            };
+            assert_eq!(list.to_html(), expected);
         });
     }
 
@@ -352,11 +355,14 @@ mod signal_or_fn_tests {
                     </For>
                 </ol>
             };
-            assert_eq!(
-                list.to_html(),
+            let expected = if cfg!(erase_components) {
+                "<ol><li>1<!></li><li>2<!></li><li>3<!></li><li>4<!></li><li>\
+                 5<!></li><!><!></ol>"
+            } else {
                 "<ol><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li><!></\
                  ol>"
-            );
+            };
+            assert_eq!(list.to_html(), expected);
         });
     }
 
@@ -371,10 +377,12 @@ mod signal_or_fn_tests {
                     </For>
                 </ol>
             };
-            assert_eq!(
-                list.to_html(),
+            let expected = if cfg!(erase_components) {
+                "<ol><li>1<!></li><li>2<!></li><li>3<!></li><!><!></ol>"
+            } else {
                 "<ol><li>1</li><li>2</li><li>3</li><!></ol>"
-            );
+            };
+            assert_eq!(list.to_html(), expected);
         });
     }
 }
