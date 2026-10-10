@@ -28,7 +28,7 @@ pub(crate) struct RequestInner {
 }
 
 #[derive(Debug)]
-pub(crate) struct AbortOnDrop(Option<AbortController>);
+pub(crate) struct AbortOnDrop(pub(crate) Option<AbortController>);
 
 impl AbortOnDrop {
     /// Prevents the request from being aborted on drop.

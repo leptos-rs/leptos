@@ -108,21 +108,21 @@ pub mod browser {
                     request,
                     mut abort_ctrl,
                 } = req;
-                let res = request
-                    .send()
-                    .await
-                    .map(|res| BrowserResponse(SendWrapper::new(res)))
-                    .map_err(|e| {
-                        ServerFnErrorErr::Request(e.to_string())
-                            .into_app_error()
-                    });
-
-                // at this point, the future has successfully resolved without being dropped, so we
-                // can prevent the `AbortController` from firing
-                if let Some(ctrl) = abort_ctrl.as_mut() {
-                    ctrl.prevent_cancellation();
+                match request.send().await {
+                    // Headers can arrive before the body, so keep cancellation
+                    // armed until the response body has been read.
+                    Ok(res) => Ok(BrowserResponse(
+                        SendWrapper::new(res),
+                        SendWrapper::new(abort_ctrl),
+                    )),
+                    Err(e) => {
+                        if let Some(ctrl) = abort_ctrl.as_mut() {
+                            ctrl.prevent_cancellation();
+                        }
+                        Err(ServerFnErrorErr::Request(e.to_string())
+                            .into_app_error())
+                    }
                 }
-                res
             })
         }
 
