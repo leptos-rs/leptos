@@ -62,42 +62,49 @@ pub trait ExtendResponse: Sized {
                 pending.await;
             }
 
-            if let Some(prefetches) =
-                prefetches.0.try_read_value().filter(|p| !p.is_empty())
-            {
-                use leptos::prelude::*;
-
-                let nonce =
-                    use_nonce().map(|n| n.to_string()).unwrap_or_default();
-                if let Some(manifest_read) = use_context::<WasmSplitManifest>()
-                    .and_then(|m| m.0.try_read_value())
+            // awaiting the render may have resumed this task on another thread,
+            // so look up the nonce, manifest and meta context under this
+            // response's owner rather than whichever owner is current there
+            owner.with(|| {
+                if let Some(prefetches) =
+                    prefetches.0.try_read_value().filter(|p| !p.is_empty())
                 {
-                    let (pkg_path, manifest, wasm_split_file) = &*manifest_read;
+                    use leptos::prelude::*;
 
-                    let all_prefetches = prefetches.iter().flat_map(|key| {
-                        manifest.get(*key).into_iter().flatten()
-                    });
+                    let nonce =
+                        use_nonce().map(|n| n.to_string()).unwrap_or_default();
+                    if let Some(manifest_read) =
+                        use_context::<WasmSplitManifest>()
+                            .and_then(|m| m.0.try_read_value())
+                    {
+                        let (pkg_path, manifest, wasm_split_file) =
+                            &*manifest_read;
 
-                    for module in all_prefetches {
-                        // to_html() on leptos_meta components registers them with the meta context,
-                        // rather than returning HTML directly
+                        let all_prefetches = prefetches.iter().flat_map(|key| {
+                            manifest.get(*key).into_iter().flatten()
+                        });
+
+                        for module in all_prefetches {
+                            // to_html() on leptos_meta components registers them with the meta context,
+                            // rather than returning HTML directly
+                            _ = view! {
+                                <Link
+                                    rel="preload"
+                                    href=format!("{pkg_path}/{module}.wasm")
+                                    as_="fetch"
+                                    type_="application/wasm"
+                                    crossorigin=nonce.clone()
+                                />
+                            }
+                            .to_html();
+                        }
                         _ = view! {
-                            <Link
-                                rel="preload"
-                                href=format!("{pkg_path}/{module}.wasm")
-                                as_="fetch"
-                                type_="application/wasm"
-                                crossorigin=nonce.clone()
-                            />
+                            <Link rel="modulepreload" href=format!("{pkg_path}/{wasm_split_file}") crossorigin=nonce/>
                         }
                         .to_html();
                     }
-                    _ = view! {
-                        <Link rel="modulepreload" href=format!("{pkg_path}/{wasm_split_file}") crossorigin=nonce/>
-                    }
-                    .to_html();
                 }
-            }
+            });
 
             let mut stream = Box::pin(
                 meta_context.inject_meta_context(stream).await.then({
