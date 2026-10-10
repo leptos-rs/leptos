@@ -4,7 +4,7 @@ authors = ["Greg Johnston"]
 license = "MIT"
 repository = "https://github.com/leptos-rs/leptos"
 description = "Utilities to help build server integrations for the Leptos web framework."
-version = "0.8.9"
+version = "0.9.0-beta2"
 rust-version.workspace = true
 edition.workspace = true
 
@@ -15,7 +15,22 @@ leptos = { workspace = true }
 leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_config = { workspace = true }
+mime = { workspace = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
+tokio = { workspace = true, default-features = false, optional = true }
+lru = { workspace = true, optional = true }
+or_poisoned = { workspace = true, default-features = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, default-features = false, features = [
+  "macros",
+  "rt",
+  "rt-multi-thread",
+  "fs",
+] }
+
+[features]
+fs = ["dep:tokio", "tokio/fs", "tokio/sync", "dep:lru", "dep:or_poisoned"]
 
 [package.metadata.docs.rs]
 all-features = true

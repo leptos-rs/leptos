@@ -1,4 +1,4 @@
-use leptos::{prelude::*, task::spawn_local};
+use leptos::{prelude::*, task::spawn_local, LazyViewError};
 use leptos_router::{
     components::{Outlet, ParentRoute, Route, Router, Routes},
     lazy_route, Lazy, LazyRoute, StaticSegment,
@@ -39,15 +39,22 @@ pub fn App() -> impl IntoView {
             </span>
         </nav>
         <Router set_is_routing>
-            <Routes fallback=|| "Not found.">
-                <Route path=StaticSegment("") view=ViewA/>
-                <Route path=StaticSegment("b") view=ViewB/>
-                <Route path=StaticSegment("c") view={Lazy::<ViewC>::new()}/>
-                // you can nest lazy routes, and there data and views will all load concurrently
-                <ParentRoute path=StaticSegment("d") view={Lazy::<ViewD>::new()}>
-                    <Route path=StaticSegment("") view={Lazy::<ViewE>::new()}/>
-                </ParentRoute>
-            </Routes>
+            // If a lazy route's chunk fails to load, its view renders an `Err`,
+            // which this `<ErrorBoundary>` catches to show a fallback instead of
+            // panicking. The failure isn't cached, so navigating again retries.
+            <ErrorBoundary fallback=|_errors| {
+                view! { <p id="chunk-error">"This page failed to load. Try navigating to it again."</p> }
+            }>
+                <Routes fallback=|| "Not found.">
+                    <Route path=StaticSegment("") view=ViewA/>
+                    <Route path=StaticSegment("b") view=ViewB/>
+                    <Route path=StaticSegment("c") view={Lazy::<ViewC>::new()}/>
+                    // you can nest lazy routes, and there data and views will all load concurrently
+                    <ParentRoute path=StaticSegment("d") view={Lazy::<ViewD>::new()}>
+                        <Route path=StaticSegment("") view={Lazy::<ViewE>::new()}/>
+                    </ParentRoute>
+                </Routes>
+            </ErrorBoundary>
         </Router>
     }
 }
@@ -164,7 +171,7 @@ pub struct Album {
 // View C: a lazy view, and some data, loaded in parallel when we navigate to /c.
 #[derive(Clone)]
 pub struct ViewC {
-    data: LocalResource<Vec<Album>>,
+    data: LocalResource<Result<Vec<Album>, LazyViewError>>,
 }
 
 // Lazy-loaded routes need to implement the LazyRoute trait. They define a "route data" struct,
@@ -182,10 +189,14 @@ impl LazyRoute for ViewC {
         // the data method itself is synchronous: it typically creates things like Resources,
         // which are created synchronously but spawn an async data-loading task
         // if you want further code-splitting, however, you can create a lazy function to load the data!
-        #[lazy]
-        async fn lazy_data() -> Vec<Album> {
+        // A `fallible` lazy data loader: if its chunk fails to load, the error
+        // flows through the `Resource` and is surfaced to the `<ErrorBoundary>`
+        // (see `view`), instead of panicking. This is what makes navigating to
+        // the route resilient to a transient chunk-fetch failure.
+        #[lazy(fallible)]
+        async fn lazy_data() -> Result<Vec<Album>, LazyViewError> {
             gloo_timers::future::TimeoutFuture::new(250).await;
-            vec![
+            Ok(vec![
                 Album {
                     user_id: 1,
                     id: 1,
@@ -201,7 +212,7 @@ impl LazyRoute for ViewC {
                     id: 3,
                     title: "omnis laborum odio".into(),
                 },
-            ]
+            ])
         }
 
         Self {
@@ -212,17 +223,22 @@ impl LazyRoute for ViewC {
     fn view(this: Self) -> AnyView {
         let albums = move || {
             Suspend::new(async move {
-                this.data
-                    .await
-                    .into_iter()
-                    .map(|album| {
-                        view! {
-                            <li id=format!("{}-{}", album.user_id, album.id)>
-                                {album.title}
-                            </li>
-                        }
-                    })
-                    .collect::<Vec<_>>()
+                // `?` propagates a failed data-chunk load as `Err(LazyViewError)`,
+                // which renders to the nearest `<ErrorBoundary>` instead of
+                // panicking. The failure isn't cached, so a retry can recover.
+                let albums = this.data.await?;
+                Ok::<_, LazyViewError>(
+                    albums
+                        .into_iter()
+                        .map(|album| {
+                            view! {
+                                <li id=format!("{}-{}", album.user_id, album.id)>
+                                    {album.title}
+                                </li>
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                )
             })
         };
         view! {

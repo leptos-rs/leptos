@@ -1,22 +1,23 @@
 use crate::{
-    html::attribute::{any_attribute::AnyAttribute, Attribute},
+    html::attribute::{Attribute, any_attribute::AnyAttribute},
     hydration::Cursor,
     ssr::StreamBuilder,
     view::{
-        add_attr::AddAnyAttr, iterators::OptionState, Mountable, Position,
-        PositionState, Render, RenderHtml,
+        Mountable, Position, PositionState, Render, RenderFlags, RenderHtml,
+        add_attr::AddAnyAttr, iterators::OptionState,
     },
 };
 use any_spawner::Executor;
 use futures::{
+    FutureExt,
     future::{AbortHandle, Abortable},
-    select, FutureExt,
+    select,
 };
 use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::{
-        suspense::{LocalResourceNotifier, SuspenseContext},
         ScopedFuture,
+        suspense::{LocalResourceNotifier, SuspenseContext},
     },
     graph::{
         AnySource, AnySubscriber, Observer, ReactiveNode, Source, Subscriber,
@@ -296,21 +297,14 @@ where
         self,
         buf: &mut String,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) {
         // TODO wrap this with a Suspense as needed
         // currently this is just used for Routes, which creates a Suspend but never actually needs
         // it (because we don't lazy-load routes on the server)
         if let Some(inner) = self.inner.now_or_never() {
-            inner.to_html_with_buf(
-                buf,
-                position,
-                escape,
-                mark_branches,
-                extra_attrs,
-            );
+            inner.to_html_with_buf(buf, position, flags, extra_attrs);
         }
     }
 
@@ -318,8 +312,7 @@ where
         self,
         buf: &mut StreamBuilder,
         position: &mut Position,
-        escape: bool,
-        mark_branches: bool,
+        flags: RenderFlags,
         extra_attrs: Vec<AnyAttribute>,
     ) where
         Self: Sized,
@@ -329,8 +322,7 @@ where
             Some(inner) => inner.to_html_async_with_buf::<OUT_OF_ORDER>(
                 buf,
                 position,
-                escape,
-                mark_branches,
+                flags,
                 extra_attrs,
             ),
             None => {
@@ -355,7 +347,7 @@ where
                         buf.push_fallback::<()>(
                             (),
                             &mut fallback_position,
-                            mark_branches,
+                            flags.mark_branches,
                             extra_attrs.clone(),
                         );
 
@@ -367,7 +359,7 @@ where
                         buf.push_async_out_of_order(
                             fut,
                             position,
-                            mark_branches,
+                            flags.mark_branches,
                             extra_attrs,
                         );
                     } else {
@@ -379,8 +371,7 @@ where
                                 value.to_html_async_with_buf::<OUT_OF_ORDER>(
                                     &mut builder,
                                     &mut position,
-                                    escape,
-                                    mark_branches,
+                                    flags,
                                     extra_attrs,
                                 );
                                 builder.finish().take_chunks()

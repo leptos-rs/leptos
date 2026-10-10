@@ -6,6 +6,7 @@ use crate::errors::LeptosConfigError;
 use config::{Case, Config, File, FileFormat};
 use std::{
     env::VarError,
+    fmt::Display,
     fs,
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -50,6 +51,13 @@ pub struct LeptosOptions {
     #[builder(setter(into), default=default_site_pkg_dir())]
     #[serde(default = "default_site_pkg_dir")]
     pub site_pkg_dir: Arc<str>,
+    /// The URL path the pkg assets (JS/WASM/CSS) are served under, when it
+    /// should differ from `site_pkg_dir`, e.g. for an absolute `site_pkg_dir`.
+    ///
+    /// Defaults to `site_pkg_dir`.
+    #[builder(default, setter(into, strip_option))]
+    #[serde(default)]
+    pub site_pkg_url: Option<Arc<str>>,
     /// Used to configure the running environment of Leptos.
     /// Can be used to load dev constants and keys v prod,
     /// or change things based on the deployment environment.
@@ -181,17 +189,27 @@ impl LeptosOptions {
         path
     }
 
-    /// Returns the base route to the `site_pkg_dir` with a leading and trailing slash added as necessary.
+    /// Returns the URL path segment the pkg assets (JS/WASM/CSS) are served
+    /// under: [`site_pkg_url`](Self::site_pkg_url) if set, otherwise
+    /// [`site_pkg_dir`](Self::site_pkg_dir).
+    pub fn pkg_url_path(&self) -> &str {
+        self.site_pkg_url
+            .as_deref()
+            .unwrap_or(&self.site_pkg_dir)
+            .trim_matches('/')
+    }
+
+    /// Returns [`pkg_url_path`](Self::pkg_url_path) as a route base, with a
+    /// leading and trailing slash.
     pub fn site_pkg_dir_route_base(&self) -> String {
-        let mut path = String::new();
-        // While it shouldn't start with a '/', but check anyway.
-        if !self.site_pkg_dir.starts_with('/') {
-            path.push('/');
+        let pkg = self.pkg_url_path();
+        if pkg.is_empty() {
+            return "/".to_string();
         }
-        path.push_str(&self.site_pkg_dir);
-        if !path.ends_with('/') {
-            path.push('/');
-        }
+        let mut path = String::with_capacity(pkg.len() + 2);
+        path.push('/');
+        path.push_str(pkg);
+        path.push('/');
         path
     }
 
@@ -215,6 +233,8 @@ impl LeptosOptions {
             output_name: output_name.into(),
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?.into(),
             site_pkg_dir: env_w_default("LEPTOS_SITE_PKG_DIR", "pkg")?.into(),
+            site_pkg_url: env_wo_default("LEPTOS_SITE_PKG_URL")?
+                .map(Into::into),
             env: env_from_str(env_w_default("LEPTOS_ENV", "DEV")?.as_str())?,
             site_addr: env_w_default("LEPTOS_SITE_ADDR", "127.0.0.1:3000")?
                 .parse()?,
@@ -227,7 +247,7 @@ impl LeptosOptions {
                 None => None,
             },
             reload_ws_protocol: ws_from_str(
-                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "ws")?.as_str(),
+                env_w_default("LEPTOS_RELOAD_WS_PROTOCOL", "auto")?.as_str(),
             )?,
             not_found_path: env_w_default("LEPTOS_NOT_FOUND_PATH", "/404")?
                 .into(),
@@ -301,6 +321,7 @@ pub const ENV_PROD_KEY_LONG: &str = "production";
 /// Setting this to the `PROD` variant will not include the WebSocket code for `cargo-leptos` watch mode.
 /// Defaults to `DEV`.
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum Env {
     PROD,
     #[default]
@@ -392,20 +413,23 @@ impl<'de> serde::Deserialize<'de> for Env {
 #[derive(
     Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default,
 )]
+#[non_exhaustive]
 pub enum ReloadWSProtocol {
-    #[default]
     WS,
     WSS,
+    #[default]
+    Auto,
 }
 
 fn ws_from_str(input: &str) -> Result<ReloadWSProtocol, LeptosConfigError> {
     let sanitized = input.to_lowercase();
     match sanitized.as_ref() {
+        "auto" => Ok(ReloadWSProtocol::Auto),
         "ws" | "WS" => Ok(ReloadWSProtocol::WS),
         "wss" | "WSS" => Ok(ReloadWSProtocol::WSS),
         _ => Err(LeptosConfigError::EnvVarError(format!(
-            "{input} is not a supported websocket protocol. Use only `ws` or \
-             `wss`.",
+            "{input} is not a supported websocket protocol. Use only `auto`, \
+             `ws` or `wss`.",
         ))),
     }
 }
@@ -437,6 +461,16 @@ impl TryFrom<String> for ReloadWSProtocol {
 
     fn try_from(s: String) -> Result<Self, Self::Error> {
         ws_from_str(s.as_str())
+    }
+}
+
+impl Display for ReloadWSProtocol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReloadWSProtocol::WS => f.write_str("ws"),
+            ReloadWSProtocol::WSS => f.write_str("wss"),
+            ReloadWSProtocol::Auto => f.write_str("auto"),
+        }
     }
 }
 

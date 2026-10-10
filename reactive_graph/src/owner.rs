@@ -1,7 +1,9 @@
 //! The reactive ownership model, which manages effect cancellation, cleanups, and arena allocation.
 
 #[cfg(feature = "hydration")]
-use hydration_context::SharedContext;
+use hydration_context::{
+    SerializedDataId, SerializedDataIdScope, SharedContext,
+};
 use or_poisoned::OrPoisoned;
 use rustc_hash::FxHashMap;
 use std::{
@@ -21,15 +23,15 @@ mod stored_value;
 use self::arena::Arena;
 pub use arc_stored_value::ArcStoredValue;
 #[cfg(feature = "sandboxed-arenas")]
-pub use arena::sandboxed::Sandboxed;
-#[cfg(feature = "sandboxed-arenas")]
 use arena::ArenaMap;
 use arena::NodeId;
+#[cfg(feature = "sandboxed-arenas")]
+pub use arena::sandboxed::Sandboxed;
 pub use arena_item::*;
 pub use context::*;
 pub use storage::*;
 #[allow(deprecated)] // allow exporting deprecated fn
-pub use stored_value::{store_value, FromLocal, StoredValue};
+pub use stored_value::{FromLocal, StoredValue, store_value};
 
 /// A reactive owner, which manages
 /// 1) the cancellation of [`Effect`](crate::effect::Effect)s,
@@ -257,6 +259,16 @@ impl Owner {
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
         };
+        // When the children list is about to grow its allocation, drop the
+        // `Weak`s whose owners have already been dropped. `children` is
+        // otherwise append-only, so a long-lived parent would accumulate dead
+        // weak refs without bound and pay for walking them on cleanup. Pruning
+        // only at a reallocation boundary keeps this amortized O(1).
+        if !inner.children.is_empty()
+            && inner.children.len() == inner.children.capacity()
+        {
+            inner.children.retain(|child| child.strong_count() > 0);
+        }
         inner.children.push(Arc::downgrade(&child.inner));
         child
     }
@@ -327,7 +339,29 @@ impl Owner {
     }
 
     fn register(&self, node: NodeId) {
-        self.inner.write().or_poisoned().nodes.push(node);
+        let mut inner = self.inner.write().or_poisoned();
+        // When the node list is about to grow its allocation, drop the ids
+        // whose arena entries have already been disposed. `ArenaItem::dispose`
+        // removes the arena entry but cannot reach back into the owner, so
+        // without this a long-lived owner that allocates and disposes many
+        // values would accumulate dead ids unboundedly. Pruning only at a
+        // reallocation boundary keeps this amortized O(1) and bounds `nodes` to
+        // roughly the live set.
+        if !inner.nodes.is_empty()
+            && inner.nodes.len() == inner.nodes.capacity()
+        {
+            #[cfg(not(feature = "sandboxed-arenas"))]
+            Arena::with(|arena| {
+                inner.nodes.retain(|n| arena.contains_key(*n));
+            });
+            #[cfg(feature = "sandboxed-arenas")]
+            {
+                let arena = Arc::clone(&inner.arena);
+                let arena = arena.read().or_poisoned();
+                inner.nodes.retain(|n| arena.contains_key(*n));
+            }
+        }
+        inner.nodes.push(node);
     }
 
     /// Returns the current `Owner`, if any.
@@ -373,14 +407,31 @@ impl Owner {
 
     /// Returns the current [`SharedContext`], if any.
     #[cfg(feature = "hydration")]
-    pub fn current_shared_context(
-    ) -> Option<Arc<dyn SharedContext + Send + Sync>> {
+    pub fn current_shared_context()
+    -> Option<Arc<dyn SharedContext + Send + Sync>> {
         OWNER.with(|o| {
             o.borrow()
                 .as_ref()
                 .and_then(|o| o.upgrade())
                 .and_then(|current| current.shared_context.clone())
         })
+    }
+
+    /// Returns the next [`SerializedDataId`] from the given [`SharedContext`].
+    ///
+    /// If a [`SerializedDataIdScope`] has been provided via context (for example, by a
+    /// `<Suspense/>` boundary), the ID will be allocated from that scope.
+    #[cfg(feature = "hydration")]
+    pub fn next_serialized_data_id(
+        shared_context: &(dyn SharedContext + Send + Sync),
+    ) -> SerializedDataId {
+        if shared_context.get_is_hydrating()
+            && let Some(scope) = use_context::<SerializedDataIdScope>()
+        {
+            scope.next_id()
+        } else {
+            shared_context.next_id()
+        }
     }
 
     /// Runs the given function, after indicating that the current [`SharedContext`] should be
@@ -586,5 +637,47 @@ impl Cleanup for RwLock<OwnerInner> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::traits::Dispose;
+
+    // A long-lived owner under which many values are allocated and immediately
+    // disposed must not accumulate dead `NodeId`s: `register` prunes disposed
+    // ids when the `nodes` Vec would otherwise grow.
+    #[test]
+    fn dispose_does_not_leak_node_ids_into_owner() {
+        let owner = Owner::new();
+        owner.set();
+
+        for _ in 0..10_000 {
+            let value = StoredValue::new(0u32);
+            value.dispose();
+        }
+
+        let len = owner.inner.read().or_poisoned().nodes.len();
+        assert!(
+            len <= 64,
+            "owner accumulated {len} dead NodeIds after dispose-heavy loop"
+        );
+    }
+
+    // A long-lived parent under which many short-lived children are created and
+    // dropped must not accumulate dead `Weak` refs: `child` prunes them when
+    // the `children` Vec would otherwise grow.
+    #[test]
+    fn dropped_children_do_not_leak_weak_refs() {
+        let parent = Owner::new();
+
+        for _ in 0..10_000 {
+            let child = parent.child();
+            drop(child);
+        }
+
+        let len = parent.inner.read().or_poisoned().children.len();
+        assert!(len <= 64, "parent accumulated {len} dead child Weak refs");
     }
 }

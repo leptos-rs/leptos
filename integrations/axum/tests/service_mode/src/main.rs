@@ -2,12 +2,17 @@
 mod router {
     use axum::{
         Router,
-        http::{HeaderName, HeaderValue},
+        http::{HeaderName, HeaderValue, request::Parts},
+        response::IntoResponse,
     };
     use clap::{Parser, Subcommand};
     use leptos::prelude::{get_configuration, provide_context, use_context};
-    use leptos_axum::{ErrorHandler, LeptosRoutes, generate_route_list};
+    use leptos_axum::{
+        rust_embed::{self, Embed},
+        ErrorHandler, LeptosContextLayer, LeptosRoutes, generate_route_list,
+    };
     use service_mode::app::{App, shell};
+    use tower::builder::ServiceBuilder;
 
     #[derive(Parser)]
     pub struct Cli {
@@ -23,9 +28,41 @@ mod router {
         ErrorHandlerService,
         ErrorHandlerServiceFallback,
         RouteSitePkgNoFallback,
+        RouteSitePkgDirMethod,
+        RouteSitePkgDirFallbackMethod,
+        RouteLeptosContext,
+
+        ConfDefault,
+        ConfDefaultWithSitePkg,
+        ConfDefaultWithErrorHandler,
+        ConfNew,
+        ConfNewWithAssets,
+        ConfNewFsSiteRootAssets,
+        ConfNewWithAssetsWithContext,
+
+        ConfEmbed,
+        ConfEmbedWithAssets,
+        ConfEmbedWithSiteRootAtRoot,
+        ConfEmbedWithSiteRootAssets,
+        ConfDefaultEmbedSitePkg,
+        ConfDefaultEmbedLeptosSiteRoot,
+        ConfDefaultEmbedMixedFs,
 
         LeptosOptionsCssBase,
     }
+
+    #[derive(Clone, Copy, Embed)]
+    #[folder = "$LEPTOS_SITE_ROOT"]
+    #[prefix = "/"]
+    struct SiteRoot;
+
+    #[derive(Clone, Copy, Embed)]
+    #[folder = "$LEPTOS_SITE_ROOT/$LEPTOS_SITE_PKG_DIR"]
+    // `RustEmbed` does not currently interpolate other values, only on `folder`.
+    // FIXME When `RustEmbed` does support this, or this is supported through `leptos_macro`.
+    // #[prefix = "/$LEPTOS_SITE_PKG_DIR/"]
+    #[prefix = "/pkg/"]
+    struct SitePkg;
 
     impl From<Cli> for Router {
         fn from(cli: Cli) -> Self {
@@ -90,7 +127,7 @@ mod router {
                         move || shell(leptos_options.clone())
                     })
                     .fallback_service(
-                        leptos_axum::site_pkg_dir_service(&leptos_options)
+                        leptos_axum::serve_site_root_service(&leptos_options)
                             .fallback(ErrorHandler::new(
                                 shell,
                                 leptos_options.clone(),
@@ -103,23 +140,212 @@ mod router {
                         move || shell(leptos_options.clone())
                     })
                     .route_service(
-                        &leptos_axum::site_pkg_dir_service_route_path(
+                        &leptos_axum::serve_site_root_service_route_path(
                             &leptos_options,
                         ),
-                        leptos_axum::site_pkg_dir_service(&leptos_options),
+                        leptos_axum::serve_site_root_service(&leptos_options),
                     )
                     .fallback_service(ErrorHandler::new(
                         shell,
                         leptos_options.clone(),
                     ))
                     .with_state(leptos_options),
+                Mode::RouteSitePkgDirMethod => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    .leptos_route_site_pkg_dir(&leptos_options, shell)
+                    .with_state(leptos_options),
+                Mode::RouteSitePkgDirFallbackMethod => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    // to spice it up, different fallback "shells".
+                    .leptos_route_site_pkg_dir(
+                        &leptos_options,
+                        |_| "site_pkg_dir fallback",
+                    )
+                    .leptos_route_fallback(&leptos_options, |_| "root fallback")
+                    .with_state(leptos_options),
+                Mode::RouteLeptosContext => Router::new()
+                    .leptos_routes(&leptos_options, routes, {
+                        let leptos_options = leptos_options.clone();
+                        move || shell(leptos_options.clone())
+                    })
+                    .route_service(
+                        "/test_leptos_context",
+                        ServiceBuilder::new()
+                            .layer(LeptosContextLayer::new())
+                            // With the above layer, the following service vibes like
+                            // a Leptos server function with the available context.
+                            .service_fn(|_| async move {
+                                let opts = use_context::<
+                                    leptos_axum::ResponseOptions,
+                                >()
+                                .unwrap();
+                                let parts = use_context::<Parts>().unwrap();
+                                let method = parts.method;
+                                opts.insert_header(
+                                    HeaderName::from_static("x-foo"),
+                                    HeaderValue::from_static("bar"),
+                                );
+                                Ok(format!("{method} basic").into_response())
+                            }),
+                    )
+                    .route_service(
+                        "/test_leptos_context_extra",
+                        ServiceBuilder::new()
+                            .layer(LeptosContextLayer::new_with_context(|| {
+                                provide_context(String::from("extra"));
+                            }))
+                            // With the above layer, the following service vibes like
+                            // a Leptos server function with the available context.
+                            .service_fn(|_| async move {
+                                let opts = use_context::<
+                                    leptos_axum::ResponseOptions,
+                                >()
+                                .unwrap();
+                                let msg = use_context::<String>().unwrap();
+                                let parts = use_context::<Parts>().unwrap();
+                                let method = parts.method;
+                                opts.insert_header(
+                                    HeaderName::from_static("x-foo"),
+                                    HeaderValue::from_static("bar"),
+                                );
+                                Ok(format!("{method} {msg}").into_response())
+                            }),
+                    )
+                    .with_state(leptos_options),
+
+                Mode::ConfDefault => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::default()
+                        .app(App)
+                        .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfDefaultWithSitePkg => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::default()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .enable_fs_site_pkg(),
+                    ),
+                Mode::ConfDefaultWithErrorHandler => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::default()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .error_handler(true),
+                    ),
+                Mode::ConfNew => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::new()
+                        .app(App)
+                        .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfNewWithAssets => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::new_with_assets()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone()),
+                    ),
+                Mode::ConfNewFsSiteRootAssets => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::new()
+                            .app(App)
+                            .shell(shell)
+                            .enable_fs_leptos_site_root("/assets")
+                            .state(leptos_options.clone()),
+                    ),
+                Mode::ConfNewWithAssetsWithContext => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::new_with_assets()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .with_context(move || {
+                                let opts = use_context::<
+                                    leptos_axum::ResponseOptions,
+                                >()
+                                .unwrap();
+                                opts.insert_header(
+                                    HeaderName::from_static(
+                                        "cross-origin-opener-policy",
+                                    ),
+                                    HeaderValue::from_static("same-origin"),
+                                );
+                                opts.insert_header(
+                                    HeaderName::from_static(
+                                        "cross-origin-embedder-policy",
+                                    ),
+                                    HeaderValue::from_static("require-corp"),
+                                );
+                            }),
+                    ),
+
+                Mode::ConfEmbed => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::embed(SiteRoot)
+                        .app(App)
+                        .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfEmbedWithAssets => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::embed_with_assets(SiteRoot)
+                        .app(App)
+                        .shell(shell)
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfEmbedWithSiteRootAtRoot => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::embed(SiteRoot)
+                        .app(App)
+                        .shell(shell)
+                        .set_embed_leptos_site_root_path("/")
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfEmbedWithSiteRootAssets => Router::new().leptos_route_configure(
+                    leptos_axum::RouterConfiguration::embed(SiteRoot)
+                        .app(App)
+                        .shell(shell)
+                        .set_embed_leptos_site_root_path("/assets")
+                        .state(leptos_options.clone()),
+                ),
+                Mode::ConfDefaultEmbedSitePkg => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::default()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .enable_embed_site_pkg(SiteRoot),
+                    ),
+                Mode::ConfDefaultEmbedLeptosSiteRoot => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::default()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .enable_embed_leptos_site_root("/", SiteRoot),
+                    ),
+                Mode::ConfDefaultEmbedMixedFs => Router::new()
+                    .leptos_route_configure(
+                        leptos_axum::RouterConfiguration::default()
+                            .app(App)
+                            .shell(shell)
+                            .state(leptos_options.clone())
+                            .enable_embed_site_pkg(SitePkg)
+                            .enable_fs_leptos_site_root("/"),
+                    ),
 
                 Mode::LeptosOptionsCssBase => Router::new().nest(
                     &leptos_options.css_path(),
                     Router::new().route_service(
                         "/",
                         tower_http::services::ServeFile::new(
-                            &leptos_options.css_file_path(),
+                            leptos_options.css_file_path(),
                         ),
                     ),
                 ),

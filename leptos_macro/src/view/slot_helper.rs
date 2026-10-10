@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     diagnostics::Errors,
-    view::{fragment_to_tokens, utils::filter_prefixed_attrs, TagType},
+    view::{TagType, fragment_to_tokens, utils::filter_prefixed_attrs},
 };
 use proc_macro2::{Ident, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
@@ -43,11 +43,7 @@ pub(crate) fn slot_to_tokens(
         .iter()
         .filter_map(|node| {
             if let NodeAttribute::Attribute(node) = node {
-                if is_slot(node) {
-                    None
-                } else {
-                    Some(node)
-                }
+                if is_slot(node) { None } else { Some(node) }
             } else {
                 None
             }
@@ -229,11 +225,7 @@ pub(crate) fn get_slot(
 ) -> Option<&KeyedAttribute> {
     node.attributes().iter().find_map(|node| {
         if let NodeAttribute::Attribute(node) = node {
-            if is_slot(node) {
-                Some(node)
-            } else {
-                None
-            }
+            if is_slot(node) { Some(node) } else { None }
         } else {
             None
         }

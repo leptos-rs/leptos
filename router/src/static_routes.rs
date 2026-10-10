@@ -1,14 +1,22 @@
-use crate::{hooks::RawParamsMap, params::ParamsMap, PathSegment};
-use futures::{channel::oneshot, stream, Stream, StreamExt};
+use crate::{PathSegment, hooks::RawParamsMap, params::ParamsMap};
+use futures::{Stream, StreamExt, channel::oneshot, stream};
 use leptos::task::spawn;
+use or_poisoned::OrPoisoned;
 use reactive_graph::{owner::Owner, traits::GetUntracked};
 use std::{
+    collections::HashSet,
     fmt::{Debug, Display},
     future::Future,
     ops::Deref,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, LazyLock, Mutex},
 };
+
+/// Prevents request bursts or repeated write failures from starting one
+/// never-ending regeneration loop per request. Keyed by path like the
+/// integrations' static header cache.
+static REGENERATING_PATHS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 type PinnedFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
@@ -259,7 +267,28 @@ impl StaticPath {
                     }
                     paths = new_paths;
                 }
-                OptionalParam(_) => todo!(),
+                OptionalParam(name) => {
+                    let mut new_paths = vec![];
+                    for path in paths {
+                        new_paths.push(path.clone());
+                        if let Some(params) =
+                            params.as_ref().and_then(|params| params.get(name))
+                        {
+                            for val in params.iter() {
+                                new_paths.push(if val.starts_with("/") {
+                                    ResolvedStaticPath {
+                                        path: format!("{}{}", path.path, val),
+                                    }
+                                } else {
+                                    ResolvedStaticPath {
+                                        path: format!("{}/{}", path.path, val),
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    paths = new_paths;
+                }
             }
         }
         paths
@@ -291,18 +320,37 @@ impl Display for ResolvedStaticPath {
     }
 }
 
+/// The outcome of building a static route on demand via
+/// [`ResolvedStaticPath::build`].
+///
+/// Both variants carry the HTML that was just rendered so the caller can serve
+/// those exact bytes. Serving this in-memory HTML — instead of re-reading the
+/// file that was just written — keeps the response body paired with the
+/// headers captured during the *same* render: concurrent regenerations of one
+/// path race on disk (last writer wins), so a re-read could hand back another
+/// render's body alongside this request's headers.
+#[derive(Debug, Clone)]
+pub enum StaticResponse {
+    /// The route rendered successfully and its HTML was written to the static
+    /// file cache. Serve this HTML with the route's normal status.
+    Generated(String),
+    /// The route rendered to an error response (e.g. a 404) and was therefore
+    /// *not* written to the cache. Serve this HTML with the error status.
+    Error(String),
+}
+
 impl ResolvedStaticPath {
     /// Builds the page that corresponds to this path.
     pub async fn build<Fut, WriterFut>(
         self,
         render_fn: impl Fn(&ResolvedStaticPath) -> Fut + Send + Clone + 'static,
         writer: impl Fn(&ResolvedStaticPath, &Owner, String) -> WriterFut
-            + Send
-            + Clone
-            + 'static,
+        + Send
+        + Clone
+        + 'static,
         was_404: impl Fn(&Owner) -> bool + Send + Clone + 'static,
         regenerate: Vec<RegenerationFn>,
-    ) -> (Owner, Option<String>)
+    ) -> (Owner, StaticResponse)
     where
         Fut: Future<Output = (Owner, String)> + Send + 'static,
         WriterFut: Future<Output = Result<(), std::io::Error>> + Send + 'static,
@@ -327,50 +375,54 @@ impl ResolvedStaticPath {
                 if was_error(&owner) {
                     // can ignore errors from channel here, because it just means we're not
                     // awaiting the Future
-                    _ = tx.send((owner.clone(), Some(html)));
+                    _ = tx.send((owner.clone(), StaticResponse::Error(html)));
+                    // Uncached errors will be rendered again on the next request.
+                    return;
                 } else {
-                    if let Err(e) = writer(&self, &owner, html).await {
+                    // Clone once so the same bytes can be both written to the
+                    // cache and handed back to the caller to serve directly,
+                    // pairing the response body with this render's headers.
+                    if let Err(e) = writer(&self, &owner, html.clone()).await {
                         #[cfg(feature = "tracing")]
                         tracing::warn!("{e}");
 
                         #[cfg(not(feature = "tracing"))]
                         eprintln!("{e}");
                     }
-                    _ = tx.send((owner.clone(), None));
+                    _ = tx
+                        .send((owner.clone(), StaticResponse::Generated(html)));
                 }
 
-                // if there's a regeneration function, keep looping
-                let params = if regenerate.is_empty() {
-                    None
-                } else {
-                    Some(
-                        owner
-                            .use_context_bidirectional::<RawParamsMap>()
-                            .expect(
-                                "using static routing, but couldn't find \
-                                 ParamsMap",
-                            )
-                            .get_untracked(),
-                    )
-                };
+                // Loop if configured and no other build regenerates this path.
+                if regenerate.is_empty()
+                    || !REGENERATING_PATHS
+                        .lock()
+                        .or_poisoned()
+                        .insert(self.path.clone())
+                {
+                    return;
+                }
+                let params = owner
+                    .use_context_bidirectional::<RawParamsMap>()
+                    .expect("using static routing, but couldn't find ParamsMap")
+                    .get_untracked();
                 let mut regenerate = stream::select_all(
-                    regenerate
-                        .into_iter()
-                        .map(|r| owner.with(|| r(params.as_ref().unwrap()))),
+                    regenerate.into_iter().map(|r| owner.with(|| r(&params))),
                 );
                 while regenerate.next().await.is_some() {
                     let (owner, html) = render_fn(&self).await;
-                    if !was_error(&owner) {
-                        if let Err(e) = writer(&self, &owner, html).await {
-                            #[cfg(feature = "tracing")]
-                            tracing::warn!("{e}");
+                    if !was_error(&owner)
+                        && let Err(e) = writer(&self, &owner, html).await
+                    {
+                        #[cfg(feature = "tracing")]
+                        tracing::warn!("{e}");
 
-                            #[cfg(not(feature = "tracing"))]
-                            eprintln!("{e}");
-                        }
+                        #[cfg(not(feature = "tracing"))]
+                        eprintln!("{e}");
                     }
                     owner.unset_with_forced_cleanup();
                 }
+                REGENERATING_PATHS.lock().or_poisoned().remove(&self.path);
             }
         });
 
@@ -437,6 +489,73 @@ mod tests {
             vec![
                 ResolvedStaticPath::new("/post/first"),
                 ResolvedStaticPath::new("/post/second")
+            ]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_optional_param_without_params() {
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/blog".into()),
+            PathSegment::OptionalParam("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(None),
+            vec![ResolvedStaticPath::new("/blog")]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_optional_param_with_values() {
+        let mut params = StaticParamsMap::new();
+        params
+            .0
+            .push(("slug".into(), vec!["first".into(), "second".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/blog".into()),
+            PathSegment::OptionalParam("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/blog"),
+                ResolvedStaticPath::new("/blog/first"),
+                ResolvedStaticPath::new("/blog/second")
+            ]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_optional_param_no_double_slash() {
+        let mut params = StaticParamsMap::new();
+        params.0.push(("slug".into(), vec!["/first".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/blog".into()),
+            PathSegment::OptionalParam("slug".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/blog"),
+                ResolvedStaticPath::new("/blog/first")
+            ]
+        );
+    }
+
+    #[test]
+    fn static_path_segments_into_path_optional_param_before_static() {
+        let mut params = StaticParamsMap::new();
+        params.0.push(("slug".into(), vec!["first".into()]));
+        let segments = StaticPath::new(vec![
+            PathSegment::Static("/blog".into()),
+            PathSegment::OptionalParam("slug".into()),
+            PathSegment::Static("edit".into()),
+        ]);
+        assert_eq!(
+            segments.into_paths(Some(params)),
+            vec![
+                ResolvedStaticPath::new("/blog/edit"),
+                ResolvedStaticPath::new("/blog/first/edit")
             ]
         );
     }

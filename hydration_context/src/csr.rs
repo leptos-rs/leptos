@@ -13,7 +13,7 @@ impl SharedContext for CsrSharedContext {
 
     #[inline(always)]
     fn next_id(&self) -> SerializedDataId {
-        SerializedDataId(0)
+        SerializedDataId::new(0)
     }
 
     #[inline(always)]

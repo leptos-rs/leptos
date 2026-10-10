@@ -1,7 +1,7 @@
 use crate::{
+    KeyMap, StoreFieldTrigger,
     path::{StorePath, StorePathSegment},
     store_field::StoreField,
-    KeyMap, StoreFieldTrigger,
 };
 use reactive_graph::{
     signal::guards::{Mapped, MappedMut},

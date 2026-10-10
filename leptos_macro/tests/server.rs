@@ -2,7 +2,7 @@
 pub mod tests {
     use leptos::{
         server,
-        server_fn::{codec, Http, ServerFn, ServerFnError},
+        server_fn::{Http, ServerFn, ServerFnError, codec},
     };
     use std::any::TypeId;
 

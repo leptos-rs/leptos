@@ -1,6 +1,6 @@
 use leptos_config::{
-    get_config_from_env, get_config_from_file, get_config_from_str,
-    get_configuration, Env, LeptosOptions,
+    Env, LeptosOptions, get_config_from_env, get_config_from_file,
+    get_config_from_str, get_configuration,
 };
 use std::{fs::File, io::Write, net::SocketAddr, path::Path, str::FromStr};
 use tempfile::NamedTempFile;
@@ -170,6 +170,7 @@ async fn get_configuration_from_env() {
             ("LEPTOS_OUTPUT_NAME", Some("app-test")),
             ("LEPTOS_SITE_ROOT", Some("my_target/site")),
             ("LEPTOS_SITE_PKG_DIR", Some("my_pkg")),
+            ("LEPTOS_SITE_PKG_URL", Some("my_pkg_url")),
             ("LEPTOS_SITE_ADDR", Some("0.0.0.0:80")),
             ("LEPTOS_RELOAD_PORT", Some("8080")),
             ("LEPTOS_RELOAD_EXTERNAL_PORT", Some("8080")),
@@ -181,6 +182,7 @@ async fn get_configuration_from_env() {
     assert_eq!(config.output_name.as_ref(), "app-test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
     assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
+    assert_eq!(config.site_pkg_url.as_deref(), Some("my_pkg_url"));
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -194,6 +196,7 @@ async fn get_configuration_from_env() {
             ("LEPTOS_OUTPUT_NAME", None::<&str>),
             ("LEPTOS_SITE_ROOT", None::<&str>),
             ("LEPTOS_SITE_PKG_DIR", None::<&str>),
+            ("LEPTOS_SITE_PKG_URL", None::<&str>),
             ("LEPTOS_SITE_ADDR", None::<&str>),
             ("LEPTOS_RELOAD_PORT", None::<&str>),
             ("LEPTOS_RELOAD_EXTERNAL_PORT", None::<&str>),
@@ -204,6 +207,7 @@ async fn get_configuration_from_env() {
 
     assert_eq!(config.site_root.as_ref(), "target/site");
     assert_eq!(config.site_pkg_dir.as_ref(), "pkg");
+    assert_eq!(config.site_pkg_url, None);
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("127.0.0.1:3000").unwrap()

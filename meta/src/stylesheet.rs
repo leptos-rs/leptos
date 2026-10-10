@@ -1,7 +1,7 @@
 use crate::register;
 use leptos::{
-    attr::global::GlobalAttributes, component, prelude::LeptosOptions,
-    tachys::html::element::link, IntoView,
+    IntoView, attr::global::GlobalAttributes, component,
+    prelude::LeptosOptions, tachys::html::element::link,
 };
 
 /// Injects an [`HTMLLinkElement`](https://developer.mozilla.org/en-US/docs/Web/API/HTMLLinkElement) into the document
@@ -67,20 +67,19 @@ pub fn HashedStylesheet(
                 .expect("failed to read hash file");
             for line in hashes.lines() {
                 let line = line.trim();
-                if !line.is_empty() {
-                    if let Some((file, hash)) = line.split_once(':') {
-                        if file == "css" {
-                            css_file_name
-                                .push_str(&format!(".{}", hash.trim()));
-                        }
-                    }
+                if !line.is_empty()
+                    && let Some((file, hash)) = line.split_once(':')
+                    && file == "css"
+                {
+                    css_file_name.push_str(&format!(".{}", hash.trim()));
                 }
             }
         }
     }
     css_file_name.push_str(".css");
-    let pkg_path = &options.site_pkg_dir;
+    let pkg_path = options.pkg_url_path();
     let root = root.unwrap_or_default();
+    let root = root.trim_end_matches('/');
 
     link()
         .id(id)

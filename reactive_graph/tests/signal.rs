@@ -1,6 +1,6 @@
 use reactive_graph::{
     owner::Owner,
-    signal::{arc_signal, signal, ArcRwSignal, RwSignal},
+    signal::{ArcRwSignal, RwSignal, arc_signal, signal},
     traits::{
         Dispose, Get, GetUntracked, IntoInner, Read, Set, Update,
         UpdateUntracked, With, WithUntracked, Write,
@@ -139,4 +139,16 @@ fn into_inner_non_arc_signal() {
     assert_eq!(a.get(), 2);
     b.dispose();
     assert_eq!(a.into_inner(), Some(2));
+}
+
+#[test]
+fn signal_callable_on_stable() {
+    let owner = Owner::new();
+    owner.set();
+    let rw = RwSignal::new(42);
+    assert_eq!(rw(), 42);
+    let (read, write) = signal(10);
+    assert_eq!(read(), 10);
+    write(20);
+    assert_eq!(read(), 20);
 }

@@ -1,6 +1,6 @@
 use crate::{
-    env_from_str, env_w_default, env_wo_default, ws_from_str, Env,
-    LeptosOptions, ReloadWSProtocol,
+    Env, LeptosOptions, ReloadWSProtocol, env_from_str, env_w_default,
+    env_wo_default, ws_from_str,
 };
 use std::{net::SocketAddr, path::Ancestors, str::FromStr};
 
@@ -20,12 +20,26 @@ fn env_from_str_test() {
 
 #[test]
 fn ws_from_str_test() {
+    assert!(matches!(
+        ws_from_str("auto").unwrap(),
+        ReloadWSProtocol::Auto
+    ));
+
     assert!(matches!(ws_from_str("ws").unwrap(), ReloadWSProtocol::WS));
     assert!(matches!(ws_from_str("WS").unwrap(), ReloadWSProtocol::WS));
     assert!(matches!(ws_from_str("wss").unwrap(), ReloadWSProtocol::WSS));
     assert!(matches!(ws_from_str("WSS").unwrap(), ReloadWSProtocol::WSS));
     assert!(ws_from_str("TEST").is_err());
     assert!(ws_from_str("?").is_err());
+}
+
+#[test]
+fn ws_from_to_str_test() {
+    assert_eq!(ws_from_str("auto").unwrap().to_string(), "auto");
+    assert_eq!(ws_from_str("ws").unwrap().to_string(), "ws");
+    assert_eq!(ws_from_str("WS").unwrap().to_string(), "ws");
+    assert_eq!(ws_from_str("wss").unwrap().to_string(), "wss");
+    assert_eq!(ws_from_str("WSS").unwrap().to_string(), "wss");
 }
 
 #[test]
@@ -93,10 +107,8 @@ fn try_from_env_test() {
 fn leptos_options_css_file_path() {
     fn next_file_name<'a>(a: &'a mut Ancestors) -> Option<&'a str> {
         a.next()
-            .map(|p| p.file_name())
-            .flatten()
-            .map(|s| s.to_str())
-            .flatten()
+            .and_then(|p| p.file_name())
+            .and_then(|s| s.to_str())
     }
     let options = LeptosOptions::builder().output_name("test").build();
     let path = options.css_file_path();
@@ -149,4 +161,21 @@ fn leptos_options_css_path() {
         .site_pkg_dir("")
         .build();
     assert_eq!(options.css_path(), "/test.css");
+}
+
+#[test]
+fn leptos_options_pkg_url_path() {
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_pkg_dir("my/pkg")
+        .build();
+    assert_eq!(options.pkg_url_path(), "my/pkg");
+
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_pkg_dir("/srv/site/pkg")
+        .site_pkg_url("/assets/")
+        .build();
+    assert_eq!(options.pkg_url_path(), "assets");
+    assert_eq!(options.css_path(), "/assets/test.css");
 }

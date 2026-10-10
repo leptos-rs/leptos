@@ -2,8 +2,8 @@ use super::ArcMemo;
 use crate::{
     owner::{ArenaItem, FromLocal, LocalStorage, Storage, SyncStorage},
     signal::{
-        guards::{Mapped, Plain, ReadGuard},
         ArcReadSignal,
+        guards::{Mapped, Plain, ReadGuard},
     },
     traits::{DefinedAt, Dispose, Get, ReadUntracked, Track},
     unwrap_signal,
@@ -63,7 +63,7 @@ use std::{fmt::Debug, hash::Hash, panic::Location};
 /// let memoized = Memo::new(move |_| really_expensive_computation(value.get()));
 /// Effect::new(move |_| {
 ///   // 🆗 reads the current value of the memo
-///   //    can be `memoized()` on nightly
+///   //    this can also be called as `memoized()`
 ///   println!("memoized = {}", memoized.get());
 /// });
 /// Effect::new(move |_| {
