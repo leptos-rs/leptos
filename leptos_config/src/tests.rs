@@ -162,3 +162,20 @@ fn leptos_options_css_path() {
         .build();
     assert_eq!(options.css_path(), "/test.css");
 }
+
+#[test]
+fn leptos_options_pkg_url_path() {
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_pkg_dir("my/pkg")
+        .build();
+    assert_eq!(options.pkg_url_path(), "my/pkg");
+
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_pkg_dir("/srv/site/pkg")
+        .site_pkg_url("/assets/")
+        .build();
+    assert_eq!(options.pkg_url_path(), "assets");
+    assert_eq!(options.css_path(), "/assets/test.css");
+}

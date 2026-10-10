@@ -9,13 +9,15 @@ use crate::{ErrorHandler, LeptosRoutes, generate_route_list};
 use crate::{LeptosContextLayer, serve_site_root_service_route_path};
 use axum::{Router, extract::FromRef};
 use leptos::{IntoView, config::LeptosOptions};
+#[cfg(feature = "default")]
+use leptos_integration_utils::resolve_site_pkg_dir;
 #[cfg(feature = "embed")]
 use rust_embed::{EmbeddedFile, RustEmbed};
 #[cfg(any(feature = "default", feature = "embed"))]
 use std::borrow::Cow;
 #[cfg(any(feature = "default", feature = "embed"))]
 use tower::builder::ServiceBuilder;
-#[cfg(feature = "embed")]
+#[cfg(any(feature = "default", feature = "embed"))]
 use tower_http::services::ServeDir;
 
 pub(crate) mod traits {
@@ -90,6 +92,10 @@ enum Site {
     /// Build the compiled site pkg dir into the server binary.
     #[cfg(feature = "embed")]
     Embed(Cow<'static, str>),
+    #[cfg(feature = "default")]
+    FilesystemNested { url: String, dir: String },
+    #[cfg(feature = "embed")]
+    EmbedNested { url: String, base: String },
 }
 
 #[derive(Copy, Clone)]
@@ -158,6 +164,9 @@ impl<APP> RouterConfiguration<APP> {
     /// the corresponding file at `LEPTOS_SITE_ROOT`.  Refer to [`.enable_fs_site_pkg`] and [`.error_handler`]
     /// for additional details.
     ///
+    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
+    /// are still served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute).
+    ///
     /// Without default features enabled, this constructor is equivalent to `RouterConfiguration::default()`,
     /// as it does not have any additional routes, options, and services enabled.
     ///
@@ -198,6 +207,9 @@ impl<APP> RouterConfiguration<APP> {
     /// the fallback handler for serving of the site pkg.  If the resulting `Router` is reconfigured by
     /// merging or otherwise causing the fallback service be replaced, it won't result in the loss of site pkg
     /// availability given the explicit route definition.
+    ///
+    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
+    /// are still served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute).
     ///
     /// Refer to [`.enable_fs_leptos_site_root`], [`.enable_fs_site_pkg`], and [`.error_handler`] for
     /// additional details.
@@ -243,6 +255,9 @@ where
     /// `ServeDir` service, with the `Router`'s fallback handler set to the [`ErrorHandler`] service.  A route
     /// to `/favicon.ico` is also provided to route to the corresponding embedded resource through the same
     /// `ServeDir` service.
+    ///
+    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
+    /// are still looked up under `LEPTOS_SITE_PKG_DIR` in the embedded site root.
     ///
     /// Please note that `site_root` must be a [`RustEmbed`] implementation derived from [`Embed`], and it
     /// should be constructed like so within the target application:
@@ -311,6 +326,9 @@ where
     /// handler for serving of the site pkg.  If the resulting `Router` is reconfigured by merging or
     /// otherwise causing the fallback service be replaced, it won't result in the loss of site pkg
     /// availability given the explicit route definition.
+    ///
+    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
+    /// are still looked up under `LEPTOS_SITE_PKG_DIR` in the embedded site root.
     ///
     /// Please note that `site_root` must be a [`RustEmbed`] implementation derived from [`Embed`], and it
     /// must be constructed like so within the target application:
@@ -532,6 +550,9 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     ///
     /// This is used to serve the JS/WASM bundle such that the application will be activated on the client.
     ///
+    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
+    /// are still served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute).
+    ///
     /// [`ServeDir`]: tower_http::services::ServeDir
     pub fn enable_fs_site_pkg(self) -> Self {
         self.site_pkg_mode(ResourceMode::Filesystem)
@@ -606,6 +627,9 @@ where
     ///
     /// This is used to serve the JS/WASM bundle embedded in the server binary, such that the application will
     /// be activated on the client.
+    ///
+    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
+    /// are still looked up under `LEPTOS_SITE_PKG_DIR` in the embedded site root.
     ///
     /// This may be used in conjunction with the other `enable_fs` prefixed configurations, such that
     /// other additional data may be provided from the filesystem through the relevant `ServeDir` service that
@@ -778,6 +802,31 @@ where
 
             match self.site_pkg_mode {
                 ResourceMode::Disable => (),
+                // A set `site_pkg_url` moves the site pkg route off `site_pkg_dir`; an
+                // empty one keeps it there, as `Router::nest` cannot nest at the root.
+                #[cfg(feature = "default")]
+                ResourceMode::Filesystem
+                    if leptos_options.site_pkg_url.is_some()
+                        && !leptos_options.pkg_url_path().is_empty() =>
+                {
+                    site_pkg_routes.push(Site::FilesystemNested {
+                        url: format!("/{}", leptos_options.pkg_url_path()),
+                        dir: resolve_site_pkg_dir(&leptos_options).into_owned(),
+                    })
+                }
+                #[cfg(feature = "embed")]
+                ResourceMode::Embed
+                    if leptos_options.site_pkg_url.is_some()
+                        && !leptos_options.pkg_url_path().is_empty() =>
+                {
+                    site_pkg_routes.push(Site::EmbedNested {
+                        url: format!("/{}", leptos_options.pkg_url_path()),
+                        base: format!(
+                            "/{}",
+                            leptos_options.site_pkg_dir.trim_matches('/')
+                        ),
+                    })
+                }
                 #[cfg(feature = "default")]
                 ResourceMode::Filesystem => {
                     site_pkg_routes.push(Site::Filesystem(
@@ -815,6 +864,49 @@ where
             site_pkg_routes
                 .into_iter()
                 .fold(router, |router, entry: Site| match entry {
+                    #[cfg(feature = "default")]
+                    Site::FilesystemNested { url, dir } => {
+                        let serve_dir = ServeDir::new(&dir)
+                            .precompressed_gzip()
+                            .precompressed_br();
+                        let inner = if let Some(error_handler) =
+                            error_handler.clone()
+                        {
+                            Router::new().route_service(
+                                "/{*path}",
+                                builder
+                                    .service(serve_dir.fallback(error_handler)),
+                            )
+                        } else {
+                            Router::new().route_service(
+                                "/{*path}",
+                                builder.service(serve_dir),
+                            )
+                        };
+                        router.nest(&url, inner)
+                    }
+                    #[cfg(feature = "embed")]
+                    Site::EmbedNested { url, base } => {
+                        let serve_dir = ServeDir::with_backend(
+                            base,
+                            EmbeddedSiteRoot::new(self.site_root),
+                        );
+                        let inner = if let Some(error_handler) =
+                            error_handler.clone()
+                        {
+                            Router::new().route_service(
+                                "/{*path}",
+                                builder
+                                    .service(serve_dir.fallback(error_handler)),
+                            )
+                        } else {
+                            Router::new().route_service(
+                                "/{*path}",
+                                builder.service(serve_dir),
+                            )
+                        };
+                        router.nest(&url, inner)
+                    }
                     #[cfg(feature = "default")]
                     Site::Filesystem(path) => {
                         let serve_dir =
