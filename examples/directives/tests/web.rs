@@ -6,6 +6,10 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_test::*;
 use web_sys::HtmlElement;
 
+fn without_markers(html: &str) -> String {
+    html.replace("<!---->", "")
+}
+
 wasm_bindgen_test_configure!(run_in_browser);
 #[wasm_bindgen_test]
 async fn test_directives() {
@@ -50,8 +54,11 @@ async fn test_directives() {
         .unwrap()
         .dyn_into::<HtmlElement>()
         .unwrap();
-    assert_eq!(a.inner_html(), "Copy \"Hello World!\" to clipboard");
+    assert_eq!(
+        without_markers(&a.inner_html()),
+        "Copy \"Hello World!\" to clipboard"
+    );
 
     a.click();
-    assert_eq!(a.inner_html(), "Copied \"Hello World!\"");
+    assert_eq!(without_markers(&a.inner_html()), "Copied \"Hello World!\"");
 }

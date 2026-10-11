@@ -7,6 +7,10 @@ use wasm_bindgen_test::*;
 use web_sys::HtmlButtonElement;
 wasm_bindgen_test_configure!(run_in_browser);
 
+fn without_markers(html: &str) -> String {
+    html.replace("<!---->", "")
+}
+
 fn minify(html: &str) -> String {
     let mut result = String::with_capacity(html.len());
     let mut in_tag = false;
@@ -82,10 +86,10 @@ async fn portal() {
 
     // check HTML
     assert_eq!(
-        minify(div.inner_html().as_str()),
+        minify(&without_markers(&div.inner_html())),
         minify(
             "<div><button id=\"btn-show\">Show \
-             Overlay</button><div>Show</div><!----></div><div><div \
+             Overlay</button><div>Show</div></div><div><div \
              style=\"position: fixed; z-index: 10; width: 100vw; height: \
              100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
              white;\"><p>This is in the body element</p><button \
@@ -102,10 +106,10 @@ async fn portal() {
     toggle_button.click();
 
     assert_eq!(
-        minify(div.inner_html().as_str()),
+        minify(&without_markers(&div.inner_html())),
         minify(
             "<div><button id=\"btn-show\">Show \
-             Overlay</button><div>Show</div><!----></div><div><div \
+             Overlay</button><div>Show</div></div><div><div \
              style=\"position: fixed; z-index: 10; width: 100vw; height: \
              100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
              white;\"><p>This is in the body element</p><button \
@@ -122,10 +126,10 @@ async fn portal() {
     hide_button.click();
 
     assert_eq!(
-        minify(div.inner_html().as_str()),
+        minify(&without_markers(&div.inner_html())),
         minify(
             "<div><button id=\"btn-show\">Show \
-             Overlay</button><div>Show</div><!----></div><div><div \
+             Overlay</button><div>Show</div></div><div><div \
              style=\"position: fixed; z-index: 10; width: 100vw; height: \
              100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
              white;\"><p>This is in the body element</p><button \

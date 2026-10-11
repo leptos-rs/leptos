@@ -8,6 +8,10 @@ use counters::Counters;
 use leptos::{prelude::*, task::tick};
 use web_sys::HtmlElement;
 
+fn without_markers(html: &str) -> String {
+    html.replace("<!---->", "")
+}
+
 #[wasm_bindgen_test]
 async fn inc() {
     mount_to_body(Counters);
@@ -15,17 +19,17 @@ async fn inc() {
     let document = document();
     let div = document.query_selector("div").unwrap().unwrap();
     let add_counter = div
-        .first_child()
+        .first_element_child()
         .unwrap()
         .dyn_into::<HtmlElement>()
         .unwrap();
 
     assert_eq!(
-        div.inner_html(),
+        without_markers(&div.inner_html()),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: <span \
          data-testid=\"total\">0</span> from <span \
-         data-testid=\"counters\">0</span> counters.</p><ul><!----></ul>"
+         data-testid=\"counters\">0</span> counters.</p><ul></ul>"
     );
 
     // add 3 counters
@@ -37,7 +41,7 @@ async fn inc() {
 
     // check HTML
     assert_eq!(
-        div.inner_html(),
+        without_markers(&div.inner_html()),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: <span \
          data-testid=\"total\">0</span> from <span \
@@ -48,7 +52,7 @@ async fn inc() {
          type=\"text\"><span>0</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
          type=\"text\"><span>0</span><button>+1</button><button>x</button></\
-         li><!----></ul>"
+         li></ul>"
     );
 
     let counters = div
@@ -63,13 +67,8 @@ async fn inc() {
     for idx in 0..counters.length() {
         let counter = counters.item(idx).unwrap();
         let inc_button = counter
-            .first_child()
-            .unwrap()
-            .next_sibling()
-            .unwrap()
-            .next_sibling()
-            .unwrap()
-            .next_sibling()
+            .children()
+            .item(3)
             .unwrap()
             .unchecked_into::<HtmlElement>();
         for _ in 0..=idx {
@@ -80,7 +79,7 @@ async fn inc() {
     tick().await;
 
     assert_eq!(
-        div.inner_html(),
+        without_markers(&div.inner_html()),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: <span \
          data-testid=\"total\">6</span> from <span \
@@ -91,14 +90,14 @@ async fn inc() {
          type=\"text\"><span>2</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
          type=\"text\"><span>3</span><button>+1</button><button>x</button></\
-         li><!----></ul>"
+         li></ul>"
     );
 
     // remove the first counter
     counters
         .item(0)
         .unwrap()
-        .last_child()
+        .last_element_child()
         .unwrap()
         .unchecked_into::<HtmlElement>()
         .click();
@@ -106,7 +105,7 @@ async fn inc() {
     tick().await;
 
     assert_eq!(
-        div.inner_html(),
+        without_markers(&div.inner_html()),
         "<button>Add Counter</button><button>Add 1000 \
          Counters</button><button>Clear Counters</button><p>Total: <span \
          data-testid=\"total\">5</span> from <span \
@@ -115,6 +114,6 @@ async fn inc() {
          type=\"text\"><span>2</span><button>+1</button><button>x</button></\
          li><li><button>-1</button><input \
          type=\"text\"><span>3</span><button>+1</button><button>x</button></\
-         li><!----></ul>"
+         li></ul>"
     );
 }
