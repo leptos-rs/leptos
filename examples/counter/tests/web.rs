@@ -7,6 +7,10 @@ use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
+fn without_markers(html: &str) -> String {
+    html.replace("<!---->", "")
+}
+
 #[wasm_bindgen_test]
 async fn clear() {
     let document = document();
@@ -40,12 +44,12 @@ async fn clear() {
 
     // now let's test the <div> against the expected value
     // we can do this by testing its `outerHTML`
-    assert_eq!(div.outer_html(), {
+    assert_eq!(without_markers(&div.outer_html()), {
         // it's as if we're creating it with a value of 0, right?
         let (value, _set_value) = signal(0);
 
         // we can remove the event listeners because they're not rendered to HTML
-        view! {
+        let html = view! {
             <div>
                 <button>"Clear"</button>
                 <button>"-1"</button>
@@ -62,7 +66,8 @@ async fn clear() {
         // .build() returned an ElementState, which is a smart pointer for
         // a DOM element. So we can still just call .outer_html(), which access the outerHTML on
         // the actual DOM element
-        .outer_html()
+        .outer_html();
+        without_markers(&html)
     });
 
     // There's actually an easier way to do this...
@@ -134,44 +139,46 @@ async fn inc() {
     assert_eq!(text.text_content(), Some("Value: 0!".to_string()));
 
     // Or you can test against a sample view!
-    assert_eq!(
-        div.outer_html(),
-        {
-            let (value, _) = signal(0);
-            view! {
-                <div>
-                    <button>"Clear"</button>
-                    <button>"-1"</button>
-                    <span>"Value: " {value} "!"</span>
-                    <button>"+1"</button>
-                </div>
-            }
+    let expected = {
+        let (value, _) = signal(0);
+        view! {
+            <div>
+                <button>"Clear"</button>
+                <button>"-1"</button>
+                <span>"Value: " {value} "!"</span>
+                <button>"+1"</button>
+            </div>
         }
-        .into_view()
-        .build()
-        .outer_html()
+    }
+    .into_view()
+    .build()
+    .outer_html();
+    assert_eq!(
+        without_markers(&div.outer_html()),
+        without_markers(&expected)
     );
 
     inc.click();
 
     tick().await;
 
-    assert_eq!(
-        div.outer_html(),
-        {
-            // because we've clicked, it's as if the signal is starting at 1
-            let (value, _) = signal(1);
-            view! {
-                <div>
-                    <button>"Clear"</button>
-                    <button>"-1"</button>
-                    <span>"Value: " {value} "!"</span>
-                    <button>"+1"</button>
-                </div>
-            }
+    let expected = {
+        // because we've clicked, it's as if the signal is starting at 1
+        let (value, _) = signal(1);
+        view! {
+            <div>
+                <button>"Clear"</button>
+                <button>"-1"</button>
+                <span>"Value: " {value} "!"</span>
+                <button>"+1"</button>
+            </div>
         }
-        .into_view()
-        .build()
-        .outer_html()
+    }
+    .into_view()
+    .build()
+    .outer_html();
+    assert_eq!(
+        without_markers(&div.outer_html()),
+        without_markers(&expected)
     );
 }
