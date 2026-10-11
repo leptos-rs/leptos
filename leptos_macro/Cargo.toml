@@ -16,7 +16,6 @@ proc-macro = true
 attribute-derive = { features = [
   "syn-full",
 ], workspace = true, default-features = true }
-cfg-if = { workspace = true, default-features = true }
 html-escape = { workspace = true, default-features = true }
 itertools = { workspace = true, default-features = true }
 prettyplease = { workspace = true, default-features = true }
@@ -27,8 +26,6 @@ rstml = { workspace = true, default-features = true }
 leptos_hot_reload = { workspace = true }
 server_fn_macro = { workspace = true }
 convert_case = { workspace = true, default-features = true }
-convert_case_extras = { workspace = true, default-features = true }
-uuid = { features = ["v4"], workspace = true, default-features = true }
 tracing = { optional = true, workspace = true, default-features = true }
 
 [dev-dependencies]
