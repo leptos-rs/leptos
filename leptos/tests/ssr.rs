@@ -18,7 +18,8 @@ fn simple_ssr_test() {
     // erased views add a hydration marker after every nested view
     assert_eq!(
         rendered.to_html().replace("<!>", ""),
-        "<div><button>-1</button><span>Value: 0!</span><button>+1</button></div>"
+        "<div><button>-1</button><span>Value: \
+         0!</span><button>+1</button></div>"
     );
 }
 
