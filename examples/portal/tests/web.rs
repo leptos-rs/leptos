@@ -89,12 +89,12 @@ async fn portal() {
         minify(&without_markers(&div.inner_html())),
         minify(
             "<div><button id=\"btn-show\">Show \
-             Overlay</button><div>Show</div></div><div><div \
-             style=\"position: fixed; z-index: 10; width: 100vw; height: \
-             100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
-             white;\"><p>This is in the body element</p><button \
-             id=\"btn-hide\">Close Overlay</button><button \
-             id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
+             Overlay</button><div>Show</div></div><div><div style=\"position: \
+             fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: \
+             0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in \
+             the body element</p><button id=\"btn-hide\">Close \
+             Overlay</button><button id=\"btn-toggle\">Toggle \
+             inner</button>Hidden</div></div>"
         )
     );
 
@@ -109,12 +109,12 @@ async fn portal() {
         minify(&without_markers(&div.inner_html())),
         minify(
             "<div><button id=\"btn-show\">Show \
-             Overlay</button><div>Show</div></div><div><div \
-             style=\"position: fixed; z-index: 10; width: 100vw; height: \
-             100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
-             white;\"><p>This is in the body element</p><button \
-             id=\"btn-hide\">Close Overlay</button><button \
-             id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
+             Overlay</button><div>Show</div></div><div><div style=\"position: \
+             fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: \
+             0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in \
+             the body element</p><button id=\"btn-hide\">Close \
+             Overlay</button><button id=\"btn-toggle\">Toggle \
+             inner</button>Hidden</div></div>"
         )
     );
 
@@ -129,12 +129,12 @@ async fn portal() {
         minify(&without_markers(&div.inner_html())),
         minify(
             "<div><button id=\"btn-show\">Show \
-             Overlay</button><div>Show</div></div><div><div \
-             style=\"position: fixed; z-index: 10; width: 100vw; height: \
-             100vh; top: 0; left: 0; background: rgba(0, 0, 0, 0.8); color: \
-             white;\"><p>This is in the body element</p><button \
-             id=\"btn-hide\">Close Overlay</button><button \
-             id=\"btn-toggle\">Toggle inner</button>Hidden</div></div>"
+             Overlay</button><div>Show</div></div><div><div style=\"position: \
+             fixed; z-index: 10; width: 100vw; height: 100vh; top: 0; left: \
+             0; background: rgba(0, 0, 0, 0.8); color: white;\"><p>This is in \
+             the body element</p><button id=\"btn-hide\">Close \
+             Overlay</button><button id=\"btn-toggle\">Toggle \
+             inner</button>Hidden</div></div>"
         )
     );
 }
