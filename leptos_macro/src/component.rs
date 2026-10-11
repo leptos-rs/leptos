@@ -37,7 +37,7 @@ pub struct Model {
 impl Parse for Model {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut item = ItemFn::parse(input)?;
-        maybe_modify_return_type(&mut item.sig.output);
+        maybe_modify_return_type(&mut item.sig);
 
         convert_impl_trait_to_generic(&mut item.sig);
 
@@ -101,10 +101,10 @@ impl Parse for Model {
 
 /// Exists to fix nested routes defined in a separate component in erased mode,
 /// by replacing the return type with AnyNestedRoute, which is what it'll be, but is required as the return type for compiler inference.
-fn maybe_modify_return_type(ret: &mut ReturnType) {
+fn maybe_modify_return_type(sig: &mut Signature) {
     #[cfg(feature = "__internal_erase_components")]
     {
-        if let ReturnType::Type(_, ty) = ret
+        if let ReturnType::Type(_, ty) = &mut sig.output
             && let Type::ImplTrait(TypeImplTrait { bounds, .. }) = ty.as_ref()
         {
             // If one of the bounds is MatchNestedRoutes, we need to replace the return type with AnyNestedRoute:
@@ -118,6 +118,13 @@ fn maybe_modify_return_type(ret: &mut ReturnType) {
                 }
                 false
             }) {
+                // precise-capturing `use<..>` bounds only make sense on `impl Trait`
+                let bounds = bounds.iter().filter(|bound| {
+                    !matches!(bound, syn::TypeParamBound::PreciseCapture(_))
+                });
+                sig.generics.make_where_clause().predicates.push(parse_quote!(
+                    ::leptos_router::any_nested_route::AnyNestedRoute: #(#bounds)+*
+                ));
                 *ty = parse_quote!(
                     ::leptos_router::any_nested_route::AnyNestedRoute
                 );
@@ -126,7 +133,7 @@ fn maybe_modify_return_type(ret: &mut ReturnType) {
     }
     #[cfg(not(feature = "__internal_erase_components"))]
     {
-        let _ = ret;
+        let _ = sig;
     }
 }
 
@@ -700,7 +707,7 @@ impl Parse for DummyModel {
 
         let vis: Visibility = input.parse()?;
         let mut sig: Signature = input.parse()?;
-        maybe_modify_return_type(&mut sig.output);
+        maybe_modify_return_type(&mut sig);
 
         // The body is left untouched, so it will not cause an error
         // even if the syntax is invalid.
@@ -1297,8 +1304,7 @@ pub fn is_option(ty: &Type) -> bool {
 }
 
 pub fn unwrap_option(ty: &Type) -> syn::Result<Type> {
-    const STD_OPTION_MSG: &str =
-        "make sure you're not shadowing the `std::option::Option` type that \
+    const STD_OPTION_MSG: &str = "make sure you're not shadowing the `std::option::Option` type that \
          is automatically imported from the standard prelude";
 
     if let Type::Path(TypePath {
