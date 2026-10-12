@@ -1,6 +1,6 @@
 use super::{find, world::HOST};
 use anyhow::Result;
-use fantoccini::Client;
+use fantoccini::{Client, Locator};
 use std::result::Result::Ok;
 use tokio::{self, time};
 
@@ -32,6 +32,10 @@ pub async fn click_add_button(client: &Client) -> Result<()> {
 }
 
 pub async fn empty_todo_list(client: &Client) -> Result<()> {
+    client
+        .wait()
+        .for_element(Locator::Css("ul li, ul p"))
+        .await?;
     let todos = find::todos(client).await;
 
     for _todo in todos {

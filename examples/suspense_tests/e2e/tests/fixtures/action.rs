@@ -16,8 +16,21 @@ pub async fn click_link(client: &Client, text: &str) -> Result<()> {
         .for_element(Locator::LinkText(text))
         .await
         .expect(format!("Link not found by `{}`", text).as_str());
+    let href = link.prop("href").await?;
 
     link.click().await?;
+
+    let path = href.map(|href| url::Url::parse(&href)).transpose()?;
+    if let Some(path) = path
+        .as_ref()
+        .map(url::Url::path)
+        .filter(|path| path.starts_with("/instrumented/item/"))
+    {
+        client
+            .wait()
+            .for_element(Locator::Css(&format!(r#"[data-loaded="{path}"]"#)))
+            .await?;
+    }
 
     Ok(())
 }

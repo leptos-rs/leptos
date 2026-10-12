@@ -15,11 +15,14 @@ fn simple_ssr_test() {
         </div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div><button>-1<!></button><span>Value: \
+         <!>0<!>!<!><!></span><button>+1<!></button><!><!></div>"
+    } else {
         "<div><button>-1</button><span>Value: \
          <!>0<!>!</span><button>+1</button></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 #[cfg(feature = "ssr")]
@@ -46,12 +49,17 @@ fn ssr_test_with_components() {
         </div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div class=\"counters\"><div><button>-1<!></button><span>Value: \
+         <!>1<!>!<!><!></span><button>+1<!></button><!><!></\
+         div><div><button>-1<!></button><span>Value: \
+         <!>2<!>!<!><!></span><button>+1<!></button><!><!></div><!><!></div>"
+    } else {
         "<div class=\"counters\"><div><button>-1</button><span>Value: \
          <!>1<!>!</span><button>+1</button></div><div><button>-1</\
          button><span>Value: <!>2<!>!</span><button>+1</button></div></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 #[cfg(feature = "ssr")]
@@ -77,12 +85,17 @@ fn ssr_test_with_snake_case_components() {
         </div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div class=\"counters\"><div><button>-1<!></button><span>Value: \
+         <!>1<!>!<!><!></span><button>+1<!></button><!><!></\
+         div><div><button>-1<!></button><span>Value: \
+         <!>2<!>!<!><!></span><button>+1<!></button><!><!></div><!><!></div>"
+    } else {
         "<div class=\"counters\"><div><button>-1</button><span>Value: \
          <!>1<!>!</span><button>+1</button></div><div><button>-1</\
          button><span>Value: <!>2<!>!</span><button>+1</button></div></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 #[cfg(feature = "ssr")]
@@ -188,11 +201,13 @@ fn ssr_with_styles() {
         </div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
         "<div class=\"myclass\"><button class=\"btn \
-         myclass\">-1</button></div>"
-    );
+         myclass\">-1<!></button><!></div>"
+    } else {
+        "<div class=\"myclass\"><button class=\"btn myclass\">-1</button></div>"
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 #[cfg(feature = "ssr")]
@@ -217,6 +232,20 @@ fn render_hydration_scripts(defer: bool) -> String {
     rendered.to_html()
 }
 
+/// The tail of the hydration script invocation for the `app` output name.
+///
+/// Outside of cargo-leptos (no `LEPTOS_OUTPUT_NAME` at compile time),
+/// `HydrationScripts` assumes wasm-bindgen's default `<name>_bg.wasm`.
+#[cfg(feature = "ssr")]
+fn hydration_script_args(defer: bool) -> String {
+    let wasm_name = if std::option_env!("LEPTOS_OUTPUT_NAME").is_none() {
+        "app_bg"
+    } else {
+        "app"
+    };
+    format!(r#""pkg", "app", "{wasm_name}", {defer});"#)
+}
+
 #[cfg(feature = "ssr")]
 #[test]
 fn hydration_scripts_default_output() {
@@ -229,7 +258,7 @@ fn hydration_scripts_default_output() {
     assert!(!html.contains("fetchpriority"), "{html}");
     assert!(html.contains("requestIdleCallback"), "{html}");
     // the script is handed `false`, so it takes the eager path
-    assert!(html.contains(r#""pkg", "app", "app", false);"#), "{html}");
+    assert!(html.contains(&hydration_script_args(false)), "{html}");
 }
 
 #[cfg(feature = "ssr")]
@@ -241,7 +270,7 @@ fn hydration_scripts_deferred_output() {
     let html = render_hydration_scripts(true);
 
     assert_eq!(html.matches(r#"fetchpriority="low""#).count(), 2, "{html}");
-    assert!(html.contains(r#""pkg", "app", "app", true);"#), "{html}");
+    assert!(html.contains(&hydration_script_args(true)), "{html}");
 }
 
 #[cfg(feature = "ssr")]
@@ -259,7 +288,7 @@ fn hydration_scripts_defer_is_a_no_op_in_islands_mode() {
     let html = rendered.to_html();
 
     assert!(!html.contains("fetchpriority"), "{html}");
-    assert!(html.contains(r#""pkg", "app", "app", false);"#), "{html}");
+    assert!(html.contains(&hydration_script_args(false)), "{html}");
 }
 
 #[cfg(feature = "ssr")]
@@ -273,10 +302,12 @@ fn ssr_textarea_escapes_static_content() {
         <div><textarea>"a < b & c"</textarea></div>
     };
 
-    assert_eq!(
-        rendered.to_html(),
+    let expected = if cfg!(erase_components) {
+        "<div><textarea>a &lt; b &amp; c</textarea><!></div>"
+    } else {
         "<div><textarea>a &lt; b &amp; c</textarea></div>"
-    );
+    };
+    assert_eq!(rendered.to_html(), expected);
 }
 
 // NOTE: This test was added in 12e1d7c.
