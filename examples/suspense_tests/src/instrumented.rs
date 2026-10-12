@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos_router::{
     components::{ParentRoute, Route, A},
-    hooks::use_params,
+    hooks::{use_location, use_params},
     nested_router::Outlet,
     params::Params,
     ParamSegment, SsrMode, StaticSegment, WildcardSegment,
@@ -367,8 +367,10 @@ fn ItemListing() -> impl IntoView {
     let suspense_counters = expect_context::<RwSignal<SuspenseCounters>>();
     let resource =
         expect_context::<Resource<Result<Vec<i64>, ServerFnError>>>();
+    let pathname = use_location().pathname;
     let item_listing = move || {
         Suspend::new(async move {
+            let loaded = pathname.get_untracked();
             let result = resource.await.map(|items| items
             .into_iter()
             .map(move |item|
@@ -376,7 +378,7 @@ fn ItemListing() -> impl IntoView {
                 // adding an extra `/` in artix; manually construct `a` instead.
                 // <li><A href=format!("./{item}/")>"Item "{item}</A></li>
                 view! {
-                    <li>
+                    <li data-loaded=loaded.clone()>
                         <a href=format!("/instrumented/item/{item}/")>"Item "{item}</a>
                     </li>
                 }
@@ -426,11 +428,13 @@ fn ItemTop() -> impl IntoView {
 fn ItemOverview() -> impl IntoView {
     let suspense_counters = expect_context::<RwSignal<SuspenseCounters>>();
     let resource = expect_context::<Resource<Option<GetItemResult>>>();
+    let pathname = use_location().pathname;
     let item_view = move || {
         Suspend::new(async move {
+            let loaded = pathname.get_untracked();
             let result = resource.await.map(|GetItemResult(item, names)| {
                 view! {
-                    <p>{format!("Viewing {item:?}")}</p>
+                    <p data-loaded=loaded>{format!("Viewing {item:?}")}</p>
                     <ul>
                         {names
                             .into_iter()
@@ -500,9 +504,11 @@ fn ItemInspect() -> impl IntoView {
             c.set(None);
         }
     });
+    let pathname = use_location().pathname;
     let inspect_view = move || {
         // leptos::logging::log!("inspect_view closure invoked");
         Suspend::new(async move {
+            let loaded = pathname.get_untracked();
             // leptos::logging::log!("inspect_view Suspend::new() called");
             let result = res_inspect.await.map(|InspectItemResult(item, name, fields)| {
                 // leptos::logging::log!("inspect_view res_inspect awaited");
@@ -517,7 +523,11 @@ fn ItemInspect() -> impl IntoView {
                         .into()
                 ));
                 view! {
-                    <p id="inspect-result" data-field=item.field.clone()>
+                    <p
+                        id="inspect-result"
+                        data-field=item.field.clone()
+                        data-loaded=loaded
+                    >
                         {format!("Inspecting {item:?}")}
                     </p>
                     <ul>
