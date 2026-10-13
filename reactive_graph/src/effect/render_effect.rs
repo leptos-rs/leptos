@@ -281,8 +281,11 @@ where
 
             let subscriber = inner.to_any_subscriber();
 
-            let initial = subscriber
-                .with_observer(|| ScopedFuture::new(initial_value))
+            let initial = owner
+                .with(|| {
+                    subscriber
+                        .with_observer(|| ScopedFuture::new(initial_value))
+                })
                 .await;
             *value.write().or_poisoned() = Some(initial);
 
