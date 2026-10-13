@@ -204,8 +204,8 @@ function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
 			// TODO: diff the leptos-children 
 
 			// skip over leptos-island otherwise
-			oldDocWalker.nextSibling();
-			newDocWalker.nextSibling();
+			skipSubtree(oldDocWalker);
+			skipSubtree(newDocWalker);
 		}
 		// if it's an element, replace if it's a different tag, or update attributes
 		else if (oldNode.nodeType === Node.ELEMENT_NODE) {
@@ -229,6 +229,14 @@ function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
 			}
 		}
 	}
+}
+
+function skipSubtree(walker) {
+	let node = walker.currentNode;
+	while(node.lastChild) {
+		node = node.lastChild;
+	}
+	walker.currentNode = node;
 }
 
 function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNode, newNode) {
