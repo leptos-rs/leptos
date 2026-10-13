@@ -201,7 +201,7 @@ impl<T> AsyncDerived<T> {
         }
     }
 
-    /// Same as [`AsyncDerived::new_unsync`] except it produces AsyncDerived<T> instead of AsyncDerived<T, LocalStorage>.
+    /// Same as [`AsyncDerived::new_unsync`] except it produces `AsyncDerived<T>` instead of `AsyncDerived<T, LocalStorage>`.
     /// The internal value will still be wrapped in a [`send_wrapper::SendWrapper`].
     pub fn new_unsync_threadsafe_storage<Fut>(
         fun: impl Fn() -> Fut + 'static,

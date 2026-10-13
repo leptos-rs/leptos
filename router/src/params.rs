@@ -196,7 +196,7 @@ impl Iterator for ParamsMapIter {
     }
 }
 
-/// An iterator over the references of the keys and values of a [`ParamMap`].
+/// An iterator over the references of the keys and values of a [`ParamsMap`].
 #[derive(Debug)]
 pub struct ParamsMapIterRef<'a>(
     <Vec<(&'a Cow<'static, str>, &'a str)> as IntoIterator>::IntoIter,
