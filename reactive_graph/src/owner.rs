@@ -581,21 +581,44 @@ impl Drop for OwnerInner {
 
         let nodes = mem::take(&mut self.nodes);
         if !nodes.is_empty() {
-            #[cfg(not(feature = "sandboxed-arenas"))]
-            Arena::with_mut(|arena| {
-                for node in nodes {
-                    _ = arena.remove(node);
-                }
-            });
-            #[cfg(feature = "sandboxed-arenas")]
-            {
-                let mut arena = self.arena.write().or_poisoned();
-                for node in nodes {
-                    _ = arena.remove(node);
-                }
-            }
+            remove_nodes(
+                nodes,
+                #[cfg(feature = "sandboxed-arenas")]
+                &self.arena,
+            );
         }
     }
+}
+
+/// Removes `nodes` from the arena.
+///
+/// The removed nodes are only dropped once the arena lock has been released. Dropping a node
+/// can run arbitrary code that accesses the arena again. For example, dropping the last
+/// reference to another [`Owner`] runs that owner's cleanups and removes its own nodes. Doing
+/// this while the lock is held deadlocks, or aborts the process on single-threaded wasm.
+fn remove_nodes(
+    nodes: Vec<NodeId>,
+    #[cfg(feature = "sandboxed-arenas")] arena: &RwLock<ArenaMap>,
+) {
+    #[cfg(not(feature = "sandboxed-arenas"))]
+    let removed = Arena::with_mut(|arena| {
+        let mut removed = Vec::with_capacity(nodes.len());
+        for node in nodes {
+            removed.extend(arena.remove(node));
+        }
+        removed
+    });
+    #[cfg(feature = "sandboxed-arenas")]
+    let removed = {
+        let mut arena = arena.write().or_poisoned();
+        let mut removed = Vec::with_capacity(nodes.len());
+        for node in nodes {
+            removed.extend(arena.remove(node));
+        }
+        removed
+    };
+
+    drop(removed);
 }
 
 trait Cleanup {
@@ -622,20 +645,13 @@ impl Cleanup for RwLock<OwnerInner> {
         }
 
         if !nodes.is_empty() {
-            #[cfg(not(feature = "sandboxed-arenas"))]
-            Arena::with_mut(|arena| {
-                for node in nodes {
-                    _ = arena.remove(node);
-                }
-            });
             #[cfg(feature = "sandboxed-arenas")]
-            {
-                let arena = self.read().or_poisoned().arena.clone();
-                let mut arena = arena.write().or_poisoned();
-                for node in nodes {
-                    _ = arena.remove(node);
-                }
-            }
+            let arena = self.read().or_poisoned().arena.clone();
+            remove_nodes(
+                nodes,
+                #[cfg(feature = "sandboxed-arenas")]
+                &arena,
+            );
         }
     }
 }
