@@ -255,3 +255,57 @@ async fn paused_effect_pauses() {
         })
         .await
 }
+
+#[cfg(feature = "effects")]
+#[tokio::test]
+async fn async_render_effect_cleans_up_its_first_value_on_rerun() {
+    use imports::*;
+
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    task::LocalSet::new()
+        .run_until(async {
+            let a = RwSignal::new(0);
+            let cleaned_up = Arc::new(RwLock::new(Vec::new()));
+
+            let record_cleanup = {
+                let cleaned_up = cleaned_up.clone();
+                move |value: i32| {
+                    let cleaned_up = cleaned_up.clone();
+                    Owner::on_cleanup(move || {
+                        cleaned_up.write().unwrap().push(value)
+                    });
+                }
+            };
+
+            let effect = RenderEffect::new_with_async_value(
+                {
+                    let record_cleanup = record_cleanup.clone();
+                    move |_| {
+                        let value = a.get();
+                        record_cleanup(value);
+                        value
+                    }
+                },
+                async move {
+                    let value = a.get();
+                    record_cleanup(value);
+                    value
+                },
+            )
+            .await;
+
+            a.set(1);
+            Executor::tick().await;
+            assert_eq!(*cleaned_up.read().unwrap(), vec![0]);
+
+            a.set(2);
+            Executor::tick().await;
+            assert_eq!(*cleaned_up.read().unwrap(), vec![0, 1]);
+
+            mem::forget(effect);
+        })
+        .await
+}
