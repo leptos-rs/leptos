@@ -2954,7 +2954,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_graph"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "any_spawner",
  "async-lock",
