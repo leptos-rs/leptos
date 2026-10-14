@@ -239,97 +239,77 @@ function skipSubtree(walker) {
 	walker.currentNode = node;
 }
 
+function collectForItems(walker) {
+	const items = {};
+	let depth = 1;
+	while(walker.nextNode()) {
+		const c = walker.currentNode;
+		if(c.nodeType !== Node.COMMENT_NODE) {
+			continue;
+		}
+		const t = c.textContent;
+		if(t.startsWith("bo-for")) {
+			depth += 1;
+		} else if(t.startsWith("bc-for")) {
+			depth -= 1;
+			if(depth === 0) {
+				break;
+			}
+		} else if(depth === 1 && t.startsWith("bo-item-")) {
+			items[t.slice("bo-item-".length)] = { open: c, close: null };
+		} else if(depth === 1 && t.startsWith("bc-item-")) {
+			const item = items[t.slice("bc-item-".length)];
+			if(item) {
+				item.close = c;
+			}
+		}
+	}
+	return items;
+}
+
 function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNode, newNode) {
-	oldDocWalker.nextNode();
-	newDocWalker.nextNode();
-	const oldRange = new Range();
-	const newRange = new Range();
-	let oldBranches = 1;
-	let newBranches = 1;
+	const oldKeys = collectForItems(oldDocWalker);
+	const newKeys = collectForItems(newDocWalker);
+	// both walkers now rest on their closing `bc-for` markers
+	const oldClose = oldDocWalker.currentNode;
+	const newClose = newDocWalker.currentNode;
 
-	const oldKeys = {};
-	const newKeys = {};
-
-	while(oldBranches > 0) {
-		const c = oldDocWalker.currentNode;
-		if(c.nodeType === Node.COMMENT_NODE) {
-			const t = c.textContent;
-			if(t.startsWith("bo-for")) {
-				oldBranches += 1;
-			} else if(t.startsWith("bc-for")) {
-
-				oldBranches -= 1;
-			} else if (t.startsWith("bo-item")) {
-				const k = t.replace("bo-item-", "");
-				oldKeys[k] = { open: c, close: null };
-			} else if (t.startsWith("bc-item")) {
-				const k = t.replace("bc-item-", "");
-				oldKeys[k].close = c;
-			}
-		}
-		if(!oldDocWalker.nextNode()) {
-			break;
-		}
-	}
-	while(newBranches > 0) {
-		const c = newDocWalker.currentNode;
-		if(c.nodeType === Node.COMMENT_NODE) {
-			const t = c.textContent;
-			if(t.startsWith("bo-for")) {
-				newBranches += 1;
-			} else if(t.startsWith("bc-for")) {
-
-				newBranches -= 1;
-			} else if (t.startsWith("bo-item")) {
-				const k = t.replace("bo-item-", "");
-				newKeys[k] = { open: c, close: null };
-			} else if (t.startsWith("bc-item")) {
-				const k = t.replace("bc-item-", "");
-				newKeys[k].close = c;
-			}
-		}
-		if(!newDocWalker.nextNode()) {
-			break;
-		}
-	}
-
-	for(const key in oldKeys) {
-		if(newKeys[key]) {
+	try {
+		for(const key in newKeys) {
 			const oldOne = oldKeys[key];
 			const newOne = newKeys[key];
+			if(!oldOne || !oldOne.close || !newOne.close) {
+				continue;
+			}
+
+			// take the *old* DOM elements for this item out of the page and
+			// patch them with the new content from the server
 			const oldRange = new Range();
 			const newRange = new Range();
-
-			// then replace the item in the *new* list with the *old* DOM elements 
 			oldRange.setStartAfter(oldOne.open);
 			oldRange.setEndBefore(oldOne.close);
 			newRange.setStartAfter(newOne.open);
 			newRange.setEndBefore(newOne.close);
 			const oldContents = oldRange.extractContents();
 			const newContents = newRange.extractContents();
+			diffRange(oldDocument, oldContents, newDocument, newContents);
 
-			// patch the *old* DOM elements with the new ones
-			diffRange(oldDocument, oldContents, newDocument, newContents, oldOne.close, newOne.close);
-
-			// then insert the old DOM elements into the new tree 
-			// this means you'll end up with any new attributes or content from the server, 
+			// then put the old DOM elements in place of the item in the *new* list
+			// this means you'll end up with any new attributes or content from the server,
 			// but with any old DOM state (because they are the old elements)
-			newRange.insertNode(oldContents);
-			newOne.open.replaceWith(oldOne.open);
-			newOne.close.replaceWith(oldOne.close);
+			newOne.close.before(oldContents);
 		}
-	}
 
-	try {
+		// finally, replace the old list's contents with the new list's
+		const oldRange = new Range();
+		const newRange = new Range();
 		oldRange.setStartAfter(oldNode);
-		oldRange.setEndBefore(oldDocWalker.currentNode);
+		oldRange.setEndBefore(oldClose);
 		newRange.setStartAfter(newNode);
-		newRange.setEndAfter(newDocWalker.currentNode);
+		newRange.setEndBefore(newClose);
 		const newContents = newRange.extractContents();
 		oldRange.deleteContents();
-		oldRange.insertNode(newContents);
-		oldNode.replaceWith(newNode);
-		oldDocWalker.currentNode.replaceWith(newDocWalker.currentNode);
+		oldClose.before(newContents);
 	} catch (e) {
 		console.error(e);
 	}
