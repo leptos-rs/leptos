@@ -1,12 +1,12 @@
 use leptos::prelude::*;
-use leptos_router::{components::Route, path, MatchNestedRoutes};
+use leptos_router::{components::Route, path};
 #[cfg(feature = "ssr")]
 use std::time::Duration;
 
 // https://github.com/leptos-rs/leptos/issues/4897
 
 #[component]
-pub fn Routes4897() -> impl MatchNestedRoutes + Clone {
+pub fn Routes4897() -> impl leptos_router::MatchNestedRoutes + Clone {
     view! { <Route path=path!("4897") view=Page4897/> }.into_inner()
 }
 

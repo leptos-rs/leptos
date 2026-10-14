@@ -1,11 +1,18 @@
 use super::{find, world::HOST};
 use anyhow::Result;
-use fantoccini::Client;
+use fantoccini::{Client, Locator};
 use std::result::Result::Ok;
 
 pub async fn goto_path(client: &Client, path: &str) -> Result<()> {
     let url = format!("{}{}", HOST, path);
     client.goto(&url).await?;
+    // SSR content is visible before hydration installs the router handlers.
+    // Wait before clicking links or blocking fetch, which could otherwise
+    // block the main WASM bundle instead of a lazy chunk.
+    client
+        .wait()
+        .for_element(Locator::Css("#nav[data-hydrated=\"true\"]"))
+        .await?;
 
     Ok(())
 }
@@ -26,7 +33,10 @@ pub async fn click_button(client: &Client, id: &str) -> Result<()> {
 /// `window.fetch` to reject requests for `.wasm` files while blocking is
 /// enabled. The main bundle is unaffected: it has already been loaded by the
 /// time this runs, and everything that isn't a `.wasm` request passes through.
-pub async fn set_wasm_chunks_blocked(client: &Client, blocked: bool) -> Result<()> {
+pub async fn set_wasm_chunks_blocked(
+    client: &Client,
+    blocked: bool,
+) -> Result<()> {
     client
         .execute(
             r#"

@@ -27,9 +27,11 @@ pub fn App() -> impl IntoView {
     let count = RwSignal::new(0);
     provide_context(count);
     let (is_routing, set_is_routing) = signal(false);
+    let (hydrated, set_hydrated) = signal(false);
+    Effect::new(move |_| set_hydrated.set(true));
 
     view! {
-        <nav id="nav" style="width: 100%">
+        <nav id="nav" style="width: 100%" data-hydrated=move || hydrated.get().to_string()>
             <a href="/">"A"</a> " | "
             <a href="/b">"B"</a> " | "
             <a href="/c">"C"</a> " | "

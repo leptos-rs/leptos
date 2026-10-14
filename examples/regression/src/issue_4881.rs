@@ -1,9 +1,9 @@
 use leptos::prelude::*;
-use leptos_router::{components::Route, path, MatchNestedRoutes};
+use leptos_router::{components::Route, path};
 
 // https://github.com/leptos-rs/leptos/issues/4881
 #[component]
-pub fn Routes4881() -> impl MatchNestedRoutes + Clone {
+pub fn Routes4881() -> impl leptos_router::MatchNestedRoutes + Clone {
     view! { <Route path=path!("4881") view=Page4881/> }.into_inner()
 }
 
