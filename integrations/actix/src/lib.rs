@@ -1422,7 +1422,7 @@ where
                     return HttpResponse::NotFound().finish();
                 };
                 let path = Path::new(&file_path);
-                let opened = NamedFile::open_async(path).await;
+                let opened = NamedFile::open(path);
 
                 match opened {
                     Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -1499,7 +1499,11 @@ where
                                                 file.metadata(),
                                             )
                                         },
-                                        || NamedFile::open_async(path),
+                                        || {
+                                            std::future::ready(NamedFile::open(
+                                                path,
+                                            ))
+                                        },
                                     )
                                     .await
                             }

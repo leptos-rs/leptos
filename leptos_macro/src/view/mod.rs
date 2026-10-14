@@ -13,7 +13,6 @@ use convert_case::{
     Case::{Snake, UpperCamel},
     Casing,
 };
-use convert_case_extras::is_case;
 use leptos_hot_reload::parsing::{is_component_node, value_to_string};
 use proc_macro2::{Ident, Span, TokenStream, TokenTree};
 use quote::{ToTokens, format_ident, quote, quote_spanned};
@@ -2029,7 +2028,7 @@ pub(crate) fn parse_event_name(
 }
 
 fn convert_to_snake_case(name: String) -> String {
-    if !is_case(&name, Snake) {
+    if name.to_case(Snake) != name {
         name.to_case(Snake)
     } else {
         name
