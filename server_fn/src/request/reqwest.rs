@@ -156,13 +156,13 @@ where
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
         method: Method,
     ) -> Result<Self, E> {
         let url = format!("{}{}", get_server_url(), path);
-        let body = Body::wrap_stream(
-            body.map(|chunk| Ok(chunk) as Result<Bytes, ServerFnErrorErr>),
-        );
+        let body = Body::wrap_stream(body.map(|chunk| {
+            chunk.map_err(|err| ServerFnErrorErr::Request(format!("{err:?}")))
+        }));
         match method {
             Method::POST => CLIENT.post(url),
             Method::PUT => CLIENT.put(url),
