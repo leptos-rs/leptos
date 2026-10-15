@@ -262,6 +262,9 @@ pub trait ServerFn: Send + Sized {
     }
 
     /// Middleware that should be applied to this server function.
+    ///
+    /// The layers are applied once, when the server function first handles a
+    /// request, and all requests share the resulting service.
     fn middlewares() -> Vec<
         Arc<
             dyn Layer<ServerFnServerRequest<Self>, ServerFnServerResponse<Self>>,
@@ -1075,6 +1078,61 @@ type LazyServerFnMap<Req, Res> = LazyLock<
     RwLock<HashMap<Method, HashMap<String, ServerFnTraitObj<Req, Res>>>>,
 >;
 
+#[cfg(any(feature = "axum-no-default", feature = "actix-no-default"))]
+type LazyServiceMap<Req, Res> = LazyLock<
+    RwLock<
+        HashMap<
+            (Method, &'static str),
+            Arc<std::sync::OnceLock<BoxedService<Req, Res>>>,
+        >,
+    >,
+>;
+
+/// The middleware-wrapped service of each server function. It is built on
+/// first use and then shared by all requests, so stateful middleware applies
+/// across requests.
+///
+/// The cache lives outside `ServerFnTraitObj` because `#[server]` stores that
+/// type in an `inventory` static, which cannot contain interior mutability.
+#[cfg(any(feature = "axum-no-default", feature = "actix-no-default"))]
+struct ServiceCache<Req, Res>(LazyServiceMap<Req, Res>);
+
+#[cfg(any(feature = "axum-no-default", feature = "actix-no-default"))]
+impl<Req: Send + 'static, Res: 'static> ServiceCache<Req, Res> {
+    const fn new() -> Self {
+        Self(LazyLock::new(|| RwLock::new(HashMap::new())))
+    }
+
+    fn get(
+        &self,
+        server_fn: &ServerFnTraitObj<Req, Res>,
+    ) -> BoxedService<Req, Res> {
+        use or_poisoned::OrPoisoned;
+
+        let key = (server_fn.method(), server_fn.path());
+        let cached = self.0.read().or_poisoned().get(&key).cloned();
+        let cached = cached.unwrap_or_else(|| {
+            self.0.write().or_poisoned().entry(key).or_default().clone()
+        });
+        cached
+            .get_or_init(|| {
+                let middleware = server_fn.middleware();
+                let mut service = server_fn.clone().boxed();
+                for middleware in middleware {
+                    service = middleware.layer(service);
+                }
+                service
+            })
+            .clone()
+    }
+
+    fn remove(&self, method: &Method, path: &'static str) {
+        use or_poisoned::OrPoisoned;
+
+        self.0.write().or_poisoned().remove(&(method.clone(), path));
+    }
+}
+
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
     for ServerFnTraitObj<Req, Res>
@@ -1091,7 +1149,7 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 pub mod axum {
     use crate::{
         LazyServerFnMap, Protocol, Server, ServerFn, ServerFnTraitObj,
-        error::FromServerFnError, middleware::BoxedService,
+        ServiceCache, error::FromServerFnError, middleware::BoxedService,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
@@ -1102,6 +1160,9 @@ pub mod axum {
         Request<Body>,
         Response<Body>,
     > = initialize_server_fn_map!(Request<Body>, Response<Body>);
+
+    static SERVICES: ServiceCache<Request<Body>, Response<Body>> =
+        ServiceCache::new();
 
     /// The axum server function backend
     pub struct AxumServerFnBackend;
@@ -1167,6 +1228,7 @@ pub mod axum {
                     Box::pin(T::run_on_server(req))
                 }),
             );
+        SERVICES.remove(&T::Protocol::METHOD, T::PATH);
     }
 
     /// The set of all registered server function paths.
@@ -1207,7 +1269,8 @@ pub mod axum {
         }
     }
 
-    /// Returns the server function at the given path as a service that can be modified.
+    /// Returns the server function at the given path as a shared service.
+    /// Middleware layers are applied once, and all requests share the result.
     pub fn get_server_fn_service(
         path: &str,
         method: Method,
@@ -1217,14 +1280,7 @@ pub mod axum {
             .or_poisoned()
             .get(&method)
             .and_then(|by_path| by_path.get(path))
-            .map(|server_fn| {
-                let middleware = (server_fn.middleware)();
-                let mut service = server_fn.clone().boxed();
-                for middleware in middleware {
-                    service = middleware.layer(service);
-                }
-                service
-            })
+            .map(|server_fn| SERVICES.get(server_fn))
     }
 }
 
@@ -1232,7 +1288,7 @@ pub mod axum {
 #[cfg(feature = "actix-no-default")]
 pub mod actix {
     use crate::{
-        LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj,
+        LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj, ServiceCache,
         error::FromServerFnError, middleware::BoxedService,
         request::actix::ActixRequest, response::actix::ActixResponse,
         server::Server,
@@ -1248,6 +1304,9 @@ pub mod actix {
         ActixRequest,
         ActixResponse,
     > = initialize_server_fn_map!(ActixRequest, ActixResponse);
+
+    static SERVICES: ServiceCache<ActixRequest, ActixResponse> =
+        ServiceCache::new();
 
     /// The actix server function backend
     pub struct ActixServerFnBackend;
@@ -1297,6 +1356,7 @@ pub mod actix {
                     Box::pin(T::run_on_server(req))
                 }),
             );
+        SERVICES.remove(&T::Protocol::METHOD, T::PATH);
     }
 
     /// The set of all registered server function paths.
@@ -1339,7 +1399,8 @@ pub mod actix {
         }
     }
 
-    /// Returns the server function at the given path as a service that can be modified.
+    /// Returns the server function at the given path as a shared service.
+    /// Middleware layers are applied once, and all requests share the result.
     pub fn get_server_fn_service(
         path: &str,
         method: &actix_web::http::Method,
@@ -1363,14 +1424,7 @@ pub mod actix {
             .or_poisoned()
             .get(&method)
             .and_then(|by_path| by_path.get(path))
-            .map(|server_fn| {
-                let middleware = (server_fn.middleware)();
-                let mut service = server_fn.clone().boxed();
-                for middleware in middleware {
-                    service = middleware.layer(service);
-                }
-                service
-            })
+            .map(|server_fn| SERVICES.get(server_fn))
     }
 
     #[cfg(test)]
