@@ -22,6 +22,18 @@ use std::{fmt::Debug, pin::Pin};
 /// end before the output will begin.
 ///
 /// Streaming requests are only allowed over HTTP2 or HTTP3.
+///
+/// ## Request Body Limit
+///
+/// When this is used as an input encoding with the Axum backend, the request
+/// body obeys axum's `DefaultBodyLimit` (2 MiB by default). Raise it for one
+/// server function with
+/// `#[middleware(axum::extract::DefaultBodyLimit::max(..))]`, or for a router
+/// with `.layer(DefaultBodyLimit::max(..))`. If you remove the limit with
+/// `DefaultBodyLimit::disable()`, set another limit for untrusted clients,
+/// such as tower-http's `RequestBodyLimitLayer`. A request over the limit
+/// logs a warning with the `server_fn::body_limit` target. The Actix backend
+/// does not limit this input.
 pub struct Streaming;
 
 impl ContentType for Streaming {
@@ -148,6 +160,18 @@ where
 /// end before the output will begin.
 ///
 /// Streaming requests are only allowed over HTTP2 or HTTP3.
+///
+/// ## Request Body Limit
+///
+/// When this is used as an input encoding with the Axum backend, the request
+/// body obeys axum's `DefaultBodyLimit` (2 MiB by default). Raise it for one
+/// server function with
+/// `#[middleware(axum::extract::DefaultBodyLimit::max(..))]`, or for a router
+/// with `.layer(DefaultBodyLimit::max(..))`. If you remove the limit with
+/// `DefaultBodyLimit::disable()`, set another limit for untrusted clients,
+/// such as tower-http's `RequestBodyLimitLayer`. A request over the limit
+/// logs a warning with the `server_fn::body_limit` target. The Actix backend
+/// does not limit this input.
 pub struct StreamingText;
 
 impl ContentType for StreamingText {

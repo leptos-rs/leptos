@@ -6,6 +6,7 @@
 
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     http::{HeaderName, StatusCode, header},
     routing::any,
 };
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use server_fn::{
     BoxedStream, Http, Protocol, ServerFn, ServerFnError, Websocket,
     client::{reqwest::ReqwestClient, try_set_server_url},
-    codec::{Json, JsonEncoding, PostUrl},
+    codec::{Json, JsonEncoding, PostUrl, StreamingText, TextStream},
     mock::BrowserMockServer,
     redirect::{REDIRECT_HEADER, set_redirect_hook},
 };
@@ -34,6 +35,7 @@ static SERVER: OnceLock<SocketAddr> = OnceLock::new();
 static HOOK: OnceLock<()> = OnceLock::new();
 static LOCATIONS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static LIVE: AtomicUsize = AtomicUsize::new(0);
+static LIMITED_TEXT_BYTES: AtomicUsize = AtomicUsize::new(0);
 static PULLED: AtomicUsize = AtomicUsize::new(0);
 static WEBSOCKET_TEST: tokio::sync::Mutex<()> =
     tokio::sync::Mutex::const_new(());
@@ -162,10 +164,71 @@ impl ServerFn for Sum {
     }
 }
 
+struct CountText(TextStream<ServerFnError>);
+
+impl From<TextStream<ServerFnError>> for CountText {
+    fn from(input: TextStream<ServerFnError>) -> Self {
+        Self(input)
+    }
+}
+
+impl From<CountText> for TextStream<ServerFnError> {
+    fn from(value: CountText) -> Self {
+        value.0
+    }
+}
+
+impl ServerFn for CountText {
+    const PATH: &'static str = "/api/limited/count_text";
+
+    type Client = ReqwestClient;
+    type Server = server_fn::axum::AxumServerFnBackend;
+    type Protocol = Http<StreamingText, Json>;
+    type Output = usize;
+    type Error = ServerFnError;
+    type InputStreamError = ServerFnError;
+    type OutputStreamError = ServerFnError;
+
+    async fn run_body(self) -> Result<Self::Output, Self::Error> {
+        let mut input = self.0.into_inner();
+        let mut total = 0;
+        while let Some(chunk) = input.next().await {
+            total += chunk?.len();
+            LIMITED_TEXT_BYTES.store(total, Ordering::SeqCst);
+        }
+        Ok(total)
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn streaming_text_enforces_route_body_limit() {
+    let _ = server_addr();
+    LIMITED_TEXT_BYTES.store(0, Ordering::SeqCst);
+    let input = stream::iter((0..100).map(|_| "x".repeat(1000)));
+    let result = timeout(
+        Duration::from_secs(5),
+        <Http<StreamingText, Json> as Protocol<
+            CountText,
+            usize,
+            ReqwestClient,
+            server_fn::axum::AxumServerFnBackend,
+            ServerFnError,
+        >>::run_client(
+            CountText::PATH, CountText(TextStream::from(input))
+        ),
+    )
+    .await
+    .expect("limited upload should finish before timeout");
+    assert!(result.is_err(), "oversized upload should fail");
+    let total = LIMITED_TEXT_BYTES.load(Ordering::SeqCst);
+    assert!(total <= 1024, "server read {total} bytes");
+}
+
 fn server_addr() -> SocketAddr {
     *SERVER.get_or_init(|| {
         server_fn::axum::register_explicit::<Idle>();
         server_fn::axum::register_explicit::<Sum>();
+        server_fn::axum::register_explicit::<CountText>();
         let listener = std::net::TcpListener::bind("127.0.0.1:0")
             .expect("loopback listener should bind");
         listener
@@ -187,6 +250,11 @@ fn server_addr() -> SocketAddr {
                     .route(
                         "/api/{*rest}",
                         any(server_fn::axum::handle_server_fn),
+                    )
+                    .route(
+                        "/api/limited/{*rest}",
+                        any(server_fn::axum::handle_server_fn)
+                            .layer(DefaultBodyLimit::max(1024)),
                     )
                     .route("/needs_login", any(needs_login))
                     .route("/after", any(after));

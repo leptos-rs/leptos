@@ -44,6 +44,7 @@ axum = { optional = true, default-features = false, features = [
 ], workspace = true }
 tower = { optional = true, workspace = true, default-features = true }
 tower-layer = { optional = true, workspace = true, default-features = true }
+tracing = { optional = true, workspace = true, features = ["std"] }
 
 ## input encodings
 serde_qs = { workspace = true, default-features = true }
@@ -126,6 +127,7 @@ axum-no-default = [
   "dep:http-body-util",
   "dep:tower",
   "dep:tower-layer",
+  "dep:tracing",
 ]
 form-redirects = []
 actix-no-default = ["ssr", "dep:actix-web", "dep:actix-ws", "dep:send_wrapper"]
