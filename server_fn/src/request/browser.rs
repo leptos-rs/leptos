@@ -292,7 +292,7 @@ where
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + 'static,
+        body: impl Stream<Item = Result<Bytes, Bytes>> + 'static,
         method: Method,
     ) -> Result<Self, E> {
         // Only allow for methods with bodies
@@ -324,14 +324,17 @@ fn streaming_request(
     url: &str,
     accepts: &str,
     content_type: &str,
-    body: impl Stream<Item = Bytes> + 'static,
+    body: impl Stream<Item = Result<Bytes, Bytes>> + 'static,
     method: Method,
 ) -> Result<(Request, Option<AbortOnDrop>), JsValue> {
     let (abort_ctrl, abort_signal) = abort_signal();
-    let stream = ReadableStream::from_stream(body.map(|bytes| {
-        let data = Uint8Array::from(bytes.as_ref());
-        let data = JsValue::from(data);
-        Ok(data) as Result<JsValue, JsValue>
+    let stream = ReadableStream::from_stream(body.map(|chunk| {
+        chunk
+            .map(|bytes| {
+                let data = Uint8Array::from(bytes.as_ref());
+                JsValue::from(data)
+            })
+            .map_err(|err| JsValue::from_str(&String::from_utf8_lossy(&err)))
     }))
     .into_raw();
 
