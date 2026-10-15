@@ -1,10 +1,5 @@
 use crate::error::{ServerFnErrorErr, ServerFnErrorResponseParts};
-use or_poisoned::OrPoisoned;
-use std::{
-    future::Future,
-    pin::Pin,
-    sync::{Arc, Mutex},
-};
+use std::{future::Future, pin::Pin};
 
 /// An abstraction over a middleware layer, which can be used to add additional
 /// middleware layer to a [`Service`].
@@ -14,19 +9,25 @@ pub trait Layer<Req, Res>: Send + Sync + 'static {
 }
 
 /// A type-erased service, which takes an HTTP request and returns a response.
+///
+/// Like `tower::util::BoxCloneSyncService`, cloning a `BoxedService` clones
+/// the service inside it. The server function integrations apply the
+/// middleware layers once and run each request on its own clone, so state
+/// that the clones share (for example behind an `Arc`) applies across
+/// requests, while plain fields of a service are per clone.
 #[non_exhaustive]
 pub struct BoxedService<Req, Res> {
     /// A function that converts a [`ServerFnErrorErr`] into [`ServerFnErrorResponseParts`].
     pub err_ser: ServerFnErrorSerializer,
-    /// The shared inner service, allowing tower middleware to clone it.
-    pub service: Arc<Mutex<Box<dyn Service<Req, Res> + Send>>>,
+    /// The inner service, which is cloned when the `BoxedService` is cloned.
+    service: Box<dyn CloneService<Req, Res>>,
 }
 
 impl<Req, Res> Clone for BoxedService<Req, Res> {
     fn clone(&self) -> Self {
         Self {
             err_ser: self.err_ser,
-            service: Arc::clone(&self.service),
+            service: self.service.clone_box(),
         }
     }
 }
@@ -35,11 +36,11 @@ impl<Req, Res> BoxedService<Req, Res> {
     /// Constructs a type-erased service from this service.
     pub fn new(
         ser: ServerFnErrorSerializer,
-        service: impl Service<Req, Res> + Send + 'static,
+        service: impl Service<Req, Res> + Clone + Send + Sync + 'static,
     ) -> Self {
         Self {
             err_ser: ser,
-            service: Arc::new(Mutex::new(Box::new(service))),
+            service: Box::new(service),
         }
     }
 
@@ -48,7 +49,23 @@ impl<Req, Res> BoxedService<Req, Res> {
         &mut self,
         req: Req,
     ) -> Pin<Box<dyn Future<Output = Res> + Send>> {
-        self.service.lock().or_poisoned().run(req, self.err_ser)
+        self.service.run(req, self.err_ser)
+    }
+}
+
+/// A [`Service`] that can be cloned behind a trait object, which lets
+/// [`BoxedService`] be cloned.
+trait CloneService<Req, Res>: Service<Req, Res> + Send + Sync {
+    /// Clones this service into a new boxed trait object.
+    fn clone_box(&self) -> Box<dyn CloneService<Req, Res>>;
+}
+
+impl<S, Req, Res> CloneService<Req, Res> for S
+where
+    S: Service<Req, Res> + Clone + Send + Sync + 'static,
+{
+    fn clone_box(&self) -> Box<dyn CloneService<Req, Res>> {
+        Box::new(self.clone())
     }
 }
 
@@ -73,7 +90,6 @@ mod axum {
     use crate::{ServerFnError, error::ServerFnErrorErr, response::Res};
     use axum::body::Body;
     use http::{Request, Response};
-    use or_poisoned::OrPoisoned;
     use std::{future::Future, pin::Pin};
 
     impl<S> super::Service<Request<Body>, Response<Body>> for S
@@ -134,8 +150,7 @@ mod axum {
         }
 
         fn call(&mut self, req: Request<Body>) -> Self::Future {
-            let inner =
-                self.service.lock().or_poisoned().run(req, self.err_ser);
+            let inner = self.service.run(req, self.err_ser);
             Box::pin(async move { Ok(inner.await) })
         }
     }
@@ -146,7 +161,11 @@ mod axum {
             + Sync
             + Send
             + 'static,
-        L::Service: Service<Request<Body>, Response<Body>> + Send + 'static,
+        L::Service: Service<Request<Body>, Response<Body>>
+            + Clone
+            + Send
+            + Sync
+            + 'static,
     {
         fn layer(
             &self,
@@ -227,9 +246,14 @@ mod tests {
     use std::{
         future::Future,
         pin::Pin,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
         task::{Context, Poll},
     };
 
+    #[derive(Clone)]
     struct Inner;
 
     impl super::Service<Request<Body>, Response<Body>> for Inner {
@@ -293,5 +317,51 @@ mod tests {
         let response = svc.run(Request::new(Body::empty())).await;
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[derive(Clone)]
+    struct Counter {
+        per_clone: usize,
+        shared: Arc<AtomicUsize>,
+    }
+
+    impl super::Service<Request<Body>, Response<Body>> for Counter {
+        fn run(
+            &mut self,
+            _req: Request<Body>,
+            _err_ser: ServerFnErrorSerializer,
+        ) -> Pin<Box<dyn Future<Output = Response<Body>> + Send>> {
+            self.per_clone += 1;
+            self.shared.fetch_add(1, Ordering::SeqCst);
+            let body = Body::from(self.per_clone.to_string());
+            Box::pin(async move { Response::new(body) })
+        }
+    }
+
+    async fn count(
+        svc: &mut BoxedService<Request<Body>, Response<Body>>,
+    ) -> String {
+        let body = svc.run(Request::new(Body::empty())).await.into_body();
+        let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap();
+        String::from_utf8(bytes.to_vec()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn clone_copies_plain_state_and_shares_arc_state() {
+        let shared = Arc::new(AtomicUsize::new(0));
+        let mut first = BoxedService::new(
+            ser,
+            Counter {
+                per_clone: 0,
+                shared: Arc::clone(&shared),
+            },
+        );
+        assert_eq!(count(&mut first).await, "1");
+
+        let mut second = first.clone();
+        assert_eq!(count(&mut first).await, "2");
+        assert_eq!(count(&mut first).await, "3");
+        assert_eq!(count(&mut second).await, "2");
+        assert_eq!(shared.load(Ordering::SeqCst), 4);
     }
 }
