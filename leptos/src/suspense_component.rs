@@ -601,8 +601,8 @@ where
             {
                 let mut nth_run = 1;
                 move |prev| {
-                    let show_b = !none_pending.get()
-                        && (!TRANSITION || nth_run < 1);
+                    let show_b =
+                        !none_pending.get() && (!TRANSITION || nth_run < 1);
                     nth_run += 1;
                     let this = OwnedView::new_with_owner(
                         EitherKeepAlive {
