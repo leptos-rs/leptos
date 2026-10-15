@@ -6,8 +6,33 @@
 //! For more details on how to use the integrations, see the
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
+//!
+//! # Serving the pkg dir and the site root
+//!
+//! Mount [`site_pkg_files`] and [`site_root_files`] after `leptos_routes`.
+//! Actix matches services in registration order, so mount the pkg dir
+//! first. The site root service skips the
+//! [`hidden_site_pkg_dir`](LeptosOptions::hidden_site_pkg_dir), so the pkg
+//! dir has one URL.
+//!
+//! ```no_run
+//! use actix_web::App;
+//! use leptos::config::LeptosOptions;
+//! use leptos_actix::{
+//!     LeptosRoutes, generate_route_list, site_pkg_files, site_root_files,
+//! };
+//!
+//! let options = LeptosOptions::builder().output_name("app").build()?;
+//! let app = || "Hello, world!";
+//! let routes = generate_route_list(app);
+//! let app = App::new()
+//!     .leptos_routes(routes, app)
+//!     .service(site_pkg_files(&options))
+//!     .service(site_root_files(&options));
+//! # Ok::<(), leptos::config::errors::LeptosConfigError>(())
+//! ```
 
-use actix_files::NamedFile;
+use actix_files::{Files, NamedFile};
 use actix_http::header::{ACCEPT, HeaderName, HeaderValue, LOCATION, REFERER};
 use actix_web::{
     dev::{ServiceFactory, ServiceRequest},
@@ -1845,6 +1870,36 @@ impl LeptosRoutes for &mut ServiceConfig {
     }
 }
 
+/// Returns a [`Files`] service that serves the pkg dir,
+/// [`site_pkg_path`](LeptosOptions::site_pkg_path), at
+/// [`pkg_url_path`](LeptosOptions::pkg_url_path).
+///
+/// Actix matches services in registration order, so mount it before
+/// [`site_root_files`].
+pub fn site_pkg_files(options: &LeptosOptions) -> Files {
+    Files::new(
+        &format!("/{}", options.pkg_url_path()),
+        options.site_pkg_path(),
+    )
+}
+
+/// Returns a [`Files`] service that serves `site_root` at
+/// [`site_root_url_path`](LeptosOptions::site_root_url_path).
+///
+/// It does not serve the
+/// [`hidden_site_pkg_dir`](LeptosOptions::hidden_site_pkg_dir), so the pkg
+/// dir has one URL.
+pub fn site_root_files(options: &LeptosOptions) -> Files {
+    let hidden = options.hidden_site_pkg_dir();
+    Files::new(
+        &format!("/{}", options.site_root_url_path()),
+        &*options.site_root,
+    )
+    .path_filter(move |path, _| {
+        hidden.as_ref().is_none_or(|dir| !path.starts_with(dir))
+    })
+}
+
 /// A helper to make it easier to use Actix extractors in server functions.
 ///
 /// It is generic over some type `T` that implements [`FromRequest`] and can
@@ -1974,7 +2029,10 @@ mod tests {
         // the render path spawns futures on the global executor
         let _ = any_spawner::Executor::init_tokio();
 
-        let options = LeptosOptions::builder().output_name("test").build();
+        let options = LeptosOptions::builder()
+            .output_name("test")
+            .build()
+            .unwrap();
         let route =
             render_app_to_stream_with_context(|| {}, || "hello", Method::Get);
 
@@ -2016,7 +2074,8 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("test")
             .site_root(dir.to_string_lossy().into_owned())
-            .build();
+            .build()
+            .unwrap();
 
         let html = "<html><body>hello</body></html>";
         write_static_route(&options, None, "/page", html)

@@ -29,7 +29,7 @@ use tower::{Layer, Service};
 /// composing with the [`ServeDir`] service returned by [`serve_site_root_service`].
 ///
 /// [`file_and_error_handler`]: crate::file_and_error_handler
-/// [`serve_site_root_service`]: crate::site_pkg_dir_service
+/// [`serve_site_root_service`]: crate::serve_site_root_service
 /// [`Service`]: tower::Service
 /// [`ServeDir`]: tower_http::services::ServeDir
 ///
@@ -343,3 +343,7 @@ where
 mod embed;
 #[cfg(feature = "embed")]
 pub use embed::EmbeddedSiteRoot;
+#[cfg(any(feature = "default", feature = "embed"))]
+mod exclude;
+#[cfg(any(feature = "default", feature = "embed"))]
+pub use exclude::ExcludeDir;
