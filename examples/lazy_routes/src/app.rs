@@ -33,7 +33,8 @@ pub fn App() -> impl IntoView {
             <a href="/">"A"</a> " | "
             <a href="/b">"B"</a> " | "
             <a href="/c">"C"</a> " | "
-            <a href="/d">"D"</a>
+            <a href="/d">"D"</a> " | "
+            <a href="/f">"F"</a>
             <span style="float: right" id="navigating">
                 {move || is_routing.get().then_some("Navigating...")}
             </span>
@@ -53,6 +54,7 @@ pub fn App() -> impl IntoView {
                     <ParentRoute path=StaticSegment("d") view={Lazy::<ViewD>::new()}>
                         <Route path=StaticSegment("") view={Lazy::<ViewE>::new()}/>
                     </ParentRoute>
+                    <Route path=StaticSegment("f") view=ViewF/>
                 </Routes>
             </ErrorBoundary>
         </Router>
@@ -368,4 +370,44 @@ impl LazyRoute for ViewE {
 async fn e_data() -> Result<Vec<String>, ServerFnError> {
     tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     Ok(vec!["foo".into(), "bar".into(), "baz".into()])
+}
+
+#[component]
+fn ItemsTable(items: Resource<Vec<String>>) -> impl IntoView {
+    view! {
+        <Suspense fallback=|| view! { <p id="loading-items">"Loading items..."</p> }>
+            <ul id="items">
+                {move || Suspend::new(async move {
+                    items
+                        .await
+                        .into_iter()
+                        .map(|item| view! { <li>{item}</li> })
+                        .collect_view()
+                })}
+            </ul>
+        </Suspense>
+    }
+}
+
+#[lazy]
+fn load_items_table(items: Resource<Vec<String>>) -> AnyView {
+    view! { <ItemsTable items/> }.into_any()
+}
+
+#[component]
+pub fn ViewF() -> impl IntoView {
+    let result = RwSignal::new("Click a button to see the result".to_string());
+    let items = Resource::new(
+        || (),
+        |_| async { vec!["one".to_string(), "two".to_string()] },
+    );
+
+    view! {
+        <p id="page">"View F"</p>
+        <Transition fallback=|| view! { <p id="loading">"Loading..."</p> }>
+            {move || Suspend::new(async move { load_items_table(items).await })}
+        </Transition>
+        <pre id="result">{result}</pre>
+        <button id="Hydrated" on:click=move |_| result.set("Hydrated".to_string())>"Hydrated"</button>
+    }
 }

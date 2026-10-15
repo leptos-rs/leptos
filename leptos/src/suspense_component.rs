@@ -561,6 +561,71 @@ where
         })
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let cursor = cursor.to_owned();
+        let position = position.to_owned();
+
+        let mut children = Some(self.children);
+        let mut fallback = Some(self.fallback);
+        let none_pending = self.none_pending;
+        let outer_owner = Owner::new();
+
+        // hydrate outside the effect so pending children can be awaited;
+        // the effect then only rebuilds
+        let taken_children = children.take();
+        let taken_fallback = fallback.take();
+        let initial = {
+            let none_pending = none_pending.clone();
+            let outer_owner = outer_owner.clone();
+            async move {
+                // first run, so the TRANSITION term is always true
+                let show_b = !none_pending.get();
+                OwnedView::new_with_owner(
+                    EitherKeepAlive {
+                        a: taken_children,
+                        b: taken_fallback,
+                        show_b,
+                    },
+                    outer_owner,
+                )
+                .hydrate_async(&cursor, &position)
+                .await
+            }
+        };
+
+        RenderEffect::new_with_async_value(
+            {
+                let mut nth_run = 1;
+                move |prev| {
+                    let show_b = !none_pending.get()
+                        && (!TRANSITION || nth_run < 1);
+                    nth_run += 1;
+                    let this = OwnedView::new_with_owner(
+                        EitherKeepAlive {
+                            a: children.take(),
+                            b: fallback.take(),
+                            show_b,
+                        },
+                        outer_owner.clone(),
+                    );
+
+                    if let Some(mut state) = prev {
+                        this.rebuild(&mut state);
+                        state
+                    } else {
+                        unreachable!()
+                    }
+                }
+            },
+            initial,
+        )
+        .await
+    }
+
     fn into_owned(self) -> Self::Owned {
         self
     }
@@ -659,6 +724,14 @@ where
         position: &PositionState,
     ) -> Self::State {
         (self.0)().hydrate::<FROM_SERVER>(cursor, position)
+    }
+
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        (self.0)().hydrate_async(cursor, position).await
     }
 
     fn into_owned(self) -> Self::Owned {

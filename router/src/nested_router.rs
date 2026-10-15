@@ -550,7 +550,8 @@ where
                     EitherOf3::C(top_level_outlet(&outlets, &outer_owner))
                 }
             }
-            .hydrate::<true>(cursor, position),
+            .hydrate_async(cursor, position)
+            .await,
         ));
 
         NestedRouteViewState {

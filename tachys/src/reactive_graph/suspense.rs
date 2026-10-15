@@ -440,6 +440,39 @@ where
         SuspendState { inner }
     }
 
+    async fn hydrate_async(
+        self,
+        cursor: &Cursor,
+        position: &PositionState,
+    ) -> Self::State {
+        let Self { subscriber, inner } = self;
+
+        // create a Future that will be aborted on on_cleanup
+        // this prevents trying to access signals or other resources inside the Suspend, after the
+        // await, if they have already been cleaned up
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        let mut fut = Box::pin(Abortable::new(inner, abort_registration));
+        on_cleanup(move || abort_handle.abort());
+
+        // poll the future once immediately
+        let value = match fut.as_mut().now_or_never().and_then(Result::ok) {
+            Some(value) => Some(value),
+            None => {
+                let id =
+                    use_context::<SuspenseContext>().map(|sc| sc.task_id());
+                let value = fut.as_mut().await.ok();
+                drop(id);
+                value
+            }
+        };
+
+        // if pending, wait so we hydrate the real value against the server's HTML
+        let inner =
+            Rc::new(RefCell::new(value.hydrate_async(cursor, position).await));
+        subscriber.forward();
+        SuspendState { inner }
+    }
+
     async fn resolve(self) -> Self::AsyncOutput {
         Some(self.inner.await)
     }
