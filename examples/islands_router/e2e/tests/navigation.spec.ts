@@ -59,3 +59,24 @@ test("navigates from Home to About (redundantly), increments Counter", async ({ 
 
   expect(errors).toEqual([]);
 });
+
+test("an island that leaves the page is disposed", async ({ page }) => {
+  const errors = collectErrors(page);
+  const logs: string[] = [];
+  page.on("console", (msg) => logs.push(msg.text()));
+
+  await page.goto("/about");
+  await page.click("button[class=counter]");
+  await expect(page.locator("button[class=counter]")).toHaveText("Click Me: 1");
+
+  await page.click('nav a[href="/"]');
+  await expect(page.locator("button[class=counter]")).not.toBeAttached();
+  await expect.poll(() => logs).toContain("Counter disposed");
+
+  await page.click('nav a[href="/about"]');
+  await expect(page.locator("button[class=counter]")).toHaveText("Click Me: 0");
+  await page.click("button[class=counter]");
+  await expect(page.locator("button[class=counter]")).toHaveText("Click Me: 1");
+
+  expect(errors).toEqual([]);
+});

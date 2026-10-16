@@ -569,8 +569,8 @@ impl Model {
                 #deserialize_island_props
                 let island = #name(#island_props);
                 let state = island.hydrate_from_position::<true>(&el, ::leptos::tachys::view::Position::Current);
-                // TODO better cleanup
-                std::mem::forget(state);
+                // dropped by whatever takes the island off the page, through `$$dispose` on its element
+                ::leptos::tachys::html::islands::keep_state(&el, state);
             };
             if *is_lazy {
                 let outer_name =
