@@ -3,6 +3,7 @@ use or_poisoned::OrPoisoned;
 use std::{
     any::{Any, TypeId},
     collections::VecDeque,
+    sync::Arc,
 };
 
 impl Owner {
@@ -20,27 +21,15 @@ impl Owner {
 
     fn take_context<T: 'static>(&self) -> Option<T> {
         let ty = TypeId::of::<T>();
-        let mut inner = self.inner.write().or_poisoned();
-        let contexts = &mut inner.contexts;
-        if let Some(context) = contexts.remove(&ty) {
-            context.downcast::<T>().ok().map(|n| *n)
-        } else {
-            let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
-            while let Some(ref this_parent) = parent.clone() {
-                let mut this_parent = this_parent.write().or_poisoned();
-                let contexts = &mut this_parent.contexts;
-                let value = contexts.remove(&ty);
-                let downcast =
-                    value.and_then(|context| context.downcast::<T>().ok());
-                if let Some(value) = downcast {
-                    return Some(*value);
-                } else {
-                    parent =
-                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
-                }
+        let mut next = Some(Arc::clone(&self.inner));
+        while let Some(owner) = next.take() {
+            let mut owner = owner.write().or_poisoned();
+            if let Some(value) = owner.contexts.remove(&ty) {
+                return value.downcast::<T>().ok().map(|n| *n);
             }
-            None
+            next = owner.parent.as_ref().and_then(|p| p.upgrade());
         }
+        None
     }
 
     fn with_context<T: 'static, R>(
@@ -48,29 +37,15 @@ impl Owner {
         cb: impl FnOnce(&T) -> R,
     ) -> Option<R> {
         let ty = TypeId::of::<T>();
-        let inner = self.inner.read().or_poisoned();
-        let contexts = &inner.contexts;
-        let reference = if let Some(context) = contexts.get(&ty) {
-            context.downcast_ref::<T>()
-        } else {
-            let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
-            while let Some(ref this_parent) = parent.clone() {
-                let this_parent = this_parent.read().or_poisoned();
-                let contexts = &this_parent.contexts;
-                let value = contexts.get(&ty);
-                let downcast =
-                    value.and_then(|context| context.downcast_ref::<T>());
-                if let Some(value) = downcast {
-                    return Some(cb(value));
-                } else {
-                    parent =
-                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
-                }
+        let mut next = Some(Arc::clone(&self.inner));
+        while let Some(owner) = next.take() {
+            let owner = owner.read().or_poisoned();
+            if let Some(value) = owner.contexts.get(&ty) {
+                return value.downcast_ref::<T>().map(cb);
             }
-
-            None
-        };
-        reference.map(cb)
+            next = owner.parent.as_ref().and_then(|p| p.upgrade());
+        }
+        None
     }
 
     fn update_context<T: 'static, R>(
@@ -78,28 +53,15 @@ impl Owner {
         cb: impl FnOnce(&mut T) -> R,
     ) -> Option<R> {
         let ty = TypeId::of::<T>();
-        let mut inner = self.inner.write().or_poisoned();
-        let contexts = &mut inner.contexts;
-        let reference = if let Some(context) = contexts.get_mut(&ty) {
-            context.downcast_mut::<T>()
-        } else {
-            let mut parent = inner.parent.as_ref().and_then(|p| p.upgrade());
-            while let Some(ref this_parent) = parent.clone() {
-                let mut this_parent = this_parent.write().or_poisoned();
-                let contexts = &mut this_parent.contexts;
-                let value = contexts.get_mut(&ty);
-                let downcast =
-                    value.and_then(|context| context.downcast_mut::<T>());
-                if let Some(value) = downcast {
-                    return Some(cb(value));
-                } else {
-                    parent =
-                        this_parent.parent.as_ref().and_then(|p| p.upgrade());
-                }
+        let mut next = Some(Arc::clone(&self.inner));
+        while let Some(owner) = next.take() {
+            let mut owner = owner.write().or_poisoned();
+            if let Some(value) = owner.contexts.get_mut(&ty) {
+                return value.downcast_mut::<T>().map(cb);
             }
-            None
-        };
-        reference.map(cb)
+            next = owner.parent.as_ref().and_then(|p| p.upgrade());
+        }
+        None
     }
 
     /// Searches for items stored in context in either direction, either among parents or among
@@ -439,4 +401,60 @@ pub fn update_context<T: 'static, R>(
     cb: impl FnOnce(&mut T) -> R,
 ) -> Option<R> {
     Owner::current().and_then(|owner| owner.update_context(cb))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::owner::Owner;
+    use std::{
+        sync::{Arc, Mutex, mpsc},
+        thread,
+        time::Duration,
+    };
+
+    fn does_not_deadlock(f: impl FnOnce() + Send + 'static) -> bool {
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            f();
+            _ = tx.send(());
+        });
+        rx.recv_timeout(Duration::from_secs(5)).is_ok()
+    }
+
+    struct Marker;
+
+    /// A child owner whose parent provides `Marker`, and whose parent's only
+    /// strong handle is in the returned slot (the child holds a `Weak`).
+    /// Emptying the slot during a lookup from the child leaves the lookup's
+    /// own upgraded `Arc` as the parent's last strong reference, the way a
+    /// parent being dropped on another thread would.
+    fn child_of_droppable_parent() -> (Owner, Arc<Mutex<Option<Owner>>>) {
+        let parent = Owner::new();
+        parent.provide_context(Marker);
+        let child = parent.child();
+        (child, Arc::new(Mutex::new(Some(parent))))
+    }
+
+    #[test]
+    fn with_context_does_not_deadlock_when_the_lookup_drops_the_last_parent() {
+        assert!(does_not_deadlock(|| {
+            let (child, parent) = child_of_droppable_parent();
+            let found = child.with_context::<Marker, _>(|_| {
+                parent.lock().unwrap().take();
+            });
+            assert!(found.is_some());
+        }));
+    }
+
+    #[test]
+    fn update_context_does_not_deadlock_when_the_lookup_drops_the_last_parent()
+    {
+        assert!(does_not_deadlock(|| {
+            let (child, parent) = child_of_droppable_parent();
+            let found = child.update_context::<Marker, _>(|_| {
+                parent.lock().unwrap().take();
+            });
+            assert!(found.is_some());
+        }));
+    }
 }
