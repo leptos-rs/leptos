@@ -71,11 +71,14 @@ where
     ) -> Result<Self, E>;
 
     /// Attempts to construct a new request with a streaming body.
+    ///
+    /// An `Err` item contains a serialized error and aborts the request body,
+    /// so the upload fails instead of sending incomplete data.
     fn try_new_req_streaming(
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
         method: Method,
     ) -> Result<Self, E>;
 
@@ -269,7 +272,7 @@ where
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
     ) -> Result<Self, E> {
         Self::try_new_req_streaming(
             path,
@@ -287,7 +290,7 @@ where
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
     ) -> Result<Self, E> {
         Self::try_new_req_streaming(
             path,
@@ -305,7 +308,7 @@ where
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static,
     ) -> Result<Self, E> {
         Self::try_new_req_streaming(
             path,

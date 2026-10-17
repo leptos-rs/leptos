@@ -6,6 +6,7 @@
 
 use axum::{
     Router,
+    extract::DefaultBodyLimit,
     http::{HeaderName, StatusCode, header},
     routing::any,
 };
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use server_fn::{
     BoxedStream, Http, Protocol, ServerFn, ServerFnError, Websocket,
     client::{reqwest::ReqwestClient, try_set_server_url},
-    codec::{Json, JsonEncoding, PostUrl},
+    codec::{Json, JsonEncoding, PostUrl, StreamingText, TextStream},
     mock::BrowserMockServer,
     redirect::{REDIRECT_HEADER, set_redirect_hook},
 };
@@ -24,7 +25,7 @@ use std::{
     ops::Deref,
     sync::{
         Mutex, OnceLock,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -34,6 +35,9 @@ static SERVER: OnceLock<SocketAddr> = OnceLock::new();
 static HOOK: OnceLock<()> = OnceLock::new();
 static LOCATIONS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static LIVE: AtomicUsize = AtomicUsize::new(0);
+static LIMITED_TEXT_BYTES: AtomicUsize = AtomicUsize::new(0);
+static RECORD_STARTED: AtomicBool = AtomicBool::new(false);
+static RECORDED_TEXT: Mutex<Option<(String, bool)>> = Mutex::new(None);
 static PULLED: AtomicUsize = AtomicUsize::new(0);
 static WEBSOCKET_TEST: tokio::sync::Mutex<()> =
     tokio::sync::Mutex::const_new(());
@@ -162,10 +166,169 @@ impl ServerFn for Sum {
     }
 }
 
+struct CountText(TextStream<ServerFnError>);
+
+impl From<TextStream<ServerFnError>> for CountText {
+    fn from(input: TextStream<ServerFnError>) -> Self {
+        Self(input)
+    }
+}
+
+impl From<CountText> for TextStream<ServerFnError> {
+    fn from(value: CountText) -> Self {
+        value.0
+    }
+}
+
+impl ServerFn for CountText {
+    const PATH: &'static str = "/api/limited/count_text";
+
+    type Client = ReqwestClient;
+    type Server = server_fn::axum::AxumServerFnBackend;
+    type Protocol = Http<StreamingText, Json>;
+    type Output = usize;
+    type Error = ServerFnError;
+    type InputStreamError = ServerFnError;
+    type OutputStreamError = ServerFnError;
+
+    async fn run_body(self) -> Result<Self::Output, Self::Error> {
+        let mut input = self.0.into_inner();
+        let mut total = 0;
+        while let Some(chunk) = input.next().await {
+            total += chunk?.len();
+            LIMITED_TEXT_BYTES.store(total, Ordering::SeqCst);
+        }
+        Ok(total)
+    }
+}
+
+struct RecordText(TextStream<ServerFnError>);
+
+impl From<TextStream<ServerFnError>> for RecordText {
+    fn from(input: TextStream<ServerFnError>) -> Self {
+        Self(input)
+    }
+}
+
+impl From<RecordText> for TextStream<ServerFnError> {
+    fn from(value: RecordText) -> Self {
+        value.0
+    }
+}
+
+impl ServerFn for RecordText {
+    const PATH: &'static str = "/api/record_text";
+
+    type Client = ReqwestClient;
+    type Server = server_fn::axum::AxumServerFnBackend;
+    type Protocol = Http<StreamingText, Json>;
+    type Output = String;
+    type Error = ServerFnError;
+    type InputStreamError = ServerFnError;
+    type OutputStreamError = ServerFnError;
+
+    async fn run_body(self) -> Result<Self::Output, Self::Error> {
+        let mut input = self.0.into_inner();
+        let mut text = String::new();
+        while let Some(chunk) = input.next().await {
+            match chunk {
+                Ok(chunk) => {
+                    text.push_str(&chunk);
+                    if !text.is_empty() {
+                        RECORD_STARTED.store(true, Ordering::SeqCst);
+                    }
+                }
+                Err(error) => {
+                    *RECORDED_TEXT.lock().unwrap() = Some((text, true));
+                    return Err(error);
+                }
+            }
+        }
+        *RECORDED_TEXT.lock().unwrap() = Some((text.clone(), false));
+        Ok(text)
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn streaming_text_upload_error_aborts_request() {
+    let _ = server_addr();
+    RECORD_STARTED.store(false, Ordering::SeqCst);
+    *RECORDED_TEXT.lock().unwrap() = None;
+    let input = stream::iter([Ok("start".to_string())])
+        .chain(stream::once(async {
+            timeout(Duration::from_secs(5), async {
+                while !RECORD_STARTED.load(Ordering::SeqCst) {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .expect("server should start reading before upload fails");
+            Err(ServerFnError::new("upload failed"))
+        }))
+        .chain(stream::iter([Ok("end".to_string())]));
+    let result = timeout(
+        Duration::from_secs(5),
+        <Http<StreamingText, Json> as Protocol<
+            RecordText,
+            String,
+            ReqwestClient,
+            server_fn::axum::AxumServerFnBackend,
+            ServerFnError,
+        >>::run_client(
+            RecordText::PATH, RecordText(TextStream::new(input))
+        ),
+    )
+    .await
+    .expect("failed upload should finish before timeout");
+    assert!(result.is_err(), "upload should fail, got {result:?}");
+
+    let (text, saw_error) = timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(recorded) = RECORDED_TEXT.lock().unwrap().take() {
+                return recorded;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("server should record the upload failure");
+    assert!(saw_error, "server should observe a stream error: {text:?}");
+    assert!(
+        !text.contains("end"),
+        "server read past the error: {text:?}"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn streaming_text_enforces_route_body_limit() {
+    let _ = server_addr();
+    LIMITED_TEXT_BYTES.store(0, Ordering::SeqCst);
+    let input = stream::iter((0..100).map(|_| "x".repeat(1000)));
+    let result = timeout(
+        Duration::from_secs(5),
+        <Http<StreamingText, Json> as Protocol<
+            CountText,
+            usize,
+            ReqwestClient,
+            server_fn::axum::AxumServerFnBackend,
+            ServerFnError,
+        >>::run_client(
+            CountText::PATH, CountText(TextStream::from(input))
+        ),
+    )
+    .await
+    .expect("limited upload should finish before timeout");
+    assert!(result.is_err(), "oversized upload should fail");
+    let total = LIMITED_TEXT_BYTES.load(Ordering::SeqCst);
+    assert!(total <= 1024, "server read {total} bytes");
+}
+
 fn server_addr() -> SocketAddr {
     *SERVER.get_or_init(|| {
         server_fn::axum::register_explicit::<Idle>();
         server_fn::axum::register_explicit::<Sum>();
+        server_fn::axum::register_explicit::<CountText>();
+        server_fn::axum::register_explicit::<RecordText>();
         let listener = std::net::TcpListener::bind("127.0.0.1:0")
             .expect("loopback listener should bind");
         listener
@@ -187,6 +350,11 @@ fn server_addr() -> SocketAddr {
                     .route(
                         "/api/{*rest}",
                         any(server_fn::axum::handle_server_fn),
+                    )
+                    .route(
+                        "/api/limited/{*rest}",
+                        any(server_fn::axum::handle_server_fn)
+                            .layer(DefaultBodyLimit::max(1024)),
                     )
                     .route("/needs_login", any(needs_login))
                     .route("/after", any(after));
