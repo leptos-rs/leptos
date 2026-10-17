@@ -26,15 +26,20 @@ use crate::{
 };
 use async_lock::RwLock as AsyncRwLock;
 use core::fmt::Debug;
-use futures::{FutureExt, StreamExt, channel::oneshot};
+use futures::{
+    FutureExt, StreamExt,
+    channel::oneshot,
+    future::{AbortHandle, Abortable, poll_fn},
+};
 use or_poisoned::OrPoisoned;
 use std::{
+    cell::Cell,
     future::Future,
     mem,
     ops::{Deref, DerefMut},
     panic::Location,
     sync::{
-        Arc, RwLock, Weak,
+        Arc, Mutex, RwLock, Weak,
         atomic::{AtomicBool, Ordering},
     },
     task::Waker,
@@ -214,6 +219,42 @@ impl<T> DefinedAt for ArcAsyncDerived<T> {
             None
         }
     }
+}
+
+thread_local! {
+    // the lock held by the `cancel_on_cleanup` task currently being polled on this thread
+    static POLLING: Cell<*const Mutex<()>> = const { Cell::new(std::ptr::null()) };
+}
+
+fn cancel_on_cleanup<Fut>(fut: Fut) -> impl Future<Output = ()>
+where
+    Fut: Future<Output = ()>,
+{
+    let (abort_handle, abort_reg) = AbortHandle::new_pair();
+
+    // cleanup and polling are mutually exclusive; we'll lock the mutex during cleanup,
+    // and then take the lock before polling
+    let lock = Arc::new(Mutex::new(()));
+
+    Owner::on_cleanup({
+        let lock = Arc::clone(&lock);
+        move || {
+            // we don't want to reenter the lock if a cleanup is triggered by the task itself
+            // so, only take the lock if this thread isn't currently polling this task
+            let _guard = (POLLING.with(Cell::get) != Arc::as_ptr(&lock))
+                .then(|| lock.lock().or_poisoned());
+            abort_handle.abort();
+        }
+    });
+
+    let mut fut = Box::pin(Abortable::new(fut, abort_reg));
+    poll_fn(move |cx| {
+        let _guard = lock.lock().or_poisoned();
+        let prev = POLLING.with(|p| p.replace(Arc::as_ptr(&lock)));
+        let res = fut.as_mut().poll(cx).map(|_| ());
+        POLLING.with(|p| p.set(prev));
+        res
+    })
 }
 
 // This helps create a derived async signal.
@@ -396,6 +437,8 @@ macro_rules! spawn_derived {
                         }
                     }
                 };
+
+                let fut = cancel_on_cleanup(fut);
 
                 #[cfg(feature = "sandboxed-arenas")]
                 let fut = Sandboxed::new(fut);

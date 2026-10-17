@@ -137,3 +137,45 @@ async fn async_derived_with_initial() {
     signal2.set(1);
     assert_eq!(derived.await, 2);
 }
+
+#[tokio::test]
+async fn async_derived_stops_polling_when_owner_disposed() {
+    use futures::channel::oneshot;
+    use std::sync::{
+        Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
+    };
+
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    let (tx, rx) = oneshot::channel::<()>();
+    let rx = Arc::new(Mutex::new(Some(rx)));
+    let resumed = Arc::new(AtomicBool::new(false));
+
+    let signal = RwSignal::new(1);
+    let _value = AsyncDerived::new({
+        let resumed = Arc::clone(&resumed);
+        move || {
+            let rx = rx.lock().unwrap().take();
+            let resumed = Arc::clone(&resumed);
+            async move {
+                if let Some(rx) = rx {
+                    _ = rx.await;
+                }
+                resumed.store(true, Ordering::Relaxed);
+                // would panic, as the signal has been disposed
+                signal.get()
+            }
+        }
+    });
+
+    Executor::tick().await;
+    owner.cleanup();
+    _ = tx.send(());
+    Executor::tick().await;
+    Executor::tick().await;
+
+    assert!(!resumed.load(Ordering::Relaxed));
+}
