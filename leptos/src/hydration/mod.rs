@@ -227,7 +227,7 @@ pub fn HydrationScripts(
     // callback fires, but at `low` priority so they don't compete with the
     // render-blocking resources that determine LCP
     let priority = defer.then_some("low");
-    view! {
+    use_context::<IslandsRouterNavigation>().is_none().then(move || view! {
         <link
             rel="modulepreload"
             href=format!("{root}/{pkg_path}/{js_file_name}.js")
@@ -248,7 +248,7 @@ pub fn HydrationScripts(
         <script type="module" nonce=nonce>
             {format!("{script}({root:?}, {pkg_path:?}, {js_file_name:?}, {wasm_file_name:?}, {defer});{islands_router}")}
         </script>
-    }
+    })
 }
 
 /// If this is provided via context, it means that you are using the islands router and
