@@ -192,6 +192,7 @@ function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
 		// if the nodes are different, we need to replace the old with the new
 		// because of the typed view tree, this should never actually happen
 		if (oldNode.nodeType !== newNode.nodeType) {
+			disposeIslands(oldNode);
 			oldNode.replaceWith(newNode);
 		}
 		// if it's a text node, just update the text with the new text
@@ -228,6 +229,27 @@ function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
 				replaceBranch(oldDocWalker, newDocWalker, oldNode, newNode);
 			}
 		}
+	}
+}
+
+// calls the `$$dispose` each island in `node` carries, once, before the node leaves the page
+function disposeIslands(node) {
+	if (node.nodeType !== Node.ELEMENT_NODE) return;
+	const islands = node.tagName === "LEPTOS-ISLAND" ? [node] : [];
+	islands.push(...node.querySelectorAll("leptos-island"));
+	for (const island of islands) {
+		const dispose = island.$$dispose;
+		if (dispose) {
+			delete island.$$dispose;
+			dispose();
+		}
+	}
+}
+
+// the same for every node between two sibling markers: a branch or a list about to be deleted
+function disposeBetween(open, close) {
+	for (let node = open.nextSibling; node && node !== close; node = node.nextSibling) {
+		disposeIslands(node);
 	}
 }
 
@@ -308,6 +330,7 @@ function replaceFor(oldDocument, oldDocWalker, newDocument, newDocWalker, oldNod
 		newRange.setStartAfter(newNode);
 		newRange.setEndBefore(newClose);
 		const newContents = newRange.extractContents();
+		disposeBetween(oldNode, oldClose);
 		oldRange.deleteContents();
 		oldClose.before(newContents);
 	} catch (e) {
@@ -354,6 +377,7 @@ function replaceBranch(oldDocWalker, newDocWalker, oldNode, newNode) {
 		newRange.setStartAfter(newNode);
 		newRange.setEndBefore(newClose);
 		const newContents = newRange.extractContents();
+		disposeBetween(oldNode, oldClose);
 		oldRange.deleteContents();
 		oldRange.insertNode(newContents);
 		oldNode.textContent = newNode.textContent;
@@ -369,6 +393,7 @@ function diffElement(oldNode, newNode) {
 	/** @type Element */
 	const newEl = newNode;
 	if (oldEl.tagName !== newEl.tagName) {
+		disposeIslands(oldEl);
 		oldEl.replaceWith(newEl);
 
 	}

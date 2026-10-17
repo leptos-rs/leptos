@@ -16,6 +16,17 @@ pub struct Island<View> {
 const ISLAND_TAG: &str = "leptos-island";
 const ISLAND_CHILDREN_TAG: &str = "leptos-children";
 
+/// Keeps an island's hydrated state alive, as a `$$dispose` function on its element that drops it.
+pub fn keep_state<S: 'static>(el: &web_sys::Element, state: S) {
+    let dispose =
+        wasm_bindgen::closure::Closure::once_into_js(move || drop(state));
+    _ = js_sys::Reflect::set(
+        el,
+        &wasm_bindgen::JsValue::from_str("$$dispose"),
+        &dispose,
+    );
+}
+
 impl<View> Island<View> {
     /// Creates a new island with the given component name.
     pub fn new(component: &'static str, view: View) -> Self {
