@@ -2199,6 +2199,7 @@ dependencies = [
  "lru",
  "mime",
  "or_poisoned",
+ "percent-encoding",
  "reactive_graph",
  "tokio",
 ]
