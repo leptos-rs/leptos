@@ -121,6 +121,13 @@ pub fn log_warning(text: Arguments) {
     {
         eprintln!("{text}");
     }
+    #[cfg(all(
+        feature = "tracing",
+        not(all(target_arch = "wasm32", target_os = "unknown"))
+    ))]
+    {
+        tracing::warn!("{text}");
+    }
 }
 
 /// Calls [`Executor::spawn`](any_spawner::Executor::spawn) on non-wasm targets and [`Executor::spawn_local`](any_spawner::Executor::spawn_local) on wasm targets, but ensures that the task also runs in the current arena, if
