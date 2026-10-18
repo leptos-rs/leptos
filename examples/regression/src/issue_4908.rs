@@ -72,7 +72,10 @@ fn Items4908(id: &'static str, items: Vec<String>) -> impl IntoView {
 }
 
 #[component]
-fn Fallback4908(id: &'static str, errors: ArcRwSignal<Errors>) -> impl IntoView {
+fn Fallback4908(
+    id: &'static str,
+    errors: ArcRwSignal<Errors>,
+) -> impl IntoView {
     let (count, set_count) = signal(0);
 
     view! {
