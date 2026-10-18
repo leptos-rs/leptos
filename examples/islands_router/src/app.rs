@@ -210,6 +210,7 @@ pub fn About() -> impl IntoView {
 #[island]
 pub fn Counter() -> impl IntoView {
     let count = RwSignal::new(0);
+    on_cleanup(|| leptos::logging::log!("Counter disposed"));
     view! {
         <button class="counter" on:click=move |_| *count.write() += 1>"Click Me: "{count}</button>
     }
