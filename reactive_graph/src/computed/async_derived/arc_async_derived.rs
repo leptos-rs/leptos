@@ -226,7 +226,10 @@ thread_local! {
     static POLLING: Cell<*const Mutex<()>> = const { Cell::new(std::ptr::null()) };
 }
 
-fn cancel_on_cleanup<Fut>(fut: Fut) -> impl Future<Output = ()>
+fn cancel_on_cleanup<Fut>(
+    fut: Fut,
+    on_cancel: impl FnOnce() + Send + Sync + 'static,
+) -> impl Future<Output = ()>
 where
     Fut: Future<Output = ()>,
 {
@@ -241,9 +244,12 @@ where
         move || {
             // we don't want to reenter the lock if a cleanup is triggered by the task itself
             // so, only take the lock if this thread isn't currently polling this task
-            let _guard = (POLLING.with(Cell::get) != Arc::as_ptr(&lock))
+            let guard = (POLLING.with(Cell::get) != Arc::as_ptr(&lock))
                 .then(|| lock.lock().or_poisoned());
             abort_handle.abort();
+            // the task can no longer run, and `on_cancel` wakes other tasks
+            drop(guard);
+            on_cancel();
         }
     });
 
@@ -444,7 +450,12 @@ macro_rules! spawn_derived {
                     }
                 };
 
-                let fut = cancel_on_cleanup(fut);
+                let fut = cancel_on_cleanup(fut, {
+                    let inner = Arc::downgrade(&this.inner);
+                    let wakers = Arc::downgrade(&this.wakers);
+                    let loading = Arc::downgrade(&this.loading);
+                    move || Self::release_cancelled_reads(&inner, &wakers, &loading)
+                });
 
                 #[cfg(feature = "sandboxed-arenas")]
                 let fut = Sandboxed::new(fut);
@@ -512,6 +523,34 @@ impl<T: 'static> ArcAsyncDerived<T> {
         // had been notified while loading; marking it clean will cause it not to
         // run on the next tick of the async loop, so here it should be left dirty
         inner.write().or_poisoned().state = prev_state;
+    }
+
+    // A cancelled task never stores a value, so it stops loading here instead: whatever waits
+    // for it to finish, such as a suspense read or the value's serialization, can then go on.
+    fn release_cancelled_reads(
+        inner: &Weak<RwLock<ArcAsyncDerivedInner>>,
+        wakers: &Weak<RwLock<Vec<Waker>>>,
+        loading: &Weak<AtomicBool>,
+    ) {
+        if let Some(inner) = inner.upgrade() {
+            let pending_suspenses =
+                mem::take(&mut inner.write().or_poisoned().pending_suspenses);
+            for handle in pending_suspenses {
+                handle.release();
+            }
+        }
+        if let (Some(wakers), Some(loading)) =
+            (wakers.upgrade(), loading.upgrade())
+        {
+            let pending_wakers = {
+                let mut wakers = wakers.write().or_poisoned();
+                loading.store(false, Ordering::Relaxed);
+                mem::take(&mut *wakers)
+            };
+            for waker in pending_wakers {
+                waker.wake();
+            }
+        }
     }
 }
 

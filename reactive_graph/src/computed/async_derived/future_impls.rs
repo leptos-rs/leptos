@@ -146,6 +146,11 @@ where
                 Poll::Pending
             }
             (_, Poll::Pending) => Poll::Pending,
+            // a cancelled task stops loading without a value; wait for one written later
+            (_, Poll::Ready(guard)) if guard.as_ref().is_none() => {
+                wakers.push(waker.clone());
+                Poll::Pending
+            }
             (_, Poll::Ready(guard)) => {
                 Poll::Ready(guard.as_ref().unwrap().clone())
             }
@@ -213,6 +218,11 @@ where
                 Poll::Pending
             }
             (_, Poll::Pending) => Poll::Pending,
+            // a cancelled task stops loading without a value; wait for one written later
+            (_, Poll::Ready(guard)) if guard.as_ref().is_none() => {
+                wakers.push(waker.clone());
+                Poll::Pending
+            }
             (_, Poll::Ready(guard)) => Poll::Ready(ReadGuard::new(
                 Mapped::new_with_guard(AsyncPlain { guard }, |guard| {
                     guard.as_ref().unwrap()

@@ -179,3 +179,70 @@ async fn async_derived_stops_polling_when_owner_disposed() {
 
     assert!(!resumed.load(Ordering::Relaxed));
 }
+
+#[tokio::test]
+async fn disposing_a_loading_async_derived_releases_its_suspense_reads() {
+    use reactive_graph::{
+        computed::suspense::SuspenseContext, owner::provide_context,
+        signal::ArcRwSignal, traits::GetUntracked,
+    };
+    use slotmap::SlotMap;
+
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    let tasks = ArcRwSignal::new(SlotMap::new());
+    provide_context(SuspenseContext::new(tasks.clone()));
+
+    let child = owner.child();
+    child.with(|| {
+        let value = AsyncDerived::new(pending::<i32>);
+        assert_eq!(value.get_untracked(), None);
+    });
+    Executor::tick().await;
+    assert!(
+        !tasks.with_untracked(SlotMap::is_empty),
+        "reading the loading value registers a suspense task"
+    );
+
+    child.cleanup();
+    Executor::tick().await;
+    Executor::tick().await;
+
+    assert!(
+        tasks.with_untracked(SlotMap::is_empty),
+        "a value disposed while loading will never load, so the suspense must \
+         stop waiting for it"
+    );
+}
+
+#[tokio::test]
+async fn disposing_a_loading_async_derived_finishes_its_ready_future() {
+    use futures::FutureExt;
+
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    let child = owner.child();
+    let value = child.with(|| ArcAsyncDerived::new(pending::<i32>));
+    let mut ready = Box::pin(value.ready());
+    let mut awaited = Box::pin(value.clone().into_future());
+    Executor::tick().await;
+    assert!(ready.as_mut().now_or_never().is_none());
+
+    child.cleanup();
+    Executor::tick().await;
+
+    assert!(
+        ready.as_mut().now_or_never().is_some(),
+        "the value stops loading once disposed, so whatever waits for it to \
+         be ready, such as its serialization for hydration, must go on"
+    );
+    assert!(
+        awaited.as_mut().now_or_never().is_none(),
+        "a disposed value never loads, so awaiting it keeps waiting instead \
+         of panicking"
+    );
+}
