@@ -11,6 +11,7 @@ use leptos::{
 };
 use leptos_config::LeptosOptions;
 use leptos_meta::{Link, ServerMetaContextOutput};
+use percent_encoding::percent_decode_str;
 use std::{borrow::Cow, future::Future, pin::Pin, sync::Arc};
 
 pub type PinnedStream<T> = Pin<Box<dyn Stream<Item = T> + Send>>;
@@ -395,32 +396,17 @@ pub fn static_file_path(options: &LeptosOptions, path: &str) -> Option<String> {
     Some(format!("{}/{}.html", options.site_root, path))
 }
 
-/// Resolves the on-disk pkg directory against `site_root`, using an absolute
-/// `site_pkg_dir` as-is and trimming trailing slashes.
-pub fn resolve_site_pkg_dir(options: &LeptosOptions) -> Cow<'_, str> {
-    let pkg_dir = &*options.site_pkg_dir;
-    if pkg_dir.starts_with('/') {
-        Cow::Borrowed(pkg_dir.trim_end_matches('/'))
-    } else {
-        Cow::Owned(format!(
-            "{}/{}",
-            options.site_root.trim_end_matches('/'),
-            pkg_dir.trim_matches('/')
-        ))
-    }
-}
-
 /// Resolves the on-disk directory a static-asset request should be served from,
 /// together with the request path relative to that directory. Returns `None`
-/// when the request would escape that directory via path traversal; callers
-/// must treat `None` as a rejected request (respond `404`).
+/// when the request would escape that directory via path traversal, when it
+/// is under neither the pkg URL nor `site_root_url`, or when it is in the
+/// [`hidden_site_pkg_dir`](LeptosOptions::hidden_site_pkg_dir); callers must
+/// treat `None` as a rejected request (respond `404`).
 ///
-/// The pkg assets are served to the client under
-/// [`pkg_url_path`](LeptosOptions::pkg_url_path), independent of where they
-/// live on disk: requests under that URL prefix are mapped to the pkg directory
-/// ([`site_pkg_dir`](LeptosOptions::site_pkg_dir) resolved against
-/// `site_root`, so an absolute `site_pkg_dir` is used as-is) with the prefix
-/// stripped. Every other request is served from `site_root` unchanged.
+/// Requests under [`pkg_url_path`](LeptosOptions::pkg_url_path) are mapped to
+/// [`site_pkg_path`](LeptosOptions::site_pkg_path), and requests under
+/// [`site_root_url`](LeptosOptions::site_root_url) are mapped to `site_root`,
+/// with the URL prefix stripped.
 pub fn resolve_static_dir<'a>(
     options: &'a LeptosOptions,
     request_path: &'a str,
@@ -428,22 +414,42 @@ pub fn resolve_static_dir<'a>(
     if is_path_traversal(request_path) {
         return None;
     }
-    let url_prefix = options.pkg_url_path();
-    if !url_prefix.is_empty() {
-        let after_root = request_path.strip_prefix('/').unwrap_or(request_path);
-        if let Some(rel) = after_root
-            .strip_prefix(url_prefix)
+    let after_root = request_path.strip_prefix('/').unwrap_or(request_path);
+    let relative = |prefix: &str| {
+        after_root
+            .strip_prefix(prefix)
             .filter(|rest| rest.is_empty() || rest.starts_with('/'))
-        {
-            let rel = if rel.is_empty() { "/" } else { rel };
-            let dir = resolve_site_pkg_dir(options);
-            return Some((dir, Cow::Borrowed(rel)));
-        }
+            .map(|rest| if rest.is_empty() { "/" } else { rest })
+    };
+    let url_prefix = options.pkg_url_path();
+    if !url_prefix.is_empty()
+        && let Some(rel) = relative(url_prefix)
+    {
+        // `site_root` and `site_pkg_dir` are UTF-8, so the joined path is too.
+        let dir = options.site_pkg_path().to_string_lossy().into_owned();
+        return Some((Cow::Owned(dir), Cow::Borrowed(rel)));
     }
-    Some((
-        Cow::Borrowed(&*options.site_root),
-        Cow::Borrowed(request_path),
-    ))
+    let rel = match options.site_root_url_path() {
+        "" => request_path,
+        root_url => relative(root_url)?,
+    };
+    if let Some(dir) = options.hidden_site_pkg_dir()
+        && is_in_dir(rel, &dir)
+    {
+        return None;
+    }
+    Some((Cow::Borrowed(&*options.site_root), Cow::Borrowed(rel)))
+}
+
+/// Returns `true` if `path` names `dir` or a file in it, both relative to the
+/// same dir. Like `ServeDir`, this decodes `path` and skips empty and `.`
+/// segments.
+fn is_in_dir(path: &str, dir: &str) -> bool {
+    let Ok(path) = percent_decode_str(path).decode_utf8() else {
+        return false;
+    };
+    let mut segments = path.split('/').filter(|s| !s.is_empty() && *s != ".");
+    dir.split('/').all(|part| segments.next() == Some(part))
 }
 
 #[cfg(test)]
@@ -456,6 +462,7 @@ mod tests {
             .output_name("ignored")
             .site_root("/var/www/site/static")
             .build()
+            .unwrap()
     }
 
     #[test]
@@ -497,6 +504,7 @@ mod tests {
             .site_root("/var/www/site/static")
             .site_pkg_dir(pkg_dir.to_string())
             .build()
+            .unwrap()
     }
 
     fn opts_with_pkg_url(pkg_dir: &str, pkg_url: &str) -> LeptosOptions {
@@ -506,20 +514,7 @@ mod tests {
             .site_pkg_dir(pkg_dir.to_string())
             .site_pkg_url(pkg_url.to_string())
             .build()
-    }
-
-    #[test]
-    fn resolve_site_pkg_dir_handles_relative_absolute_and_trailing_slashes() {
-        for (pkg_dir, expected) in [
-            ("pkg", "/var/www/site/static/pkg"),
-            ("pkg///", "/var/www/site/static/pkg"),
-            ("/tmp/pkg", "/tmp/pkg"),
-            ("/tmp/pkg///", "/tmp/pkg"),
-        ] {
-            let mut options = opts_with_pkg(pkg_dir);
-            options.site_root = "/var/www/site/static///".into();
-            assert_eq!(resolve_site_pkg_dir(&options), expected);
-        }
+            .unwrap()
     }
 
     #[test]
@@ -543,34 +538,19 @@ mod tests {
     }
 
     #[test]
-    fn resolve_static_dir_absolute_pkg_serves_from_that_dir() {
-        let options = opts_with_pkg("/tmp/testsplit/");
-        // without a `site_pkg_url`, the pkg dir doubles as the url prefix
-        assert_eq!(
-            resolve_static_dir(&options, "/tmp/testsplit/app.js"),
-            Some(("/tmp/testsplit".into(), "/app.js".into()))
-        );
+    fn resolve_static_dir_absolute_pkg_inside_site_root() {
+        // an absolute pkg dir inside `site_root` is served at its place there
+        let options = opts_with_pkg("/var/www/site/static/pkg");
         assert_eq!(
             resolve_static_dir(&options, "/pkg/app.js"),
-            Some(("/var/www/site/static".into(), "/pkg/app.js".into()))
-        );
-        // everything else still comes from site_root
-        assert_eq!(
-            resolve_static_dir(&options, "/favicon.ico"),
-            Some(("/var/www/site/static".into(), "/favicon.ico".into()))
+            Some(("/var/www/site/static/pkg".into(), "/app.js".into()))
         );
     }
 
     #[test]
     fn resolve_static_dir_uses_configurable_pkg_url() {
-        // a custom `site_pkg_url` decouples the public path from the on-disk
-        // dir, for both relative and absolute `site_pkg_dir`
-        let rel = opts_with_pkg_url("pkg", "assets");
-        assert_eq!(
-            resolve_static_dir(&rel, "/assets/app.js"),
-            Some(("/var/www/site/static/pkg".into(), "/app.js".into()))
-        );
-        let abs = opts_with_pkg_url("/tmp/testsplit/", "assets");
+        // a pkg dir outside `site_root` is served at its `site_pkg_url`
+        let abs = opts_with_pkg_url("/tmp/testsplit", "assets");
         assert_eq!(
             resolve_static_dir(&abs, "/assets/app.js"),
             Some(("/tmp/testsplit".into(), "/app.js".into()))
@@ -583,8 +563,53 @@ mod tests {
     }
 
     #[test]
+    fn resolve_static_dir_uses_site_root_url() {
+        let options = LeptosOptions::builder()
+            .output_name("ignored")
+            .site_root("/var/www/site/static")
+            .site_root_url("/static")
+            .build()
+            .unwrap();
+        assert_eq!(
+            resolve_static_dir(&options, "/static/robots.txt"),
+            Some(("/var/www/site/static".into(), "/robots.txt".into()))
+        );
+        assert_eq!(
+            resolve_static_dir(&options, "/static/pkg/app.js"),
+            Some(("/var/www/site/static/pkg".into(), "/app.js".into()))
+        );
+        // nothing is served outside the two URLs
+        assert_eq!(resolve_static_dir(&options, "/robots.txt"), None);
+        assert_eq!(resolve_static_dir(&options, "/staticX/robots.txt"), None);
+    }
+
+    #[test]
+    fn resolve_static_dir_hides_pkg_dir_served_at_other_url() {
+        let options = opts_with_pkg_url("pkg", "assets");
+        assert_eq!(
+            resolve_static_dir(&options, "/assets/app.js"),
+            Some(("/var/www/site/static/pkg".into(), "/app.js".into()))
+        );
+        // the site root does not serve the pkg dir, in any spelling
+        for path in [
+            "/pkg",
+            "/pkg/",
+            "/pkg/app.js",
+            "//pkg/app.js",
+            "/./pkg/app.js",
+            "/%70kg/app.js",
+        ] {
+            assert_eq!(resolve_static_dir(&options, path), None, "{path}");
+        }
+        assert_eq!(
+            resolve_static_dir(&options, "/pkgX/app.js"),
+            Some(("/var/www/site/static".into(), "/pkgX/app.js".into()))
+        );
+    }
+
+    #[test]
     fn resolve_static_dir_rejects_traversal() {
-        let options = opts_with_pkg("/tmp/testsplit/");
+        let options = opts();
         assert_eq!(resolve_static_dir(&options, "/../../etc/passwd"), None);
         assert_eq!(resolve_static_dir(&options, "/pkg/..%2f..%2fetc"), None);
     }

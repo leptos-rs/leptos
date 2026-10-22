@@ -3,22 +3,26 @@
 #[cfg(feature = "default")]
 use crate::serve_site_root_service;
 #[cfg(feature = "embed")]
-use crate::service::EmbeddedSiteRoot;
+use crate::service::{EmbeddedSiteRoot, ExcludeDir};
 use crate::{ErrorHandler, LeptosRoutes, generate_route_list};
 #[cfg(any(feature = "default", feature = "embed"))]
 use crate::{LeptosContextLayer, serve_site_root_service_route_path};
 use axum::{Router, extract::FromRef};
 use leptos::{IntoView, config::LeptosOptions};
-#[cfg(feature = "default")]
-use leptos_integration_utils::resolve_site_pkg_dir;
 #[cfg(feature = "embed")]
 use rust_embed::{EmbeddedFile, RustEmbed};
 #[cfg(any(feature = "default", feature = "embed"))]
 use std::borrow::Cow;
+#[cfg(feature = "embed")]
+use std::path::Path;
+#[cfg(feature = "default")]
+use std::path::PathBuf;
 #[cfg(any(feature = "default", feature = "embed"))]
 use tower::builder::ServiceBuilder;
 #[cfg(any(feature = "default", feature = "embed"))]
 use tower_http::services::ServeDir;
+#[cfg(feature = "embed")]
+use tower_http::services::fs::DefaultServeDirFallback;
 
 pub(crate) mod traits {
     //! Provides the trait for [`RouterConfiguration`].
@@ -58,30 +62,6 @@ enum ResourceMode {
     Embed,
 }
 
-/// The possible modes for serving of the assets for a [`RouterConfiguration`].
-///
-/// Assets are files copied to `LEPTOS_SITE_ROOT` if `LEPTOS_ASSETS_DIR` is configured.
-#[derive(Clone, Default)]
-enum AssetMode {
-    /// Disables the serving of assets.
-    #[default]
-    Disable,
-    /// Serves the assets directory using the [`ServeDir`] service created by [`serve_site_root_service`].
-    /// If the provided path is `"/"`, it will become part of the fallback service, otherwise a new router
-    /// will be created to serve this.
-    ///
-    /// [`ServeDir`]: tower_http::services::ServeDir
-    #[cfg(feature = "default")]
-    Filesystem(Cow<'static, str>),
-    /// Serves the embedded assets using the [`ServeDir`] service with `EmbeddedSiteRoot` as the backend.
-    /// If the provided path is `"/"`, it will become part of the fallback service, otherwise a new router
-    /// will be created to serve this.
-    ///
-    /// [`ServeDir`]: tower_http::services::ServeDir
-    #[cfg(feature = "embed")]
-    Embed(Cow<'static, str>),
-}
-
 // The setup implementation uses these as intermediate values to define how the router will be set up with
 // the relevant services at the defined routes.  While the support of multiple routes are not exposed, this
 // could be handled in the future.
@@ -93,9 +73,12 @@ enum Site {
     #[cfg(feature = "embed")]
     Embed(Cow<'static, str>),
     #[cfg(feature = "default")]
-    FilesystemNested { url: String, dir: String },
+    FilesystemNested { url: String, dir: PathBuf },
     #[cfg(feature = "embed")]
     EmbedNested { url: String, base: String },
+    /// The site pkg embedded on its own, served at `url`.
+    #[cfg(feature = "embed")]
+    EmbedSitePkg { url: String },
 }
 
 #[derive(Copy, Clone)]
@@ -126,6 +109,7 @@ pub struct RouterConfiguration<
     SH = (),
     S = (),
     SR = NoEmbedSiteRoot,
+    SP = NoEmbedSiteRoot,
 > {
     app_fn: Option<APP>,
     shell: Option<SH>,
@@ -133,9 +117,10 @@ pub struct RouterConfiguration<
     extra_cx: Option<CX>,
     site_pkg_mode: ResourceMode,
     favicon_mode: ResourceMode,
-    serve_asset: AssetMode,
+    serve_asset: ResourceMode,
     error_handler: bool,
     site_root: SR,
+    site_pkg: Option<SP>,
 }
 
 /// Create a new configuration with all options disabled.
@@ -148,9 +133,10 @@ impl<APP> Default for RouterConfiguration<APP> {
             extra_cx: None,
             site_pkg_mode: ResourceMode::Disable,
             favicon_mode: ResourceMode::Disable,
-            serve_asset: AssetMode::Disable,
+            serve_asset: ResourceMode::Disable,
             error_handler: false,
             site_root: NoEmbedSiteRoot,
+            site_pkg: None,
         }
     }
 }
@@ -158,14 +144,11 @@ impl<APP> Default for RouterConfiguration<APP> {
 impl<APP> RouterConfiguration<APP> {
     /// Create a new configuration base with the commonly recommended values.
     ///
-    /// With default features enabled, this constructor will enable the routing of the path defined by
-    /// `LEPTOS_SITE_PKG_DIR` to the [`ServeDir`] service at `LEPTOS_SITE_ROOT`, with the [`Router`]'s
+    /// With default features enabled, this constructor will enable the routing of the site pkg URL,
+    /// `LEPTOS_SITE_PKG_URL`, to a [`ServeDir`] service for `LEPTOS_SITE_PKG_DIR`, with the [`Router`]'s
     /// fallback handler set to the [`ErrorHandler`] service.  A route to `/favicon.ico` is also provided to
     /// the corresponding file at `LEPTOS_SITE_ROOT`.  Refer to [`.enable_fs_site_pkg`] and [`.error_handler`]
     /// for additional details.
-    ///
-    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
-    /// are still served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute).
     ///
     /// Without default features enabled, this constructor is equivalent to `RouterConfiguration::default()`,
     /// as it does not have any additional routes, options, and services enabled.
@@ -190,26 +173,27 @@ impl<APP> RouterConfiguration<APP> {
             #[cfg(not(feature = "default"))]
             favicon_mode: ResourceMode::Disable,
 
-            serve_asset: AssetMode::Disable,
+            serve_asset: ResourceMode::Disable,
             error_handler: true,
 
             site_root: NoEmbedSiteRoot,
+            site_pkg: None,
         }
     }
 
-    /// A configuration base that has a [`ServeDir`] acting as a fallback service to serve the entirety of
-    /// `LEPTOS_SITE_ROOT`.
+    /// A configuration base that has a [`ServeDir`] serving `LEPTOS_SITE_ROOT` at `LEPTOS_SITE_ROOT_URL`.
     ///
     /// Create a new configuration base that sets up a [`Router`] that has a `ServeDir` serving the
-    /// `LEPTOS_SITE_ROOT` as the default fallback service, with its fallback service being an
-    /// [`ErrorHandler`] acting as the ultimate fallback handler.  Additionally, a route to
-    /// `LEPTOS_SITE_PKG_DIR` will be added to route to that [`ServeDir`] service, avoiding the dependency on
-    /// the fallback handler for serving of the site pkg.  If the resulting `Router` is reconfigured by
-    /// merging or otherwise causing the fallback service be replaced, it won't result in the loss of site pkg
-    /// availability given the explicit route definition.
+    /// `LEPTOS_SITE_ROOT` (as the default fallback service when `LEPTOS_SITE_ROOT_URL` is `/`), with its
+    /// fallback service being an [`ErrorHandler`] acting as the ultimate fallback handler.  Additionally, a
+    /// route for the site pkg URL, `LEPTOS_SITE_PKG_URL`, will be added to a [`ServeDir`] service for
+    /// `LEPTOS_SITE_PKG_DIR`, avoiding the dependency on the fallback handler for serving of the site pkg.  If
+    /// the resulting `Router` is reconfigured by merging or otherwise causing the fallback service be replaced,
+    /// it won't result in the loss of site pkg availability given the explicit route definition.
     ///
-    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
-    /// are still served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute).
+    /// `LEPTOS_SITE_PKG_DIR` may be inside `LEPTOS_SITE_ROOT`, outside it, or absolute.  The site root
+    /// service does not serve the [`hidden_site_pkg_dir`](LeptosOptions::hidden_site_pkg_dir), so the site
+    /// pkg has one URL.
     ///
     /// Refer to [`.enable_fs_leptos_site_root`], [`.enable_fs_site_pkg`], and [`.error_handler`] for
     /// additional details.
@@ -229,17 +213,16 @@ impl<APP> RouterConfiguration<APP> {
             // TODO verify how this value may conflict with the setting defined in `serve_asset` as it may
             // remain in `"/"` but also be configured to something else.
             favicon_mode: ResourceMode::Filesystem,
-            serve_asset: AssetMode::Filesystem("/".into()),
+            serve_asset: ResourceMode::Filesystem,
             error_handler: true,
             site_root: NoEmbedSiteRoot,
+            site_pkg: None,
         }
     }
 }
 
 // Future work may include the following:
 //
-// - Include an additional `RustEmbed` generics specific to site pkg and have the configuration set up the
-//   `Router` correctly.
 // - Runtime configuration/remapping of the site pkg.
 // - Leptos specific derive macro to set up the `RustEmbed`.
 #[cfg(feature = "embed")]
@@ -251,13 +234,14 @@ where
     ///
     /// Create a new configuration with the provided `site_root` to be converted into an `EmbeddedSiteRoot`
     /// backend for [`ServeDir`], in order to serve the embedded site pkg provided by that `site_root`.
-    /// The [`Router`] will route the path defined by `LEPTOS_SITE_PKG_DIR` to the aforementioned
+    /// The [`Router`] will route the site pkg URL, `LEPTOS_SITE_PKG_URL`, to the aforementioned
     /// `ServeDir` service, with the `Router`'s fallback handler set to the [`ErrorHandler`] service.  A route
     /// to `/favicon.ico` is also provided to route to the corresponding embedded resource through the same
     /// `ServeDir` service.
     ///
-    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
-    /// are still looked up under `LEPTOS_SITE_PKG_DIR` in the embedded site root.
+    /// The site pkg files are looked up at the place of `LEPTOS_SITE_PKG_DIR` in the embedded site root.
+    /// A `LEPTOS_SITE_PKG_DIR` outside `LEPTOS_SITE_ROOT` must be embedded on its own with
+    /// [`.enable_embed_site_pkg`].
     ///
     /// Please note that `site_root` must be a [`RustEmbed`] implementation derived from [`Embed`], and it
     /// should be constructed like so within the target application:
@@ -275,7 +259,7 @@ where
     /// struct SiteRoot;
     ///
     /// # let (app, shell) = (|| (), |_| ());
-    /// # let state = leptos::config::LeptosOptions::builder().output_name("test").build();
+    /// # let state = leptos::config::LeptosOptions::builder().output_name("test").build().unwrap();
     /// // Usage of the above derive may be like so:
     /// let config = RouterConfiguration::embed(SiteRoot)
     ///     .app(app)
@@ -309,9 +293,10 @@ where
             extra_cx: None,
             site_pkg_mode: ResourceMode::Embed,
             favicon_mode: ResourceMode::Embed,
-            serve_asset: AssetMode::Disable,
+            serve_asset: ResourceMode::Disable,
             error_handler: true,
             site_root,
+            site_pkg: None,
         }
     }
 
@@ -319,16 +304,17 @@ where
     ///
     /// Create a new configuration with the provided `site_root` to be converted into an `EmbeddedSiteRoot`
     /// backend for [`ServeDir`], in order to serve the embedded data provided by that `site_root`.  This
-    /// service is set up as a fallback service on the [`Router`], with its fallback service being an
-    /// [`ErrorHandler`] acting as the ultimate fallback handler.  Additionally, a route to
-    /// `LEPTOS_SITE_PKG_DIR` will be added to route to that [`ServeDir`] same service to serve the site pkg
+    /// service is set up at `LEPTOS_SITE_ROOT_URL` (as a fallback service on the [`Router`] when that is
+    /// `/`), with its fallback service being an [`ErrorHandler`] acting as the ultimate fallback handler.
+    /// Additionally, a route for the site pkg URL, `LEPTOS_SITE_PKG_URL`, will be added to serve the site pkg
     /// that may be embedded within.  This additional explicit route avoids the dependency on the fallback
     /// handler for serving of the site pkg.  If the resulting `Router` is reconfigured by merging or
     /// otherwise causing the fallback service be replaced, it won't result in the loss of site pkg
     /// availability given the explicit route definition.
     ///
-    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
-    /// are still looked up under `LEPTOS_SITE_PKG_DIR` in the embedded site root.
+    /// The site pkg files are looked up at the place of `LEPTOS_SITE_PKG_DIR` in the embedded site root.
+    /// A `LEPTOS_SITE_PKG_DIR` outside `LEPTOS_SITE_ROOT` must be embedded on its own with
+    /// [`.enable_embed_site_pkg`].
     ///
     /// Please note that `site_root` must be a [`RustEmbed`] implementation derived from [`Embed`], and it
     /// must be constructed like so within the target application:
@@ -346,7 +332,7 @@ where
     /// struct SiteRoot;
     ///
     /// # let (app, shell) = (|| (), |_| ());
-    /// # let state = leptos::config::LeptosOptions::builder().output_name("test").build();
+    /// # let state = leptos::config::LeptosOptions::builder().output_name("test").build().unwrap();
     /// // Usage of the above derive may be like so:
     /// let config = RouterConfiguration::embed(SiteRoot)
     ///     .app(app)
@@ -366,6 +352,7 @@ where
     /// [`RustEmbed`]: rust_embed::RustEmbed
     /// [`ServeDir`]: tower_http::services::ServeDir
     /// [`.enable_fs_site_pkg`]: RouterConfiguration::enable_fs_site_pkg
+    /// [`.enable_embed_site_pkg`]: RouterConfiguration::enable_embed_site_pkg
     /// [`.enable_embed_leptos_site_root`]: RouterConfiguration::enable_embed_leptos_site_root
     /// [`.error_handler`]: RouterConfiguration::error_handler
     pub fn embed_with_assets(site_root: SR) -> Self {
@@ -376,14 +363,15 @@ where
             extra_cx: None,
             site_pkg_mode: ResourceMode::Embed,
             favicon_mode: ResourceMode::Embed,
-            serve_asset: AssetMode::Embed("/".into()),
+            serve_asset: ResourceMode::Embed,
             error_handler: true,
             site_root,
+            site_pkg: None,
         }
     }
 }
 
-impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
+impl<APP, CX, SH, S, SR, SP> RouterConfiguration<APP, CX, SH, S, SR, SP> {
     /// Provide the `App` to the configuration.  This is required.
     pub fn app<IV>(mut self, app: APP) -> Self
     where
@@ -415,7 +403,7 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     pub fn shell<SH2, S2, IV>(
         self,
         shell: SH2,
-    ) -> RouterConfiguration<APP, CX, SH2, S, SR>
+    ) -> RouterConfiguration<APP, CX, SH2, S, SR, SP>
     where
         SH2: Fn(S2) -> IV + Clone + Send + Sync + 'static,
         S2: Clone + Send + Sync + 'static,
@@ -432,6 +420,7 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
             site_root: self.site_root,
+            site_pkg: self.site_pkg,
         }
     }
 
@@ -441,7 +430,7 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     pub fn with_context<CX2>(
         self,
         extra_cx: CX2,
-    ) -> RouterConfiguration<APP, CX2, SH, S, SR>
+    ) -> RouterConfiguration<APP, CX2, SH, S, SR, SP>
     where
         CX2: Fn() + 'static + Clone + Send + Sync,
     {
@@ -455,6 +444,7 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
             site_root: self.site_root,
+            site_pkg: self.site_pkg,
         }
     }
 
@@ -466,7 +456,7 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
     pub fn state<S2>(
         self,
         state: S2,
-    ) -> RouterConfiguration<APP, CX, SH, S2, SR>
+    ) -> RouterConfiguration<APP, CX, SH, S2, SR, SP>
     where
         S2: Clone + Send + Sync + 'static,
         LeptosOptions: FromRef<S2>,
@@ -481,16 +471,17 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
             site_root: self.site_root,
+            site_pkg: self.site_pkg,
         }
     }
 }
 
-impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
-    /// Configure the [`AssetMode`] to serve the assets with.
+impl<APP, CX, SH, S, SR, SP> RouterConfiguration<APP, CX, SH, S, SR, SP> {
+    /// Configure the [`ResourceMode`] to serve the assets with.
     ///
     /// When not disabled, the underlying `LeptosOptions` will be referenced along the configured mode to
     /// provide the relevant route or configure the appropriate fallback service to serve the assets.
-    fn serve_asset(mut self, v: AssetMode) -> Self {
+    fn serve_asset(mut self, v: ResourceMode) -> Self {
         self.serve_asset = v;
         self
     }
@@ -513,7 +504,7 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
 
     /// Disable setting up of the routing of files in `LEPTOS_SITE_ROOT`.
     pub fn disable_leptos_site_root(self) -> Self {
-        self.serve_asset(AssetMode::Disable)
+        self.serve_asset(ResourceMode::Disable)
     }
 
     /// Disables setting up of the routing of files in `LEPTOS_SITE_PKG_DIR`.
@@ -528,30 +519,28 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
 }
 
 #[cfg(feature = "default")]
-impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
-    /// Configure the base route for the `ServeDir` service that will provide the files found in the
-    /// `LEPTOS_SITE_ROOT` defined at runtime.
+impl<APP, CX, SH, S, SR, SP> RouterConfiguration<APP, CX, SH, S, SR, SP> {
+    /// Enable the `ServeDir` service that will provide the files found in the `LEPTOS_SITE_ROOT` defined
+    /// at runtime, at the base route `LEPTOS_SITE_ROOT_URL`.
     ///
-    /// If the provided path is `"/"`, the fallback service will be used instead, in conjunction with the
-    /// [`ErrorHandler`] service if it is also available.  Otherwise [`Router::route_service`] will be used
-    /// to set this service up.
+    /// If the base route is `"/"`, the fallback service will be used instead, in conjunction with the
+    /// [`ErrorHandler`] service if it is also available.  Otherwise the service is nested at the base route.
     ///
     /// This configuration is not meant for setting up multiple paths to multiple `ServeDir` services; if
     /// that is required, please do so on the resulting `Router`.
-    pub fn enable_fs_leptos_site_root(
-        self,
-        path: impl Into<Cow<'static, str>>,
-    ) -> Self {
-        self.serve_asset(AssetMode::Filesystem(path.into()))
+    ///
+    /// The service does not serve the [`hidden_site_pkg_dir`](LeptosOptions::hidden_site_pkg_dir), so
+    /// the site pkg has one URL.
+    pub fn enable_fs_leptos_site_root(self) -> Self {
+        self.serve_asset(ResourceMode::Filesystem)
     }
 
-    /// Enable the routing of files in the `LEPTOS_SITE_PKG_DIR` subdirectory within `LEPTOS_SITE_ROOT` by the
-    /// [`ServeDir`] service set up at runtime on the relevant path on the filesystem.
+    /// Enable the routing of the site pkg URL, `LEPTOS_SITE_PKG_URL`, to a [`ServeDir`] service set up at
+    /// runtime for `LEPTOS_SITE_PKG_DIR` on the filesystem.
     ///
     /// This is used to serve the JS/WASM bundle such that the application will be activated on the client.
     ///
-    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
-    /// are still served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute).
+    /// `LEPTOS_SITE_PKG_DIR` may be inside `LEPTOS_SITE_ROOT`, outside it, or absolute.
     ///
     /// [`ServeDir`]: tower_http::services::ServeDir
     pub fn enable_fs_site_pkg(self) -> Self {
@@ -565,32 +554,32 @@ impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR> {
 }
 
 #[cfg(feature = "embed")]
-impl<APP, CX, SH, S, SR> RouterConfiguration<APP, CX, SH, S, SR>
+impl<APP, CX, SH, S, SR, SP> RouterConfiguration<APP, CX, SH, S, SR, SP>
 where
     SR: Clone + Copy + Send + Sync + RustEmbed + 'static,
 {
-    /// Configure the base route for the [`ServeDir`] service with the `EmbeddedSiteRoot` backend for serving
-    /// of the embedded files.
+    /// Enable the [`ServeDir`] service with the `EmbeddedSiteRoot` backend for serving of the embedded
+    /// files, at the base route `LEPTOS_SITE_ROOT_URL`.
     ///
-    /// If the provided path is `"/"`, the service will be set up as a fallback service, in conjunction with
-    /// the [`ErrorHandler`] service if it is also available.  Otherwise [`Router::route_service`] will be
-    /// used to route to the service.
+    /// If the base route is `"/"`, the service will be set up as a fallback service, in conjunction with
+    /// the [`ErrorHandler`] service if it is also available.  Otherwise the service is nested at the base
+    /// route.
     ///
     /// This configuration is not meant for setting up multiple paths to multiple `ServeDir` services; if
     /// that is required, please do so on the resulting `Router`.
     ///
-    /// This configuration will also supersede any previous [`.enable_embed_site_pkg`] method calls.
-    /// Currently only one set of `RustEmbed` contents is supported with this configuration.  If the site root
-    /// is to be of a different source from the site pkg, the embedded site root must be set up separately on
-    /// the resulting `Router` with its corresponding service.
+    /// This configuration replaces any embedded site root provided before.  The site pkg is also looked up
+    /// in this site root, unless [`.enable_embed_site_pkg`] embeds the site pkg on its own.
+    ///
+    /// The service does not serve the [`hidden_site_pkg_dir`](LeptosOptions::hidden_site_pkg_dir), so
+    /// the site pkg has one URL.
     ///
     /// [`ServeDir`]: tower_http::services::ServeDir
     /// [`.enable_embed_site_pkg`]: RouterConfiguration::enable_embed_site_pkg
     pub fn enable_embed_leptos_site_root<SR2>(
         self,
-        path: impl Into<Cow<'static, str>>,
         site_root: SR2,
-    ) -> RouterConfiguration<APP, CX, SH, S, SR2>
+    ) -> RouterConfiguration<APP, CX, SH, S, SR2, SP>
     where
         SR2: Clone + Copy + Send + Sync + RustEmbed + 'static,
     {
@@ -601,35 +590,21 @@ where
             extra_cx: self.extra_cx,
             site_pkg_mode: self.site_pkg_mode,
             favicon_mode: self.favicon_mode,
-            serve_asset: AssetMode::Embed(path.into()),
+            serve_asset: ResourceMode::Embed,
             error_handler: self.error_handler,
             site_root,
+            site_pkg: self.site_pkg,
         }
     }
 
-    /// Set the base route for a configuration that already has a site root configured to be embedded.
-    ///
-    /// If the provided path is `"/"`, the service will be set up as a fallback service, in conjunction with
-    /// the [`ErrorHandler`] service if it is also available.  Otherwise [`Router::route_service`] will be
-    /// used to route to the service.
-    ///
-    /// [`ServeDir`]: tower_http::services::ServeDir
-    pub fn set_embed_leptos_site_root_path(
-        self,
-        path: impl Into<Cow<'static, str>>,
-    ) -> Self {
-        self.serve_asset(AssetMode::Embed(path.into()))
-    }
-
-    /// Enable the routing of files in the `LEPTOS_SITE_PKG_DIR` within the provided embedded site
-    /// root, which will be converted to a [`ServeDir`] service with it as the backend to be set up at
-    /// runtime.
+    /// Enable the routing of the site pkg embedded on its own in the provided `site_pkg`, which holds the
+    /// files of `LEPTOS_SITE_PKG_DIR` at its root.  It will be converted to a [`ServeDir`] service with it
+    /// as the backend, set up at runtime on the base route of the site pkg.
     ///
     /// This is used to serve the JS/WASM bundle embedded in the server binary, such that the application will
-    /// be activated on the client.
-    ///
-    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route of the site pkg instead, and its files
-    /// are still looked up under `LEPTOS_SITE_PKG_DIR` in the embedded site root.
+    /// be activated on the client.  As the site pkg is embedded on its own, `LEPTOS_SITE_PKG_DIR` may be
+    /// inside or outside `LEPTOS_SITE_ROOT`, and the embedded site root of this configuration still serves
+    /// the other files.
     ///
     /// This may be used in conjunction with the other `enable_fs` prefixed configurations, such that
     /// other additional data may be provided from the filesystem through the relevant `ServeDir` service that
@@ -641,9 +616,10 @@ where
     /// [`RouterConfiguration::embed_with_assets`].  For complete details, including the caveats of enabling
     /// the embedded site root, please refer to the documentation for those two constructors.
     ///
-    /// A more size optimized setup may be achieved using this method, assuming no other data is assumed to be
-    /// required from `LEPTOS_SITE_ROOT` from the provided `site_root` (e.g. the `/favicon.ico` route is to be
-    /// provided by some other service), the `RustEmbed` may be derived like so:
+    /// A more size optimized setup may be achieved using this method alone, assuming no other data is
+    /// required from `LEPTOS_SITE_ROOT` (e.g. the `/favicon.ico` route is to be provided by some other
+    /// service).  The `RustEmbed` may be derived like so, with `folder` set to the path of
+    /// `LEPTOS_SITE_PKG_DIR` instead if that is absolute:
     ///
     /// ```rust
     /// use leptos_axum::{
@@ -653,12 +629,12 @@ where
     ///
     /// #[derive(Clone, Copy, Embed)]
     /// #[folder = "$LEPTOS_SITE_ROOT/$LEPTOS_SITE_PKG_DIR"]
-    /// #[prefix = "/pkg/"]  // Assumes `$LEPTOS_SITE_PKG_DIR` is `pkg`; modify if otherwise
+    /// #[prefix = "/"]
     /// # #[allow_missing = true]
     /// struct SitePkg;
     ///
     /// # let (app, shell) = (|| (), |_| ());
-    /// # let state = leptos::config::LeptosOptions::builder().output_name("test").build();
+    /// # let state = leptos::config::LeptosOptions::builder().output_name("test").build().unwrap();
     /// // Usage of the above derive may be like so:
     /// let config = RouterConfiguration::default()
     ///     .enable_embed_site_pkg(SitePkg)
@@ -668,47 +644,13 @@ where
     ///     .state(state);
     /// ```
     ///
-    /// Alternatively, use `.embed()` and `.disable_favicon()` to define the same in fewer function calls,
-    ///
-    /// ```
-    /// # use leptos_axum::{
-    /// #     RouterConfiguration,
-    /// #     rust_embed::{self, Embed},
-    /// # };
-    /// # #[derive(Clone, Copy, Embed)]
-    /// # #[folder = "$LEPTOS_SITE_ROOT/$LEPTOS_SITE_PKG_DIR"]
-    /// # #[prefix = "/pkg/"]  // Assumes `$LEPTOS_SITE_PKG_DIR` is `pkg`; modify if otherwise
-    /// # #[allow_missing = true]
-    /// # struct SitePkg;
-    /// # let (app, shell) = (|| (), |_| ());
-    /// # let state = leptos::config::LeptosOptions::builder().output_name("test").build();
-    /// let config = RouterConfiguration::embed(SitePkg)
-    ///     // To ensure that the `/favicon.ico` route may be defined on the `Router` after this configuration
-    ///     // is applied there.
-    ///     .disable_favicon()
-    ///     .app(app)
-    ///     .shell(shell)
-    ///     .state(state);
-    /// ```
-    ///
-    /// This would ensure only the site pkg dir is included, though given that the interpolation offered by
-    /// `rust-embed` does not extend to the `prefix`, the `$LEPTOS_SITE_PKG_DIR` value can only be assumed,
-    /// which does lead to certain inflexibility.  In the future, a more simplified derive macro may be
-    /// provided by this or a more relevant Leptos package to sidestep this particular issue.
-    ///
-    /// This configuration will also supersede any previous [`.enable_embed_leptos_site_root`] method calls.
-    /// Currently only one set of `RustEmbed` contents is supported with this configuration.  If the site root
-    /// is to be of a different source from the site pkg, the embedded site root must be set up separately on
-    /// the resulting `Router` with the corresponding service.
-    ///
     /// [`ServeDir`]: tower_http::services::ServeDir
-    /// [`.enable_embed_leptos_site_root`]: RouterConfiguration::enable_embed_leptos_site_root
-    pub fn enable_embed_site_pkg<SR2>(
+    pub fn enable_embed_site_pkg<SP2>(
         self,
-        site_root: SR2,
-    ) -> RouterConfiguration<APP, CX, SH, S, SR2>
+        site_pkg: SP2,
+    ) -> RouterConfiguration<APP, CX, SH, S, SR, SP2>
     where
-        SR2: Clone + Copy + Send + Sync + RustEmbed + 'static,
+        SP2: Clone + Copy + Send + Sync + RustEmbed + 'static,
     {
         RouterConfiguration {
             app_fn: self.app_fn,
@@ -719,7 +661,8 @@ where
             favicon_mode: self.favicon_mode,
             serve_asset: self.serve_asset,
             error_handler: self.error_handler,
-            site_root,
+            site_root: self.site_root,
+            site_pkg: Some(site_pkg),
         }
     }
 
@@ -727,6 +670,24 @@ where
     pub fn enable_embed_favicon(self) -> Self {
         self.favicon_mode(ResourceMode::Embed)
     }
+}
+
+/// Serves the embedded site root, without the hidden site pkg dir.
+#[cfg(feature = "embed")]
+fn serve_embedded_site_root<SR>(
+    site_root: SR,
+    options: &LeptosOptions,
+) -> ServeDir<DefaultServeDirFallback, ExcludeDir<EmbeddedSiteRoot<SR>>>
+where
+    SR: RustEmbed + Clone + Send + Sync + 'static,
+{
+    let hidden = options
+        .hidden_site_pkg_dir()
+        .map(|dir| Path::new("/").join(dir));
+    ServeDir::with_backend(
+        "/",
+        ExcludeDir::new(EmbeddedSiteRoot::new(site_root), hidden),
+    )
 }
 
 #[cfg(feature = "embed")]
@@ -745,8 +706,8 @@ pub trait SiteRootBound: Clone + Copy + Send + Sync + 'static {}
 #[cfg(not(feature = "embed"))]
 impl<T> SiteRootBound for T where T: Clone + Copy + Send + Sync + 'static {}
 
-impl<APP, CX, SH, S, SR, IV1, IV2> traits::RouterConfiguration<S>
-    for RouterConfiguration<APP, CX, SH, S, SR>
+impl<APP, CX, SH, S, SR, SP, IV1, IV2> traits::RouterConfiguration<S>
+    for RouterConfiguration<APP, CX, SH, S, SR, SP>
 where
     APP: Fn() -> IV1 + Clone + Copy + Send + Sync + 'static,
     CX: Fn() + Clone + Copy + Send + Sync + 'static,
@@ -758,6 +719,7 @@ where
     // Hence we have this surrogate trait with the bounds as its supertraits which has been defined
     // conditionally above.
     SR: SiteRootBound,
+    SP: SiteRootBound,
     LeptosOptions: FromRef<S>,
     IV1: IntoView + 'static,
     IV2: IntoView + 'static,
@@ -811,7 +773,16 @@ where
                 {
                     site_pkg_routes.push(Site::FilesystemNested {
                         url: format!("/{}", leptos_options.pkg_url_path()),
-                        dir: resolve_site_pkg_dir(&leptos_options).into_owned(),
+                        dir: leptos_options.site_pkg_path(),
+                    })
+                }
+                #[cfg(feature = "embed")]
+                ResourceMode::Embed
+                    if self.site_pkg.is_some()
+                        && !leptos_options.pkg_url_path().is_empty() =>
+                {
+                    site_pkg_routes.push(Site::EmbedSitePkg {
+                        url: format!("/{}", leptos_options.pkg_url_path()),
                     })
                 }
                 #[cfg(feature = "embed")]
@@ -819,13 +790,23 @@ where
                     if leptos_options.site_pkg_url.is_some()
                         && !leptos_options.pkg_url_path().is_empty() =>
                 {
-                    site_pkg_routes.push(Site::EmbedNested {
-                        url: format!("/{}", leptos_options.pkg_url_path()),
-                        base: format!(
-                            "/{}",
-                            leptos_options.site_pkg_dir.trim_matches('/')
+                    // The embedded site root holds the pkg at its place there.
+                    match leptos_options.site_pkg_dir_in_site_root() {
+                        Some(place) => {
+                            site_pkg_routes.push(Site::EmbedNested {
+                                url: format!(
+                                    "/{}",
+                                    leptos_options.pkg_url_path()
+                                ),
+                                base: format!("/{place}"),
+                            })
+                        }
+                        None => leptos::logging::error!(
+                            "the embedded site root cannot hold a pkg dir \
+                             outside site_root; embed it with \
+                             `enable_embed_site_pkg` to serve it"
                         ),
-                    })
+                    }
                 }
                 #[cfg(feature = "default")]
                 ResourceMode::Filesystem => {
@@ -907,6 +888,31 @@ where
                         };
                         router.nest(&url, inner)
                     }
+                    #[cfg(feature = "embed")]
+                    Site::EmbedSitePkg { url } => {
+                        let Some(site_pkg) = self.site_pkg else {
+                            return router;
+                        };
+                        let serve_dir = ServeDir::with_backend(
+                            "/",
+                            EmbeddedSiteRoot::new(site_pkg),
+                        );
+                        let inner = if let Some(error_handler) =
+                            error_handler.clone()
+                        {
+                            Router::new().route_service(
+                                "/{*path}",
+                                builder
+                                    .service(serve_dir.fallback(error_handler)),
+                            )
+                        } else {
+                            Router::new().route_service(
+                                "/{*path}",
+                                builder.service(serve_dir),
+                            )
+                        };
+                        router.nest(&url, inner)
+                    }
                     #[cfg(feature = "default")]
                     Site::Filesystem(path) => {
                         let serve_dir =
@@ -927,9 +933,9 @@ where
                     }
                     #[cfg(feature = "embed")]
                     Site::Embed(path) => {
-                        let serve_dir = ServeDir::with_backend(
-                            "/",
-                            EmbeddedSiteRoot::new(self.site_root),
+                        let serve_dir = serve_embedded_site_root(
+                            self.site_root,
+                            &leptos_options,
                         );
                         if let Some(error_handler) = error_handler.clone() {
                             router.route_service(
@@ -954,11 +960,13 @@ where
         #[cfg(any(feature = "default", feature = "embed"))]
         let builder = ServiceBuilder::new()
             .option_layer(extra_cx.map(LeptosContextLayer::new_with_context));
+        #[cfg(any(feature = "default", feature = "embed"))]
+        let path = format!("/{}", leptos_options.site_root_url_path());
 
         let router = if let Some(error_handler) = error_handler {
             match self.serve_asset {
                 #[cfg(feature = "default")]
-                AssetMode::Filesystem(path) if path == "/" => router
+                ResourceMode::Filesystem if path == "/" => router
                     .fallback_service(
                         builder.service(
                             serve_site_root_service(&leptos_options)
@@ -966,7 +974,7 @@ where
                         ),
                     ),
                 #[cfg(feature = "default")]
-                AssetMode::Filesystem(path) => router
+                ResourceMode::Filesystem => router
                     .nest(
                         &path,
                         Router::new().route_service(
@@ -979,44 +987,43 @@ where
                     )
                     .fallback_service(error_handler),
                 #[cfg(feature = "embed")]
-                AssetMode::Embed(path) if path == "/" => router
-                    .fallback_service(
-                        builder.service(
-                            ServeDir::with_backend(
-                                "/",
-                                EmbeddedSiteRoot::new(self.site_root),
-                            )
-                            .fallback(error_handler),
-                        ),
+                ResourceMode::Embed if path == "/" => router.fallback_service(
+                    builder.service(
+                        serve_embedded_site_root(
+                            self.site_root,
+                            &leptos_options,
+                        )
+                        .fallback(error_handler),
                     ),
+                ),
                 #[cfg(feature = "embed")]
-                AssetMode::Embed(path) => router
+                ResourceMode::Embed => router
                     .nest(
                         &path,
                         Router::new().route_service(
                             "/{*path}",
                             builder.service(
-                                ServeDir::with_backend(
-                                    "/",
-                                    EmbeddedSiteRoot::new(self.site_root),
+                                serve_embedded_site_root(
+                                    self.site_root,
+                                    &leptos_options,
                                 )
                                 .fallback(error_handler.clone()),
                             ),
                         ),
                     )
                     .fallback_service(error_handler),
-                AssetMode::Disable => router.fallback_service(error_handler),
+                ResourceMode::Disable => router.fallback_service(error_handler),
             }
         } else {
             match self.serve_asset {
                 #[cfg(feature = "default")]
-                AssetMode::Filesystem(path) if path == "/" => router
+                ResourceMode::Filesystem if path == "/" => router
                     .fallback_service(
                         builder
                             .service(serve_site_root_service(&leptos_options)),
                     ),
                 #[cfg(feature = "default")]
-                AssetMode::Filesystem(path) => router.nest(
+                ResourceMode::Filesystem => router.nest(
                     &path,
                     Router::new().route_service(
                         "/{*path}",
@@ -1025,23 +1032,24 @@ where
                     ),
                 ),
                 #[cfg(feature = "embed")]
-                AssetMode::Embed(path) if path == "/" => router
-                    .fallback_service(builder.service(ServeDir::with_backend(
-                        "/",
-                        EmbeddedSiteRoot::new(self.site_root),
-                    ))),
+                ResourceMode::Embed if path == "/" => router.fallback_service(
+                    builder.service(serve_embedded_site_root(
+                        self.site_root,
+                        &leptos_options,
+                    )),
+                ),
                 #[cfg(feature = "embed")]
-                AssetMode::Embed(path) => router.nest(
+                ResourceMode::Embed => router.nest(
                     &path,
                     Router::new().route_service(
                         "/{*path}",
-                        builder.service(ServeDir::with_backend(
-                            "/",
-                            EmbeddedSiteRoot::new(self.site_root),
+                        builder.service(serve_embedded_site_root(
+                            self.site_root,
+                            &leptos_options,
                         )),
                     ),
                 ),
-                AssetMode::Disable => router,
+                ResourceMode::Disable => router,
             }
         };
 

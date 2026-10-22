@@ -392,14 +392,20 @@ async fn conf_new_with_assets() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn conf_new_fs_site_root_assets() -> anyhow::Result<()> {
-    let service =
-        start_test_service("service_mode", "conf-new-fs-site-root-assets")
-            .await;
+    let service = start_test_service_with_envs(
+        "service_mode",
+        "conf-new-fs-site-root-assets",
+        vec![("LEPTOS_SITE_ROOT_URL", "/assets")],
+    )
+    .await;
     let res = service.get("/")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
     // should provide the two site artifacts.
-    for path in ["/pkg/service_mode.js", "/pkg/service_mode.wasm"] {
+    for path in [
+        "/assets/pkg/service_mode.js",
+        "/assets/pkg/service_mode.wasm",
+    ] {
         let res = service.get(path)?.send().await?;
         assert_eq!(res.status(), StatusCode::OK);
         assert_ne!(res.content_length(), Some(0));
@@ -421,7 +427,7 @@ async fn conf_new_fs_site_root_assets() -> anyhow::Result<()> {
     assert_eq!(res.content_length(), Some(15406));
 
     // The other paths won't be found but will have the standard fallback error page.
-    for path in ["/pkg/no_such_path", "/no_such_path", "/robots.txt"] {
+    for path in ["/assets/pkg/no_such_path", "/no_such_path", "/robots.txt"] {
         let res = service.get(path)?.send().await?;
         assert_eq!(
             res.status(),
@@ -670,10 +676,13 @@ async fn conf_embed_with_site_root_assets() -> anyhow::Result<()> {
     let service = start_test_service_with_envs(
         "service_mode",
         "conf-embed-with-site-root-assets",
-        vec![(
-            "LEPTOS_SITE_ROOT",
-            site_root.path().to_str().expect("valid utf8"),
-        )],
+        vec![
+            (
+                "LEPTOS_SITE_ROOT",
+                site_root.path().to_str().expect("valid utf8"),
+            ),
+            ("LEPTOS_SITE_ROOT_URL", "/assets"),
+        ],
     )
     .await;
 
@@ -681,14 +690,14 @@ async fn conf_embed_with_site_root_assets() -> anyhow::Result<()> {
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
     // should provide the two site artifacts.
-    let res = service.get("/pkg/service_mode.js")?.send().await?;
+    let res = service.get("/assets/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
+    let res = service.get("/assets/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     // no fallback rendering anywhere
-    let res = service.get("/pkg/no_such_path")?.send().await?;
+    let res = service.get("/assets/pkg/no_such_path")?.send().await?;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
     assert_eq!(res.content_length().unwrap_or_default(), 0);
     let res = service.get("/no_such_path_elsewhere")?.send().await?;
@@ -711,7 +720,7 @@ async fn conf_embed_with_site_root_assets() -> anyhow::Result<()> {
     assert_eq!(res.content_length(), Some(15406));
 
     // The other paths won't be found but will have the standard fallback error page.
-    for path in ["/pkg/no_such_path", "/no_such_path", "/robots.txt"] {
+    for path in ["/assets/pkg/no_such_path", "/no_such_path", "/robots.txt"] {
         let res = service.get(path)?.send().await?;
         assert_eq!(
             res.status(),
@@ -955,7 +964,10 @@ async fn conf_alternate_router_state() -> anyhow::Result<()> {
         "app"
     }
 
-    let leptos_options = LeptosOptions::builder().output_name("dummy").build();
+    let leptos_options = LeptosOptions::builder()
+        .output_name("dummy")
+        .build()
+        .unwrap();
     let dummy = Dummy;
     let my_state = MyState {
         leptos_options,
