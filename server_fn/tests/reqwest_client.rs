@@ -120,7 +120,7 @@ fn bytes_request_prepends_configured_server_url() {
 #[test]
 fn streaming_request_prepends_configured_server_url() {
     ensure_server_url_set();
-    let body = stream::empty::<Bytes>();
+    let body = stream::empty::<Result<Bytes, Bytes>>();
     let req = <Req as ClientReq<ServerFnError>>::try_new_req_streaming(
         "/api/foo_stream",
         "*/*",

@@ -66,7 +66,7 @@ where
         self,
     ) -> Result<impl Stream<Item = Result<Bytes, Bytes>> + Send + 'static, Error>
     {
-        Ok(self.into_body().into_data_stream().map(|chunk| {
+        Ok(self.into_limited_body().into_data_stream().map(|chunk| {
             chunk.map_err(|e| {
                 Error::from_server_fn_error(ServerFnErrorErr::Deserialization(
                     e.to_string(),
@@ -182,5 +182,53 @@ where
 
             Ok((outgoing_rx, incoming_tx, closed_rx.map(|_| ()), response))
         }
+    }
+}
+
+#[cfg(all(test, feature = "axum"))]
+mod tests {
+    use super::*;
+    use crate::ServerFnError;
+    use axum::extract::DefaultBodyLimit;
+
+    async fn drain(req: Request<Body>) -> (usize, bool) {
+        let stream =
+            <Request<Body> as Req<ServerFnError>>::try_into_stream(req)
+                .expect("request should become a stream");
+        futures::pin_mut!(stream);
+        let mut total = 0;
+        let mut has_error = false;
+        while let Some(chunk) = stream.next().await {
+            match chunk {
+                Ok(bytes) => total += bytes.len(),
+                Err(_) => has_error = true,
+            }
+        }
+        (total, has_error)
+    }
+
+    #[tokio::test]
+    async fn stream_enforces_configured_body_limit() {
+        let mut req = Request::new(Body::from(vec![b'x'; 100_000]));
+        DefaultBodyLimit::max(1024).apply(&mut req);
+        let (total, has_error) = drain(req).await;
+        assert!(has_error, "oversized stream should return an error");
+        assert!(total <= 1024, "received {total} bytes");
+    }
+
+    #[tokio::test]
+    async fn stream_enforces_default_body_limit() {
+        let req = Request::new(Body::from(vec![b'x'; 2 * 1024 * 1024 + 1]));
+        let (_, has_error) = drain(req).await;
+        assert!(has_error, "stream exceeding 2 MiB should return an error");
+    }
+
+    #[tokio::test]
+    async fn stream_respects_disabled_body_limit() {
+        let mut req = Request::new(Body::from(vec![b'x'; 100_000]));
+        DefaultBodyLimit::disable().apply(&mut req);
+        let (total, has_error) = drain(req).await;
+        assert!(!has_error, "disabled limit should allow the entire stream");
+        assert_eq!(total, 100_000);
     }
 }

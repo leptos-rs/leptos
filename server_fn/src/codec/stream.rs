@@ -43,7 +43,7 @@ where
             path,
             accepts,
             Streaming::CONTENT_TYPE,
-            self,
+            self.map(Ok),
         )
     }
 }
@@ -281,7 +281,9 @@ where
             path,
             accepts,
             StreamingText::CONTENT_TYPE,
-            data.0.map(|chunk| chunk.unwrap_or_default().into()),
+            data.0.map(|chunk| {
+                chunk.map(Bytes::from).map_err(|err| err.ser().body)
+            }),
         )
     }
 }

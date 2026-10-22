@@ -66,7 +66,7 @@ fn form_data_request_prepends_configured_server_url() {
 #[wasm_bindgen_test]
 fn streaming_request_prepends_configured_server_url() {
     ensure_server_url_set();
-    let body = stream::empty::<Bytes>();
+    let body = stream::empty::<Result<Bytes, Bytes>>();
     let req =
         <BrowserRequest as ClientReq<ServerFnError>>::try_new_req_streaming(
             "/api/foo_stream",
