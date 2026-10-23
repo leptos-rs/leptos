@@ -60,18 +60,21 @@ async fn overlapping_transitions_are_isolated() {
             owner.set();
             let resolved = Arc::new(AtomicBool::new(false));
             let flag = resolved.clone();
+            let task_owner = owner.clone();
 
             AsyncTransition::run(move || async move {
                 // Force the two transitions to be "open" simultaneously.
                 barrier.wait().await;
-                let derived = ArcAsyncDerived::new(move || {
-                    let flag = flag.clone();
-                    async move {
-                        Executor::tick().await;
-                        Executor::tick().await;
-                        flag.store(true, Ordering::SeqCst);
-                        7_u32
-                    }
+                let derived = task_owner.with(|| {
+                    ArcAsyncDerived::new(move || {
+                        let flag = flag.clone();
+                        async move {
+                            Executor::tick().await;
+                            Executor::tick().await;
+                            flag.store(true, Ordering::SeqCst);
+                            7_u32
+                        }
+                    })
                 });
                 let v = derived.await;
                 assert_eq!(v, 7);
