@@ -503,15 +503,11 @@ pub(crate) struct OwnerInner {
 
 impl OwnerInner {
     fn push_child(&mut self, child: &Arc<RwLock<OwnerInner>>) {
-        // When the children list is about to grow its allocation, drop the
-        // `Weak`s whose owners have already been dropped. `children` is
-        // otherwise append-only, so a long-lived parent (such as the owner of
-        // a `<For>`, whose rows are created with `Owner::new`) would
-        // accumulate dead weak refs without bound and pay for walking them on
-        // cleanup. Reserving room for as many children as are still alive
-        // means the next scan waits for at least that many pushes, so this
-        // stays amortized O(1) even when only a few children die between
-        // pushes.
+        // Prune dead `Weak`s when `children` would reallocate: a long-lived
+        // parent, such as a `<For>` whose rows come from `Owner::new`, would
+        // otherwise accumulate them and walk them on cleanup. Reserving room
+        // for the live children makes the next scan wait at least that many
+        // pushes, so this stays amortized O(1) even when few die in between.
         if !self.children.is_empty()
             && self.children.len() == self.children.capacity()
         {
