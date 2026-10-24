@@ -180,11 +180,7 @@ impl Owner {
             shared_context,
         };
         if let Some(parent) = parent.and_then(|n| n.upgrade()) {
-            parent
-                .write()
-                .or_poisoned()
-                .children
-                .push(Arc::downgrade(&this.inner));
+            parent.write().or_poisoned().push_child(&this.inner);
         }
         this
     }
@@ -257,7 +253,7 @@ impl Owner {
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
         };
-        inner.children.push(Arc::downgrade(&child.inner));
+        inner.push_child(&child.inner);
         child
     }
 
@@ -505,6 +501,27 @@ pub(crate) struct OwnerInner {
     paused: bool,
 }
 
+impl OwnerInner {
+    fn push_child(&mut self, child: &Arc<RwLock<OwnerInner>>) {
+        // When the children list is about to grow its allocation, drop the
+        // `Weak`s whose owners have already been dropped. `children` is
+        // otherwise append-only, so a long-lived parent (such as the owner of
+        // a `<For>`, whose rows are created with `Owner::new`) would
+        // accumulate dead weak refs without bound and pay for walking them on
+        // cleanup. Reserving room for as many children as are still alive
+        // means the next scan waits for at least that many pushes, so this
+        // stays amortized O(1) even when only a few children die between
+        // pushes.
+        if !self.children.is_empty()
+            && self.children.len() == self.children.capacity()
+        {
+            self.children.retain(|child| child.strong_count() > 0);
+            self.children.reserve(self.children.len());
+        }
+        self.children.push(Arc::downgrade(child));
+    }
+}
+
 impl Debug for OwnerInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OwnerInner")
@@ -600,6 +617,38 @@ mod tests {
         traits::{Dispose, GetValue, Set},
     };
     use std::{sync::mpsc, thread, time::Duration};
+
+    // A long-lived parent under which many short-lived children are created and
+    // dropped must not accumulate dead `Weak` refs: `child` prunes them when
+    // the `children` Vec would otherwise grow.
+    #[test]
+    fn dropped_children_do_not_leak_weak_refs() {
+        let parent = Owner::new();
+
+        for _ in 0..10_000 {
+            let child = parent.child();
+            drop(child);
+        }
+
+        let len = parent.inner.read().or_poisoned().children.len();
+        assert!(len <= 64, "parent accumulated {len} dead child Weak refs");
+    }
+
+    // The same holds for owners created with `Owner::new` under a current
+    // owner, as `<For>` creates the owner of each row.
+    #[test]
+    fn dropped_owners_created_under_a_parent_do_not_leak_weak_refs() {
+        let parent = Owner::new();
+
+        parent.with(|| {
+            for _ in 0..10_000 {
+                drop(Owner::new());
+            }
+        });
+
+        let len = parent.inner.read().or_poisoned().children.len();
+        assert!(len <= 64, "parent accumulated {len} dead child Weak refs");
+    }
 
     fn does_not_deadlock(f: impl FnOnce() + Send + 'static) -> bool {
         let (tx, rx) = mpsc::channel();

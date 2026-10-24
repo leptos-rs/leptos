@@ -277,3 +277,59 @@ impl<T: 'static> Write for ArcRwSignal<T> {
         UntrackedWriteGuard::try_new(Arc::clone(&self.value))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ArcRwSignal;
+    use crate::{computed::ArcMemo, traits::Get};
+    use or_poisoned::OrPoisoned;
+
+    // A subscriber that is dropped without running again never removes
+    // itself from the signal's subscriber set: `subscribe` prunes such
+    // entries when the set would otherwise grow.
+    #[test]
+    fn dropped_subscribers_do_not_accumulate_in_signal() {
+        let signal = ArcRwSignal::new(0);
+
+        for _ in 0..10_000 {
+            let memo = ArcMemo::new({
+                let signal = signal.clone();
+                move |_| signal.get()
+            });
+            assert_eq!(memo.get(), 0);
+        }
+
+        let len = signal.inner.read().or_poisoned().len();
+        assert!(len <= 64, "signal kept {len} dead subscribers");
+    }
+
+    // The same for render effects, which is how the views of removed rows
+    // (for example, those of a re-keyed `<For>`) subscribe.
+    #[cfg(feature = "effects")]
+    #[tokio::test]
+    async fn dropped_render_effects_do_not_accumulate_in_signal() {
+        use crate::{effect::RenderEffect, owner::Owner};
+        use any_spawner::Executor;
+        use tokio::task;
+
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        task::LocalSet::new()
+            .run_until(async {
+                let signal = ArcRwSignal::new(0);
+
+                for _ in 0..10_000 {
+                    let signal = signal.clone();
+                    drop(RenderEffect::new(move |_| {
+                        signal.get();
+                    }));
+                }
+                Executor::tick().await;
+
+                let len = signal.inner.read().or_poisoned().len();
+                assert!(len <= 64, "signal kept {len} dead subscribers");
+            })
+            .await;
+    }
+}

@@ -69,6 +69,18 @@ impl SubscriberSet {
     }
 
     pub fn subscribe(&mut self, subscriber: AnySubscriber) {
+        // A subscriber that is dropped without running again (for example, the
+        // render effect of a row removed from a `<For>`) never unsubscribes
+        // itself, so a long-lived source would keep its entry forever. When
+        // the set is about to grow its allocation, drop the entries whose
+        // subscriber is gone: they can never be notified anyway. Reserving
+        // room for as many subscribers as are still alive means the next scan
+        // waits for at least that many inserts, which keeps this amortized
+        // O(1). `retain` keeps the insertion order (see `unsubscribe`).
+        if self.0.len() == self.0.capacity() {
+            self.0.retain(|subscriber| subscriber.1.strong_count() > 0);
+            self.0.reserve(self.0.len());
+        }
         self.0.insert(subscriber);
     }
 
