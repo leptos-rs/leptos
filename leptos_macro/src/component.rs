@@ -1372,10 +1372,10 @@ fn prop_to_doc(
         PropDocStyle::List => {
             let arg_ty_doc = LitStr::new(
                 &if !prop_opts.into {
-                    format!(" - **{}**: [`{pretty_ty}`]", quote!(#name))
+                    format!(" - **`{}`**: [`{pretty_ty}`]", quote!(#name))
                 } else {
                     format!(
-                        " - **{}**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
+                        " - **`{}`**: [`impl Into<{pretty_ty}>`]({pretty_ty})",
                         quote!(#name),
                     )
                 },
@@ -1393,14 +1393,14 @@ fn prop_to_doc(
             let arg_ty_doc = LitStr::new(
                 &if !prop_opts.into {
                     format!(
-                        "**{}**: [`{}`]{}",
+                        "**`{}`**: [`{}`]{}",
                         quote!(#name),
                         pretty_ty,
                         docs.typed_builder()
                     )
                 } else {
                     format!(
-                        "**{}**: `impl`[`Into<{}>`]{}",
+                        "**`{}`**: `impl`[`Into<{}>`]{}",
                         quote!(#name),
                         pretty_ty,
                         docs.typed_builder()
