@@ -430,28 +430,30 @@ where
             let mut view_buf = StreamBuilder::new(new_buf.clone_id());
             view_buf.next_id();
             let hook = Arc::clone(&self.hook);
+
+            drop(suspense_children);
             view_buf.push_async(async move {
                 let _hook = throw_error::set_error_hook(Arc::clone(&hook));
-                let _ = join_all(suspense_children).await;
 
-                let mut my_chunks = VecDeque::new();
-                for chunk in new_buf.take_chunks() {
-                    match chunk {
-                        StreamChunk::Sync(data) => {
-                            my_chunks.push_back(StreamChunk::Sync(data))
+                let chunks = join_all(new_buf.take_chunks().into_iter().map(
+                    |chunk| async move {
+                        match chunk {
+                            StreamChunk::Sync(data) => {
+                                VecDeque::from([StreamChunk::Sync(data)])
+                            }
+                            StreamChunk::Async { chunks } => chunks.await,
+                            StreamChunk::OutOfOrder { chunks } => {
+                                let chunks = chunks.await;
+                                VecDeque::from([StreamChunk::OutOfOrder {
+                                    chunks: Box::pin(async move { chunks }),
+                                }])
+                            }
                         }
-                        StreamChunk::Async { chunks } => {
-                            let chunks = chunks.await;
-                            my_chunks.extend(chunks);
-                        }
-                        StreamChunk::OutOfOrder { chunks } => {
-                            let chunks = chunks.await;
-                            my_chunks.push_back(StreamChunk::OutOfOrder {
-                                chunks: Box::pin(async move { chunks }),
-                            });
-                        }
-                    }
-                }
+                    },
+                ))
+                .await;
+                let mut my_chunks =
+                    chunks.into_iter().flatten().collect::<VecDeque<_>>();
 
                 if self.errors.with_untracked(|map| map.is_empty()) {
                     // if no errors, just go ahead with the stream
