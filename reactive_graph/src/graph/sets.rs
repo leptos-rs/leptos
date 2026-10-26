@@ -69,6 +69,15 @@ impl SubscriberSet {
     }
 
     pub fn subscribe(&mut self, subscriber: AnySubscriber) {
+        // A subscriber dropped without running again (such as a removed
+        // `<For>` row's render effect) never unsubscribes itself. Drop such
+        // entries when the set would reallocate; `retain` keeps the order
+        // `unsubscribe` relies on. See `OwnerInner::push_child` for why the
+        // reserve keeps this amortized O(1).
+        if self.0.len() == self.0.capacity() {
+            self.0.retain(|subscriber| subscriber.1.strong_count() > 0);
+            self.0.reserve(self.0.len());
+        }
         self.0.insert(subscriber);
     }
 
