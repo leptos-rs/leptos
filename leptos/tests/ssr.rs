@@ -293,6 +293,25 @@ fn hydration_scripts_defer_is_a_no_op_in_islands_mode() {
 
 #[cfg(feature = "ssr")]
 #[test]
+fn island_script_idle_callback_has_timeout() {
+    // `islands` always hydrates on idle, so it needs the same `timeout`
+    // backstop as the deferred hydration script: a page that never goes idle
+    // would otherwise never hydrate its islands.
+    use leptos::prelude::*;
+
+    let options: LeptosOptions =
+        serde_json::from_str(r#"{ "output-name": "app" }"#).unwrap();
+    let rendered = view! { <HydrationScripts options=options islands=true /> };
+    let html = rendered.to_html();
+
+    assert!(
+        html.contains("requestIdleCallback(c, { timeout: 2000 })"),
+        "{html}"
+    );
+}
+
+#[cfg(feature = "ssr")]
+#[test]
 fn ssr_textarea_escapes_static_content() {
     use leptos::prelude::*;
 

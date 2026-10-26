@@ -3,7 +3,8 @@
 
 	function idle(c) {
 		if ("requestIdleCallback" in window) {
-			window.requestIdleCallback(c);
+			// `timeout` is a backstop: a never-idle page would otherwise stay dead
+			window.requestIdleCallback(c, { timeout: 2000 });
 		} else {
 			c();
 		}
