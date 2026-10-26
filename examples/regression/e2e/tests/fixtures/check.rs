@@ -61,3 +61,9 @@ pub async fn path_is(client: &Client, expected_path: &str) -> Result<()> {
     assert_eq!(expected_path, path);
     Ok(())
 }
+
+pub async fn page_title_is(client: &Client, expected: &str) -> Result<()> {
+    let title = client.title().await?;
+    assert_eq!(expected, title);
+    Ok(())
+}
