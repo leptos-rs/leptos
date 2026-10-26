@@ -2895,7 +2895,8 @@ where
                 };
 
                 if res.status() == StatusCode::OK {
-                    let owner = Owner::new();
+                    let owner =
+                        leptos_integration_utils::new_detached_root(None);
                     owner.with(|| {
                         additional_context();
                         let res = res.into_response();
