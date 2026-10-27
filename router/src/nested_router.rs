@@ -755,10 +755,12 @@ where
                     })
                     .await;
                 let child = outlet.child.clone();
+                let data_owner = outlet.preload_owner.clone();
                 *view_fn.lock().or_poisoned() =
                     Box::new(move |owner_where_used| {
                         *route_owner.lock().or_poisoned() =
                             Some(owner_where_used.clone());
+                        retain_data_owner(&owner_where_used, &data_owner);
                         let view = view.clone();
                         let child = child.clone();
                         let params = params.clone();
@@ -884,10 +886,11 @@ where
                         &mut current.matched,
                         ArcRwSignal::new(new_match),
                     );
-                    let old_preload_owner = mem::replace(
-                        &mut current.preload_owner,
-                        outer_owner.child(),
-                    );
+                    // The replaced preload owner holds the data of the route that is still on
+                    // screen until the new view is ready. It is not dropped here or carried into
+                    // the preloader (which a later navigation can abort): the displayed view's
+                    // owner retains it, see `retain_data_owner`.
+                    current.preload_owner = outer_owner.child();
                     let matched_including_parents = {
                         ArcMemo::new({
                             let matched = current.matched.clone();
@@ -950,12 +953,17 @@ where
                                     })
                                 })
                                 .await;
+                            let data_owner = outlet.preload_owner.clone();
                             *view_fn.lock().or_poisoned() =
                                 Box::new(move |owner_where_used| {
                                     let prev_owner = route_owner
                                         .lock()
                                         .or_poisoned()
                                         .replace(owner_where_used.clone());
+                                    retain_data_owner(
+                                        &owner_where_used,
+                                        &data_owner,
+                                    );
                                     let view = view.clone();
                                     let full_tx =
                                         full_tx.lock().or_poisoned().take();
@@ -998,7 +1006,6 @@ where
                             drop(old_params);
                             drop(old_url);
                             drop(old_matched);
-                            drop(old_preload_owner);
                             trigger
                         }
                     })));
@@ -1073,6 +1080,18 @@ where
     fn elements(&self) -> Vec<tachys::renderer::types::Element> {
         self.view.elements()
     }
+}
+
+/// Keeps the owner in which a route's data was loaded (the preload owner, where
+/// `LazyRoute::data()` runs) alive for as long as the view built from that data.
+///
+/// While the next route is loading, the current view stays mounted and can still read its
+/// data. Tying the data's lifetime to the view's owner means it is only disposed once the
+/// router has actually replaced the view, even if the navigation that replaced the preload
+/// owner is itself superseded and aborted.
+fn retain_data_owner(view_owner: &Owner, data_owner: &Owner) {
+    let data_owner = data_owner.clone();
+    view_owner.with(|| Owner::on_cleanup(move || drop(data_owner)));
 }
 
 fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
