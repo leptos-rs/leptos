@@ -32,6 +32,7 @@ use reactive_graph::{
 };
 use send_wrapper::SendWrapper;
 use std::{
+    borrow::Cow,
     cell::RefCell,
     fmt::Debug,
     future::Future,
@@ -576,6 +577,7 @@ pub(crate) struct RouteContext {
     trigger: ArcTrigger,
     url: ArcRwSignal<Url>,
     params: ArcRwSignal<ParamsMap>,
+    own_params: ArcRwSignal<ParamsMap>,
     pub matched: ArcRwSignal<String>,
     base: Option<Oco<'static, str>>,
     view_fn: Arc<Mutex<OutletViewFn>>,
@@ -607,6 +609,7 @@ impl Clone for RouteContext {
             id: self.id,
             trigger: self.trigger.clone(),
             params: self.params.clone(),
+            own_params: self.own_params.clone(),
             matched: self.matched.clone(),
             base: self.base.clone(),
             view_fn: Arc::clone(&self.view_fn),
@@ -615,6 +618,15 @@ impl Clone for RouteContext {
             preload_owner: self.preload_owner.clone(),
         }
     }
+}
+
+fn own_params<Child: MatchParams>(
+    match_params: Vec<(Cow<'static, str>, String)>,
+    child: Option<&Child>,
+) -> ParamsMap {
+    let child_len = child.map_or(0, |child| child.to_params().len());
+    let own_len = match_params.len().saturating_sub(child_len);
+    match_params.into_iter().take(own_len).collect()
 }
 
 trait AddNestedRoute {
@@ -658,7 +670,8 @@ where
 
         // the params signal can be updated to allow the same outlet to update to changes in the
         // params, even if there's not a route match change
-        let params = ArcRwSignal::new(self.to_params().into_iter().collect());
+        let match_params = self.to_params();
+        let params = ArcRwSignal::new(match_params.iter().cloned().collect());
 
         // the URL signal is used for access to things like search query
         // this is provided per nested route, specifically so that navigating *away* from a route
@@ -669,9 +682,13 @@ where
         // the matched signal will also be updated on every match
         // it's used for relative route resolution
         let matched = ArcRwSignal::new(self.as_matched().to_string());
+        let id = self.as_id();
+        let (view, child) = self.into_view_and_child();
+        let own_params =
+            ArcRwSignal::new(own_params(match_params, child.as_ref()));
         let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
             .iter()
-            .map(|route| (route.params.clone(), route.matched.clone()))
+            .map(|route| (route.own_params.clone(), route.matched.clone()))
             .unzip();
         let params_including_parents = {
             let params = params.clone();
@@ -709,10 +726,11 @@ where
 
         // add this outlet to the end of the outlet stack used for diffing
         let outlet = RouteContext {
-            id: self.as_id(),
+            id,
             url,
             trigger: trigger.clone(),
             params,
+            own_params,
             matched,
             view_fn: Arc::new(Mutex::new(Box::new(|_owner| {
                 Suspend::new(Box::pin(async { ().into_any() }))
@@ -730,8 +748,6 @@ where
         outlets.push(outlet.clone());
 
         // send the initial view through the channel, and recurse through the children
-        let (view, child) = self.into_view_and_child();
-
         loaders.push(Box::pin(ScopedFuture::new({
             let url = outlet.url.clone();
             let matched = Matched(matched_including_parents);
@@ -828,7 +844,7 @@ where
         let (parent_params, parent_matches): (Vec<_>, Vec<_>) = outlets
             .iter()
             .take(*items)
-            .map(|route| (route.params.clone(), route.matched.clone()))
+            .map(|route| (route.own_params.clone(), route.matched.clone()))
             .unzip();
 
         if outlets.get(*items).is_some() && *items > 0 {
@@ -856,11 +872,13 @@ where
                 let id = self.as_id();
 
                 // build new params and matched strings
+                let match_params = self.to_params();
                 let new_params =
-                    self.to_params().into_iter().collect::<ParamsMap>();
+                    match_params.iter().cloned().collect::<ParamsMap>();
                 let new_match = self.as_matched().to_owned();
 
                 let (view, child) = self.into_view_and_child();
+                let new_own_params = own_params(match_params, child.as_ref());
 
                 // if the IDs don't match, everything below in the tree needs to be swapped:
                 // 1) replace this outlet with the next view, with a new owner and new signals for
@@ -881,6 +899,10 @@ where
                     let old_params = mem::replace(
                         &mut current.params,
                         ArcRwSignal::new(new_params),
+                    );
+                    let old_own_params = mem::replace(
+                        &mut current.own_params,
+                        ArcRwSignal::new(new_own_params),
                     );
                     let old_matched = mem::replace(
                         &mut current.matched,
@@ -1004,6 +1026,7 @@ where
                                 });
 
                             drop(old_params);
+                            drop(old_own_params);
                             drop(old_url);
                             drop(old_matched);
                             trigger
@@ -1034,6 +1057,7 @@ where
                 // then just keep rebuilding recursively, checking the remaining routes in the list
                 current.matched.set(new_match);
                 current.params.set(new_params);
+                current.own_params.set(new_own_params);
                 current.url.set(url.to_owned());
                 if let Some(child) = child {
                     *items += 1;
