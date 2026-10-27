@@ -598,7 +598,10 @@ fn group_adjacent_moves(moved: Vec<DiffOpMove>) -> Vec<DiffOpMove> {
     for m in moved {
         match prev {
             Some(mut p) => {
-                if (m.from == p.from + p.len) && (m.to == p.to + p.len) {
+                if (m.from == p.from + p.len)
+                    && (m.to == p.to + p.len)
+                    && (m.move_in_dom == p.move_in_dom)
+                {
                     p.len += 1;
                     prev = Some(p);
                 } else {
