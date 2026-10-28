@@ -61,3 +61,13 @@ async fn i_see_the_path(world: &mut AppWorld, path: String) -> Result<()> {
     check::path_is(client, &path).await?;
     Ok(())
 }
+
+#[then(regex = r"^I see the page title is (.*)$")]
+async fn i_see_the_page_title(
+    world: &mut AppWorld,
+    title: String,
+) -> Result<()> {
+    let client = &world.client;
+    check::page_title_is(client, &title).await?;
+    Ok(())
+}
