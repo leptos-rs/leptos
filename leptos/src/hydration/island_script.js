@@ -3,7 +3,7 @@
 
 	function idle(c) {
 		if ("requestIdleCallback" in window) {
-			window.requestIdleCallback(c);
+			window.requestIdleCallback(c, { timeout: 2000 });
 		} else {
 			c();
 		}

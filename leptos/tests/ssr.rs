@@ -249,15 +249,11 @@ fn hydration_script_args(defer: bool) -> String {
 #[cfg(feature = "ssr")]
 #[test]
 fn hydration_scripts_default_output() {
-    // The default `HydrationScripts` output is load-bearing for every existing
-    // app, so lock it down: no `fetchpriority` hints, and the hydration script
-    // invoked eagerly.
     let html = render_hydration_scripts(false);
 
-    // no priority hints, and the idle branch is still present but unused
     assert!(!html.contains("fetchpriority"), "{html}");
     assert!(html.contains("requestIdleCallback"), "{html}");
-    // the script is handed `false`, so it takes the eager path
+
     assert!(html.contains(&hydration_script_args(false)), "{html}");
 }
 
@@ -276,9 +272,6 @@ fn hydration_scripts_deferred_output() {
 #[cfg(feature = "ssr")]
 #[test]
 fn hydration_scripts_defer_is_a_no_op_in_islands_mode() {
-    // `islands` already hydrates on idle, and pushing it later would widen the
-    // window in which `islands_routing.js` can call `__hydrateIsland` before it
-    // exists, so `defer` must not reach that path.
     use leptos::prelude::*;
 
     let options: LeptosOptions =
