@@ -7,7 +7,6 @@
 				});
 			});
 	if (defer && "requestIdleCallback" in window) {
-		// `timeout` is a backstop: a never-idle page would otherwise stay dead
 		window.requestIdleCallback(hydrate, { timeout: 2000 });
 	} else {
 		hydrate();
