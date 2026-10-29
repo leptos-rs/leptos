@@ -56,6 +56,12 @@ async fn overlapping_transitions_are_isolated() {
 
     fn run_one(barrier: Arc<Barrier>) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
+            // The other task's owner may still be set on this worker thread;
+            // clear it so this owner is a root, not a child that gets cleaned
+            // up (cancelling its resource) when the other task finishes.
+            if let Some(prev) = Owner::current() {
+                prev.unset();
+            }
             let owner = Owner::new();
             owner.set();
             let resolved = Arc::new(AtomicBool::new(false));

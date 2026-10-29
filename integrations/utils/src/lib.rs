@@ -7,7 +7,10 @@ use leptos::{
     context::provide_context,
     nonce::use_nonce,
     prelude::ReadValue,
-    reactive::owner::{Owner, Sandboxed},
+    reactive::{
+        computed::ScopedFuture,
+        owner::{Owner, Sandboxed},
+    },
 };
 use leptos_config::LeptosOptions;
 use leptos_meta::{Link, ServerMetaContextOutput};
@@ -214,6 +217,20 @@ fn flush_ready_chunks(mut chunks: Vec<String>) -> String {
     }
 }
 
+/// Creates a new root [`Owner`] without leaving it as the current owner on
+/// this thread.
+pub fn new_detached_root(
+    shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
+) -> Owner {
+    let prev = Owner::current();
+    let owner = Owner::new_root(shared_context);
+    match prev {
+        Some(prev) => prev.set(),
+        None => owner.clone().unset(),
+    }
+    owner
+}
+
 pub fn build_response<IV>(
     app_fn: impl FnOnce() -> IV + Send + 'static,
     additional_context: impl FnOnce() + Send + 'static,
@@ -231,7 +248,7 @@ where
 {
     let shared_context = Arc::new(SsrSharedContext::new())
         as Arc<dyn SharedContext + Send + Sync>;
-    let owner = Owner::new_root(Some(Arc::clone(&shared_context)));
+    let owner = new_detached_root(Some(Arc::clone(&shared_context)));
     let stream = Box::pin(Sandboxed::new({
         let owner = owner.clone();
         async move {
@@ -268,7 +285,11 @@ where
                 //
                 // we also don't actually start hydrating until after the whole stream is complete,
                 // so it's not useful to send those scripts down earlier.
-                stream_builder(app, chunks, is_islands_router_navigation)
+                ScopedFuture::new_untracked(stream_builder(
+                    app,
+                    chunks,
+                    is_islands_router_navigation,
+                ))
             });
 
             stream.await

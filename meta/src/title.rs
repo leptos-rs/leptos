@@ -265,6 +265,7 @@ struct TitleViewState {
     // these are only Some(_) after being unmounted, and hold these values until dropped or remounted
     formatter: Option<Formatter>,
     text: Option<TextProp>,
+    mounted: bool,
 }
 
 impl Drop for TitleViewState {
@@ -291,15 +292,21 @@ impl Render for TitleView {
             meta,
             text,
             formatter,
+            mounted: false,
         }
     }
 
-    fn rebuild(self, _state: &mut Self::State) {
-        self.meta.title.update_text_and_formatter(
-            self.id,
-            self.text,
-            self.formatter,
-        );
+    fn rebuild(self, state: &mut Self::State) {
+        if state.mounted {
+            state.meta.title.update_text_and_formatter(
+                state.id,
+                self.text,
+                self.formatter,
+            );
+        } else {
+            state.text = self.text;
+            state.formatter = self.formatter;
+        }
     }
 }
 
@@ -360,6 +367,7 @@ impl RenderHtml for TitleView {
             meta,
             text: None,
             formatter: None,
+            mounted: true,
         }
     }
 
@@ -370,6 +378,7 @@ impl RenderHtml for TitleView {
 
 impl Mountable for TitleViewState {
     fn unmount(&mut self) {
+        self.mounted = false;
         let (text, formatter) = self.meta.title.remove_id(self.id);
         if text.is_some() {
             self.text = text;
@@ -389,6 +398,7 @@ impl Mountable for TitleViewState {
         //
         // "mounting" in this case means that we actually want this title to be in active use
         // as a result, we will push it into the title stack and revalidate
+        self.mounted = true;
         self.meta.title.push_text_and_formatter(
             self.id,
             self.text.take(),
