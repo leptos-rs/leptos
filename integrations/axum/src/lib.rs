@@ -89,7 +89,10 @@ use std::{
 #[cfg(feature = "default")]
 use tower::util::ServiceExt;
 #[cfg(feature = "default")]
-use tower_http::services::ServeDir;
+use tower_http::services::{
+    ServeDir,
+    fs::{DefaultServeDirFallback, TokioBackend},
+};
 // use tracing::Instrument; // TODO check tracing span -- was this used in 0.6 for a missing link?
 
 pub(crate) mod private {
@@ -98,7 +101,10 @@ pub(crate) mod private {
     pub trait Sealed {}
 
     impl<S> Sealed for axum::Router<S> {}
-    impl<APP, CX, SH, S, SR> Sealed for RouterConfiguration<APP, CX, SH, S, SR> {}
+    impl<APP, CX, SH, S, SR, SP> Sealed
+        for RouterConfiguration<APP, CX, SH, S, SR, SP>
+    {
+    }
 }
 
 mod config;
@@ -106,6 +112,8 @@ mod service;
 pub use config::RouterConfiguration;
 #[cfg(feature = "embed")]
 pub use rust_embed;
+#[cfg(any(feature = "default", feature = "embed"))]
+pub use service::ExcludeDir;
 pub use service::{ErrorHandler, LeptosContext, LeptosContextLayer};
 
 /// This struct lets you define headers and override the status of the Response from an Element or a Server Function
@@ -2147,13 +2155,9 @@ where
         H: axum::handler::Handler<T, S>,
         T: 'static;
 
-    /// Extends the Axum router with a [`ServeDir`] service with the `LEPTOS_SITE_PKG_DIR` as the
-    /// base route for serving of static files like JS/WASM/CSS from the corresponding directory
-    /// that resides under `LEPTOS_SITE_ROOT`.
-    ///
-    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route instead, and the files are
-    /// served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute) by
-    /// [`file_and_error_handler`].
+    /// Extends the Axum router with a route at the site pkg URL, `LEPTOS_SITE_PKG_URL`, for serving
+    /// of static files like JS/WASM/CSS from `LEPTOS_SITE_PKG_DIR` by [`file_and_error_handler`].
+    /// `LEPTOS_SITE_PKG_DIR` may be inside `LEPTOS_SITE_ROOT`, outside it, or absolute.
     ///
     /// The shell will be used to generate the error fallback page for the resources that are not found;
     /// typically this would be the same shell passed to [`leptos_routes`] for this current `Router`.
@@ -2192,8 +2196,9 @@ where
     /// ```
     ///
     /// Should no fallback or some other alternative fallback service be desired, the setup may be achieved
-    /// using the underlying helpers [`serve_site_root_service_route_path`] and [`site_pkg_dir_service`],
-    /// as long as `LEPTOS_SITE_PKG_URL` is unset.
+    /// using the underlying helpers [`serve_site_root_service_route_path`] and [`serve_site_root_service`],
+    /// as long as `LEPTOS_SITE_PKG_URL` is unset, `LEPTOS_SITE_ROOT_URL` is `/`, and `LEPTOS_SITE_PKG_DIR`
+    /// is a relative path inside `LEPTOS_SITE_ROOT`.
     ///
     /// ```
     /// # use axum::Router;
@@ -2751,8 +2756,8 @@ where
         // `extend_response()` won't be called with the service as provided.
         let options = LeptosOptions::from_ref(options);
         if options.site_pkg_url.is_some() {
-            // The url no longer mirrors the pkg dir's location under
-            // `site_root`; `file_and_error_handler` maps it to the pkg dir.
+            // Building or loading the options sets `site_pkg_url`;
+            // `file_and_error_handler` maps it to the pkg dir, wherever it is.
             return self.route(
                 &format!("{}{{*path}}", options.site_pkg_dir_route_base()),
                 get(file_and_error_handler(shell)),
@@ -3026,12 +3031,24 @@ async fn get_static_file(
 /// more directly and in a manner that is consistent with the entirety of the
 /// target application.
 ///
+/// The service does not serve the
+/// [`hidden_site_pkg_dir`](LeptosOptions::hidden_site_pkg_dir), so the site
+/// pkg has one URL.
+///
 /// [`ServeDir`]: tower_http::services::ServeDir
 #[cfg(feature = "default")]
-pub fn serve_site_root_service(options: &LeptosOptions) -> ServeDir {
-    ServeDir::new(&*options.site_root)
-        .precompressed_gzip()
-        .precompressed_br()
+pub fn serve_site_root_service(
+    options: &LeptosOptions,
+) -> ServeDir<DefaultServeDirFallback, ExcludeDir<TokioBackend>> {
+    let hidden = options
+        .hidden_site_pkg_dir()
+        .map(|dir| Path::new(&*options.site_root).join(dir));
+    ServeDir::with_backend(
+        &*options.site_root,
+        ExcludeDir::new(TokioBackend, hidden),
+    )
+    .precompressed_gzip()
+    .precompressed_br()
 }
 
 #[cfg(feature = "default")]
@@ -3040,7 +3057,9 @@ pub fn serve_site_root_service(options: &LeptosOptions) -> ServeDir {
     since = "0.9.0",
     note = "please use `serve_site_root_service` instead"
 )]
-pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
+pub fn site_pkg_dir_service(
+    options: &LeptosOptions,
+) -> ServeDir<DefaultServeDirFallback, ExcludeDir<TokioBackend>> {
     serve_site_root_service(options)
 }
 
