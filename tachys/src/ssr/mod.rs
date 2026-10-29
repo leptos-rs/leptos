@@ -137,6 +137,11 @@ impl StreamBuilder {
         self.id.clone()
     }
 
+    /// Sets the current ID.
+    pub fn set_id(&mut self, id: Option<Vec<u16>>) {
+        self.id = id;
+    }
+
     /// Returns an ID that is a child of the current one.
     pub fn child_id(&self) -> Option<Vec<u16>> {
         let mut child = self.id.clone();

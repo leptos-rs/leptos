@@ -402,6 +402,9 @@ where
             flags,
             extra_attrs.clone(),
         );
+        // any <Suspense/> rendered inside the children will have claimed IDs from `new_buf`:
+        // carry them over, so that subsequent siblings don't reuse the same IDs
+        buf.set_id(new_buf.clone_id());
 
         let suspense_children =
             mem::take(&mut *self.suspended_children.write_value());
