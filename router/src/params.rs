@@ -27,23 +27,15 @@ impl ParamsMap {
     /// To replace the value instead, see [`replace`](Self::replace).
     pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: String) {
         let value = Url::unescape(&value);
-
-        let key = key.into();
-        if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
-            prev.1.push(value);
-        } else {
-            self.0.push((key, vec![value]));
-        }
+        self.insert_decoded(key, value)
     }
 
     /// Inserts an already-decoded value into the map without performing an
     /// additional percent-decoding pass.
     ///
-    /// Query-string pairs are produced pre-decoded by both the browser's
-    /// `URLSearchParams` (client) and the `url` crate's `query_pairs` (server).
-    /// Routing them through [`insert`](Self::insert) would decode them a second
-    /// time, corrupting any value that legitimately contains a `%xx` sequence.
-    pub(crate) fn insert_decoded(
+    /// If a value with that key already exists, the new value will be added to it.
+    /// To replace the value instead, see [`replace_decoded`](Self::replace_decoded).
+    pub fn insert_decoded(
         &mut self,
         key: impl Into<Cow<'static, str>>,
         value: String,
@@ -56,14 +48,31 @@ impl ParamsMap {
         }
     }
 
-    /// Inserts a value into the map, replacing any existing value for that key.
+    /// Replaces a value in the map.
+    ///
+    /// If a value with that key does not exist the key-value pair will be
+    /// inserted instead.
+    /// To append to the value list instead, see [`insert`](Self::insert).
     pub fn replace(
         &mut self,
         key: impl Into<Cow<'static, str>>,
         value: String,
     ) {
         let value = Url::unescape(&value);
+        self.replace_decoded(key, value)
+    }
 
+    /// Replaces a value in the map with an already decoded value without
+    /// performing an additional percent-decoding pass.
+    ///
+    /// If a value with that key does not exist the key-value pair will be
+    /// inserted instead.
+    /// To append to the value list instead, see [`insert_decoded`](Self::insert_decoded).
+    pub fn replace_decoded(
+        &mut self,
+        key: impl Into<Cow<'static, str>>,
+        value: String,
+    ) {
         let key = key.into();
         if let Some(prev) = self.0.iter_mut().find(|(k, _)| k == &key) {
             prev.1.clear();
