@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use leptos_router::{LazyRoute, lazy_route};
 
+#[derive(Clone)]
 struct MutRoute {
     value: u32,
 }
@@ -21,6 +22,7 @@ impl LazyRoute for MutRoute {
     }
 }
 
+#[derive(Clone)]
 struct DestructuredRoute {
     value: u32,
 }

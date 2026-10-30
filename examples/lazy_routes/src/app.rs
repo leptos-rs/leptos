@@ -288,6 +288,7 @@ pub fn second_value() -> String {
     .unwrap()
 }
 
+#[derive(Clone)]
 struct ViewD {
     data: Resource<Result<Vec<i32>, ServerFnError>>,
 }
@@ -332,6 +333,7 @@ async fn d_data() -> Result<Vec<i32>, ServerFnError> {
     Ok(vec![1, 1, 2, 3, 5, 8, 13])
 }
 
+#[derive(Clone)]
 struct ViewE {
     data: Resource<Result<Vec<String>, ServerFnError>>,
 }
