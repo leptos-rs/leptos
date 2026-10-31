@@ -5,7 +5,7 @@ use leptos_router::{
     components::A, hooks::use_params_map, lazy_route, LazyRoute,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StoryRoute {
     story: Resource<Option<Story>>,
 }

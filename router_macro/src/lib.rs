@@ -268,7 +268,7 @@ impl ToTokens for Segments {
 /// use leptos_router::{lazy_route, LazyRoute};
 ///
 /// // the route definition
-/// #[derive(Debug)]
+/// #[derive(Debug, Clone)]
 /// struct BlogListingRoute {
 ///     titles: Resource<Vec<String>>
 /// }

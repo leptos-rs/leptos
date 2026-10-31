@@ -22,6 +22,7 @@ thread_local! {
     static NAVIGATE: RefCell<Option<Navigate>> = const { RefCell::new(None) };
 }
 
+#[derive(Clone)]
 struct SlowC;
 
 /// Stands in for the wasm chunk of a `#[lazy]` route: both `preload` (used
