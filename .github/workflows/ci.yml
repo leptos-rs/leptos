@@ -3,11 +3,11 @@ on:
   push:
     branches:
       - main
-      - leptos_0.9
+      - leptos_0.8_latest
   pull_request:
     branches:
       - main
-      - leptos_0.9
+      - leptos_0.8_latest
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
