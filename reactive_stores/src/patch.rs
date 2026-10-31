@@ -413,6 +413,10 @@ where
                         field_to_patch
                             .patch_field(new_value, &path, notify, keys);
                     } else {
+                        // nothing has read this item through its key, so
+                        // nothing listens to its fields: it takes the new
+                        // value as it is, and the list notifies
+                        *field_to_patch = new_value;
                         has_changed = true;
                     }
                 }
@@ -495,6 +499,8 @@ where
                             keys,
                         );
                     } else {
+                        // as for a Vec: nothing listens to this entry's fields
+                        old_value.1 = new_value.1;
                         has_changed = true;
                     }
 
@@ -585,6 +591,8 @@ where
                             keys,
                         );
                     } else {
+                        // as for a Vec: nothing listens to this entry's fields
+                        old_value.1 = new_value.1;
                         has_changed = true;
                     }
 

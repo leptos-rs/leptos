@@ -8,7 +8,8 @@ use server_fns_axum::*;
 #[allow(clippy::needless_return)]
 #[tokio::main]
 async fn main() {
-    simple_logger::init_with_level(log::Level::Error)
+    // `Warn` shows server_fn's warning when a request body is over the limit.
+    simple_logger::init_with_level(log::Level::Warn)
         .expect("couldn't initialize logging");
 
     // Setting this to None means we'll be using cargo-leptos and its env vars

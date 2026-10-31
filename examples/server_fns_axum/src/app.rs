@@ -332,6 +332,17 @@ pub fn RkyvExample() -> impl IntoView {
     }
 }
 
+/// Converts a `multer` error into a server function error. multer's message
+/// hides the cause of a stream error, such as a request body over the size
+/// limit, so this adds the cause.
+#[cfg(feature = "ssr")]
+fn upload_error(err: impl std::error::Error) -> ServerFnError {
+    match err.source() {
+        Some(cause) => ServerFnError::new(format!("{err}: {cause}")),
+        None => ServerFnError::new(err),
+    }
+}
+
 #[component]
 pub fn FileUpload() -> impl IntoView {
     /// A simple file upload function, which does just returns the length of the file.
@@ -340,6 +351,8 @@ pub fn FileUpload() -> impl IntoView {
     #[server(
         input = MultipartFormData,
     )]
+    // Uploads can be larger than axum's default body limit of 2 MiB.
+    #[middleware(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024))]
     pub async fn file_length(
         data: MultipartData,
     ) -> Result<usize, ServerFnError> {
@@ -350,11 +363,13 @@ pub fn FileUpload() -> impl IntoView {
 
         // this will just measure the total number of bytes uploaded
         let mut count = 0;
-        while let Ok(Some(mut field)) = data.next_field().await {
+        while let Some(mut field) =
+            data.next_field().await.map_err(upload_error)?
+        {
             println!("\n[NEXT FIELD]\n");
             let name = field.name().unwrap_or_default().to_string();
             println!("  [NAME] {name}");
-            while let Ok(Some(chunk)) = field.chunk().await {
+            while let Some(chunk) = field.chunk().await.map_err(upload_error)? {
                 let len = chunk.len();
                 count += len;
                 println!("      [CHUNK] {len}");
@@ -480,13 +495,17 @@ pub fn FileUploadWithProgress() -> impl IntoView {
     #[server(
         input = MultipartFormData,
     )]
+    // Uploads can be larger than axum's default body limit of 2 MiB.
+    #[middleware(axum::extract::DefaultBodyLimit::max(50 * 1024 * 1024))]
     pub async fn upload_file(data: MultipartData) -> Result<(), ServerFnError> {
         let mut data = data.into_inner().unwrap();
 
-        while let Ok(Some(mut field)) = data.next_field().await {
+        while let Some(mut field) =
+            data.next_field().await.map_err(upload_error)?
+        {
             let name =
                 field.file_name().expect("no filename on field").to_string();
-            while let Ok(Some(chunk)) = field.chunk().await {
+            while let Some(chunk) = field.chunk().await.map_err(upload_error)? {
                 let len = chunk.len();
                 println!("[{name}]\t{len}");
                 progress::add_chunk(&name, len).await;

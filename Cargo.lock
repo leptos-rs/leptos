@@ -1700,7 +1700,7 @@ dependencies = [
 
 [[package]]
 name = "hydration_context"
-version = "0.4.0-rc0"
+version = "0.4.0-rc1"
 dependencies = [
  "futures",
  "js-sys",
@@ -2031,7 +2031,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "any_spawner",
  "base64 0.23.1",
@@ -2090,7 +2090,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_actix"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "actix-files",
  "actix-http",
@@ -2114,7 +2114,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_axum"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "any_spawner",
  "anyhow",
@@ -2142,7 +2142,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_config"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "config",
  "serde",
@@ -2155,7 +2155,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_dom"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "js-sys",
  "leptos",
@@ -2172,7 +2172,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_hot_reload"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "anyhow",
  "camino",
@@ -2188,7 +2188,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_integration_utils"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "futures",
  "hydration_context",
@@ -2205,7 +2205,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "attribute-derive",
  "convert_case 0.12.0",
@@ -2223,7 +2223,7 @@ dependencies = [
  "rustc_version",
  "serde",
  "server_fn",
- "server_fn_macro 0.9.0-rc0",
+ "server_fn_macro 0.9.0-rc1",
  "syn 3.0.9",
  "tracing",
  "trybuild",
@@ -2232,7 +2232,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_meta"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "futures",
  "indexmap",
@@ -2246,7 +2246,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "any_spawner",
  "either_of",
@@ -2271,7 +2271,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_router_macro"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "leptos",
  "leptos_macro",
@@ -2284,7 +2284,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_server"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "any_spawner",
  "base64 0.23.1",
@@ -2997,7 +2997,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_graph"
-version = "0.3.0-rc0"
+version = "0.3.0-rc1"
 dependencies = [
  "any_spawner",
  "async-lock",
@@ -3024,7 +3024,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores"
-version = "0.5.0-rc0"
+version = "0.5.0-rc1"
 dependencies = [
  "any_spawner",
  "guardian",
@@ -3045,7 +3045,7 @@ dependencies = [
 
 [[package]]
 name = "reactive_stores_macro"
-version = "0.5.0-rc0"
+version = "0.5.0-rc1"
 dependencies = [
  "convert_case 0.12.0",
  "proc-macro2",
@@ -3597,7 +3597,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "actix-web",
  "actix-ws",
@@ -3636,6 +3636,7 @@ dependencies = [
  "tokio-tungstenite 0.30.0",
  "tower",
  "tower-layer",
+ "tracing",
  "trybuild",
  "typed-builder",
  "url",
@@ -3663,7 +3664,7 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
  "const_format",
  "convert_case 0.12.0",
@@ -3676,9 +3677,9 @@ dependencies = [
 
 [[package]]
 name = "server_fn_macro_default"
-version = "0.9.0-rc0"
+version = "0.9.0-rc1"
 dependencies = [
- "server_fn_macro 0.9.0-rc0",
+ "server_fn_macro 0.9.0-rc1",
  "syn 3.0.9",
 ]
 
@@ -3956,7 +3957,7 @@ dependencies = [
 
 [[package]]
 name = "tachys"
-version = "0.3.0-rc0"
+version = "0.3.0-rc1"
 dependencies = [
  "any_spawner",
  "async-trait",
@@ -4058,7 +4059,7 @@ dependencies = [
 
 [[package]]
 name = "throw_error"
-version = "0.4.0-rc0"
+version = "0.4.0-rc1"
 dependencies = [
  "anyhow",
  "pin-project-lite",

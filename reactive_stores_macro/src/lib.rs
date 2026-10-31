@@ -758,16 +758,20 @@ impl PatchModel {
                                 keys,
                                 #closure,
                                 |key| {
+                                    // the keys live under the field's
+                                    // own path; read them only if
+                                    // something iterated the field by
+                                    // key, as an empty set created here
+                                    // would be taken as complete later
                                     let keys = keys.as_ref()?;
                                     let segment = keys
-                                        .with_field_keys(
-                                            path.clone(),
-                                            |keys| (keys.get(key), vec![]),
-                                            || vec![],
+                                        .with_existing_field_keys(
+                                            &new_path,
+                                            |keys| keys.get(key),
                                         )
                                         .flatten()
                                         .map(|(_, idx)| idx)?;
-                                    let mut path = path.clone();
+                                    let mut path = new_path.clone();
                                     path.push(segment);
                                     Some(path)
                                 }

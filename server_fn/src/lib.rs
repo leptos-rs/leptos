@@ -163,14 +163,18 @@ pub use serde;
 #[cfg(feature = "serde-lite")]
 pub use serde_lite;
 use server::Server;
+#[cfg(any(feature = "axum-no-default", feature = "actix-no-default"))]
 use std::{
     collections::HashMap,
+    sync::{LazyLock, OnceLock, RwLock},
+};
+use std::{
     fmt::{Debug, Display},
     future::Future,
     marker::PhantomData,
     ops::{Deref, DerefMut},
     pin::Pin,
-    sync::{Arc, LazyLock, RwLock},
+    sync::Arc,
 };
 #[doc(hidden)]
 pub use xxhash_rust;
@@ -262,6 +266,11 @@ pub trait ServerFn: Send + Sized {
     }
 
     /// Middleware that should be applied to this server function.
+    ///
+    /// The layers are applied once, when the server function first handles a
+    /// request. Each request then runs on its own clone of the resulting
+    /// service, so state that the clones share (for example behind an `Arc`)
+    /// applies across requests, while plain fields of a service are per clone.
     fn middlewares() -> Vec<
         Arc<
             dyn Layer<ServerFnServerRequest<Self>, ServerFnServerResponse<Self>>,
@@ -952,12 +961,16 @@ macro_rules! initialize_server_fn_map {
         std::sync::LazyLock::new(|| {
             let mut map: std::collections::HashMap<
                 Method,
-                std::collections::HashMap<String, ServerFnTraitObj<$req, $res>>,
+                std::collections::HashMap<
+                    String,
+                    $crate::RegisteredServerFn<$req, $res>,
+                >,
             > = std::collections::HashMap::new();
             for obj in $crate::inventory::iter::<ServerFnTraitObj<$req, $res>> {
-                map.entry(obj.method())
-                    .or_default()
-                    .insert(obj.path().to_string(), obj.clone());
+                map.entry(obj.method()).or_default().insert(
+                    obj.path().to_string(),
+                    $crate::RegisteredServerFn::new(obj.clone()),
+                );
             }
             std::sync::RwLock::new(map)
         })
@@ -1070,10 +1083,50 @@ impl<Req, Res> Clone for ServerFnTraitObj<Req, Res> {
     }
 }
 
-#[allow(unused)] // used by server integrations
+#[cfg(any(feature = "axum-no-default", feature = "actix-no-default"))]
 type LazyServerFnMap<Req, Res> = LazyLock<
-    RwLock<HashMap<Method, HashMap<String, ServerFnTraitObj<Req, Res>>>>,
+    RwLock<HashMap<Method, HashMap<String, RegisteredServerFn<Req, Res>>>>,
 >;
+
+/// A registered server function and its middleware-wrapped service.
+///
+/// The service is built on first use, and each request runs on its own clone
+/// of it, so state that the layers share between clones (such as the
+/// semaphore of tower's `ConcurrencyLimit`) applies across requests. It is not
+/// a field of `ServerFnTraitObj`, because `#[server]` stores that type in an
+/// `inventory` static, which cannot contain interior mutability.
+#[cfg(any(feature = "axum-no-default", feature = "actix-no-default"))]
+pub(crate) struct RegisteredServerFn<Req, Res> {
+    server_fn: ServerFnTraitObj<Req, Res>,
+    service: OnceLock<BoxedService<Req, Res>>,
+}
+
+#[cfg(any(feature = "axum-no-default", feature = "actix-no-default"))]
+impl<Req: Send + 'static, Res: 'static> RegisteredServerFn<Req, Res> {
+    pub(crate) fn new(server_fn: ServerFnTraitObj<Req, Res>) -> Self {
+        Self {
+            server_fn,
+            service: OnceLock::new(),
+        }
+    }
+
+    pub(crate) fn server_fn(&self) -> &ServerFnTraitObj<Req, Res> {
+        &self.server_fn
+    }
+
+    /// Returns a new clone of the middleware-wrapped service.
+    pub(crate) fn service(&self) -> BoxedService<Req, Res> {
+        self.service
+            .get_or_init(|| {
+                let mut service = self.server_fn.clone().boxed();
+                for middleware in self.server_fn.middleware() {
+                    service = middleware.layer(service);
+                }
+                service
+            })
+            .clone()
+    }
+}
 
 #[cfg(feature = "ssr")]
 impl<Req: 'static, Res: 'static> inventory::Collect
@@ -1090,8 +1143,8 @@ impl<Req: 'static, Res: 'static> inventory::Collect
 #[cfg(feature = "axum-no-default")]
 pub mod axum {
     use crate::{
-        LazyServerFnMap, Protocol, Server, ServerFn, ServerFnTraitObj,
-        error::FromServerFnError, middleware::BoxedService,
+        LazyServerFnMap, Protocol, RegisteredServerFn, Server, ServerFn,
+        ServerFnTraitObj, error::FromServerFnError, middleware::BoxedService,
     };
     use axum::body::Body;
     use http::{Method, Request, Response, StatusCode};
@@ -1163,9 +1216,9 @@ pub mod axum {
             .or_default()
             .insert(
                 T::PATH.into(),
-                ServerFnTraitObj::new::<T>(|req| {
+                RegisteredServerFn::new(ServerFnTraitObj::new::<T>(|req| {
                     Box::pin(T::run_on_server(req))
-                }),
+                })),
             );
     }
 
@@ -1176,7 +1229,7 @@ pub mod axum {
             .unwrap()
             .values()
             .flat_map(|by_path| by_path.values())
-            .map(|item| (item.path(), item.method()))
+            .map(|item| (item.server_fn().path(), item.server_fn().method()))
             .collect();
 
         paths.into_iter()
@@ -1207,7 +1260,11 @@ pub mod axum {
         }
     }
 
-    /// Returns the server function at the given path as a service that can be modified.
+    /// Returns the server function at the given path as a service.
+    /// Middleware layers are applied once, on first use, and each call returns
+    /// a new clone of the result: state that the layers share between clones
+    /// (for example behind an `Arc`) applies across requests, while plain
+    /// fields of a service are per clone.
     pub fn get_server_fn_service(
         path: &str,
         method: Method,
@@ -1217,14 +1274,7 @@ pub mod axum {
             .or_poisoned()
             .get(&method)
             .and_then(|by_path| by_path.get(path))
-            .map(|server_fn| {
-                let middleware = (server_fn.middleware)();
-                let mut service = server_fn.clone().boxed();
-                for middleware in middleware {
-                    service = middleware.layer(service);
-                }
-                service
-            })
+            .map(RegisteredServerFn::service)
     }
 }
 
@@ -1232,8 +1282,8 @@ pub mod axum {
 #[cfg(feature = "actix-no-default")]
 pub mod actix {
     use crate::{
-        LazyServerFnMap, Protocol, ServerFn, ServerFnTraitObj,
-        error::FromServerFnError, middleware::BoxedService,
+        LazyServerFnMap, Protocol, RegisteredServerFn, ServerFn,
+        ServerFnTraitObj, error::FromServerFnError, middleware::BoxedService,
         request::actix::ActixRequest, response::actix::ActixResponse,
         server::Server,
     };
@@ -1293,9 +1343,9 @@ pub mod actix {
             .or_default()
             .insert(
                 T::PATH.into(),
-                ServerFnTraitObj::new::<T>(|req| {
+                RegisteredServerFn::new(ServerFnTraitObj::new::<T>(|req| {
                     Box::pin(T::run_on_server(req))
-                }),
+                })),
             );
     }
 
@@ -1306,7 +1356,7 @@ pub mod actix {
             .unwrap()
             .values()
             .flat_map(|by_path| by_path.values())
-            .map(|item| (item.path(), item.method()))
+            .map(|item| (item.server_fn().path(), item.server_fn().method()))
             .collect();
 
         paths.into_iter()
@@ -1339,7 +1389,11 @@ pub mod actix {
         }
     }
 
-    /// Returns the server function at the given path as a service that can be modified.
+    /// Returns the server function at the given path as a service.
+    /// Middleware layers are applied once, on first use, and each call returns
+    /// a new clone of the result: state that the layers share between clones
+    /// (for example behind an `Arc`) applies across requests, while plain
+    /// fields of a service are per clone.
     pub fn get_server_fn_service(
         path: &str,
         method: &actix_web::http::Method,
@@ -1363,14 +1417,7 @@ pub mod actix {
             .or_poisoned()
             .get(&method)
             .and_then(|by_path| by_path.get(path))
-            .map(|server_fn| {
-                let middleware = (server_fn.middleware)();
-                let mut service = server_fn.clone().boxed();
-                for middleware in middleware {
-                    service = middleware.layer(service);
-                }
-                service
-            })
+            .map(RegisteredServerFn::service)
     }
 
     #[cfg(test)]
