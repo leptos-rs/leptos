@@ -522,6 +522,29 @@ impl KeyMap {
         Some(result)
     }
 
+    /// Like [`with_field_keys`](Self::with_field_keys), but only for a field
+    /// whose keys exist already: returns [None] when nothing has read the field
+    /// identified by `path` through its keys yet, and creates no entry for it.
+    ///
+    /// # Usage
+    ///
+    /// You should not call this method directly from your code, as it's
+    /// an implementation detail of `reactive_stores`. This method was exposed
+    /// to implement the derive `Patch` macro for keyed fields.
+    #[doc(hidden)]
+    pub fn with_existing_field_keys<K, T>(
+        &self,
+        path: &StorePath,
+        fun: impl FnOnce(&FieldKeys<K>) -> T,
+    ) -> Option<T>
+    where
+        K: Debug + Hash + PartialEq + Eq + Send + Sync + 'static,
+    {
+        let guard = self.0.read().or_poisoned();
+        let keys = guard.get(path)?.downcast_ref::<FieldKeys<K>>()?;
+        Some(fun(keys))
+    }
+
     fn contains_key(&self, key: &StorePath) -> bool {
         self.0.read().or_poisoned().contains_key(key)
     }

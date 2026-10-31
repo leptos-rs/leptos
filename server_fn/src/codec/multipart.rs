@@ -14,6 +14,18 @@ use web_sys::FormData;
 /// Encodes multipart form data.
 ///
 /// You should primarily use this if you are trying to handle file uploads.
+///
+/// ## Request Body Limit
+///
+/// When this is used as an input encoding with the Axum backend, the request
+/// body obeys axum's `DefaultBodyLimit` (2 MiB by default). Raise it for one
+/// server function with
+/// `#[middleware(axum::extract::DefaultBodyLimit::max(..))]`, or for a router
+/// with `.layer(DefaultBodyLimit::max(..))`. If you remove the limit with
+/// `DefaultBodyLimit::disable()`, set another limit for untrusted clients,
+/// such as tower-http's `RequestBodyLimitLayer`. A request over the limit
+/// logs a warning with the `server_fn::body_limit` target. The Actix backend
+/// does not limit this input.
 pub struct MultipartFormData;
 
 impl ContentType for MultipartFormData {
@@ -154,6 +166,43 @@ mod tests {
         assert!(
             matches!(result, Err(ServerFnError::Args(_))),
             "expected Args error when boundary is missing, got {result:?}"
+        );
+    }
+
+    #[cfg(feature = "axum")]
+    #[test]
+    fn from_req_reports_axum_body_limit_as_error_source() {
+        use axum::{body::Body, extract::DefaultBodyLimit};
+
+        let body = format!(
+            "--X\r\nContent-Disposition: form-data; \
+             name=\"file\"\r\n\r\n{}\r\n--X--\r\n",
+            "x".repeat(100_000)
+        );
+        let mut req = HttpRequest::builder()
+            .method("POST")
+            .uri("/upload")
+            .header("Content-Type", "multipart/form-data; boundary=X")
+            .body(Body::from(body))
+            .unwrap();
+        DefaultBodyLimit::max(1024).apply(&mut req);
+        let data = block_on(<MultipartData as FromReq<
+            MultipartFormData,
+            _,
+            ServerFnError,
+        >>::from_req(req))
+        .expect("the headers are valid");
+        let mut data = data.into_inner().expect("server-side data");
+        let Err(err) = block_on(data.next_field()) else {
+            panic!("a body over the limit must fail");
+        };
+        // multer only says "failed to read stream"; the source names the limit.
+        let source = std::error::Error::source(&err).map(ToString::to_string);
+        assert!(
+            source
+                .as_deref()
+                .is_some_and(|s| s.contains("DefaultBodyLimit")),
+            "{err}: {source:?}"
         );
     }
 }

@@ -71,11 +71,16 @@ where
     ) -> Result<Self, E>;
 
     /// Attempts to construct a new request with a streaming body.
+    ///
+    /// When `body` yields an `Err`, the implementation must abort the request
+    /// body instead of ending it, so the server sees a body error rather than
+    /// a body that looks complete, and the request fails. The error value is
+    /// not sent to the server.
     fn try_new_req_streaming(
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
         method: Method,
     ) -> Result<Self, E>;
 
@@ -269,7 +274,7 @@ where
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
     ) -> Result<Self, E> {
         Self::try_new_req_streaming(
             path,
@@ -287,7 +292,7 @@ where
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
     ) -> Result<Self, E> {
         Self::try_new_req_streaming(
             path,
@@ -305,7 +310,7 @@ where
         path: &str,
         accepts: &str,
         content_type: &str,
-        body: impl Stream<Item = Bytes> + Send + 'static,
+        body: impl Stream<Item = Result<Bytes, E>> + Send + 'static,
     ) -> Result<Self, E> {
         Self::try_new_req_streaming(
             path,
