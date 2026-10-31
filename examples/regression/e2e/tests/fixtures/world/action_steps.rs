@@ -11,6 +11,15 @@ async fn i_open_the_app(world: &mut AppWorld) -> Result<()> {
     Ok(())
 }
 
+#[given(regex = "^I load the path (.*)$")]
+#[when(regex = "^I load the path (.*)$")]
+async fn i_load_the_path(world: &mut AppWorld, path: String) -> Result<()> {
+    let client = &world.client;
+    action::goto_path(client, &path).await?;
+
+    Ok(())
+}
+
 #[given(regex = "^I can access regression test (.*)$")]
 #[when(regex = "^I select the link (.*)$")]
 async fn i_select_the_link(world: &mut AppWorld, text: String) -> Result<()> {

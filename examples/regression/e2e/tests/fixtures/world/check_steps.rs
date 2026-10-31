@@ -71,3 +71,14 @@ async fn i_see_the_page_title(
     check::page_title_is(client, &title).await?;
     Ok(())
 }
+
+#[then(regex = r"^I see the page source contains (\S+) (\d+) times?$")]
+async fn i_see_the_page_source_contains(
+    world: &mut AppWorld,
+    text: String,
+    count: usize,
+) -> Result<()> {
+    let client = &world.client;
+    check::page_source_contains_times(client, &text, count).await?;
+    Ok(())
+}

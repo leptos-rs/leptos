@@ -13,6 +13,7 @@ pub fn Routes4285() -> impl MatchNestedRoutes + Clone {
     .into_inner()
 }
 
+#[derive(Clone)]
 struct Issue4285 {
     data: Resource<Result<i32, ServerFnError>>,
 }

@@ -13,6 +13,7 @@ pub fn Routes4296() -> impl MatchNestedRoutes + Clone {
     .into_inner()
 }
 
+#[derive(Clone)]
 struct Issue4296 {
     query: Signal<Option<String>>,
 }

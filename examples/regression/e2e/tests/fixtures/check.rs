@@ -67,3 +67,13 @@ pub async fn page_title_is(client: &Client, expected: &str) -> Result<()> {
     assert_eq!(expected, title);
     Ok(())
 }
+
+pub async fn page_source_contains_times(
+    client: &Client,
+    text: &str,
+    expected: usize,
+) -> Result<()> {
+    let source = client.source().await?;
+    assert_eq!(expected, source.matches(text).count());
+    Ok(())
+}

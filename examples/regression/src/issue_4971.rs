@@ -30,6 +30,7 @@ fn Layout4971() -> impl IntoView {
 }
 
 /// Route whose data is read by its view after it has been mounted.
+#[derive(Clone)]
 struct Home4971 {
     count: RwSignal<i32>,
 }
@@ -54,6 +55,7 @@ impl LazyRoute for Home4971 {
 }
 
 /// Routes that take a while to load, so that the previous route stays on screen meanwhile.
+#[derive(Clone)]
 struct Slow4971;
 
 impl LazyRoute for Slow4971 {
@@ -70,6 +72,7 @@ impl LazyRoute for Slow4971 {
     }
 }
 
+#[derive(Clone)]
 struct Other4971;
 
 impl LazyRoute for Other4971 {

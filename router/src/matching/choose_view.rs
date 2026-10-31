@@ -1,5 +1,5 @@
 use either_of::*;
-use leptos::prelude::{ArcStoredValue, WriteValue};
+use leptos::prelude::{ArcStoredValue, ReadValue, WriteValue};
 use std::{future::Future, marker::PhantomData};
 use tachys::view::any_view::{AnyView, IntoAny};
 
@@ -29,7 +29,7 @@ where
     T: Send + Sync + LazyRoute,
 {
     async fn choose(self) -> AnyView {
-        let data = self.data.write_value().take().unwrap_or_else(T::data);
+        let data = self.data.read_value().clone().unwrap_or_else(T::data);
         T::view(data).await
     }
 
@@ -39,7 +39,7 @@ where
     }
 }
 
-pub trait LazyRoute: Send + 'static {
+pub trait LazyRoute: Send + Clone + 'static {
     fn data() -> Self;
 
     fn view(this: Self) -> impl Future<Output = AnyView>;

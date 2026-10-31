@@ -2,7 +2,7 @@ use crate::api::{self, User};
 use leptos::{either::Either, prelude::*, server::Resource};
 use leptos_router::{hooks::use_params_map, lazy_route, LazyRoute};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UserRoute {
     user: Resource<Option<User>>,
 }
