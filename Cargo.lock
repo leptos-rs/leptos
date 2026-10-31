@@ -2006,7 +2006,7 @@ checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "leptos"
-version = "0.8.22"
+version = "0.8.23"
 dependencies = [
  "any_spawner",
  "base64 0.22.1",
@@ -2173,7 +2173,7 @@ dependencies = [
 
 [[package]]
 name = "leptos_macro"
-version = "0.8.19"
+version = "0.8.20"
 dependencies = [
  "attribute-derive",
  "cfg-if",
