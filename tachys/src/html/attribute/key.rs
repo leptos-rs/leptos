@@ -405,6 +405,8 @@ attributes! {
     scoped "scoped",
     /// The `selected` attribute indicates that the option is selected.
     selected "selected",
+    /// Creates a shadow root for the parent element. It is a declarative version of the Element.attachShadow() method and accepts the same enumerated values.
+    shadowrootmode "shadowrootmode",
     /// The `shape` attribute specifies the shape of the area.
     shape "shape",
     /// The `size` attribute specifies the width of the input element.
