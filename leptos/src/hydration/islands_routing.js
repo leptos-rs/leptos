@@ -66,7 +66,7 @@ async function navigateToPage(
 		};
 		// Not all browsers support startViewTransition; see https://caniuse.com/?search=startViewTransition
 		if (useViewTransition && document.startViewTransition) {
-			await document.startViewTransition(transition);
+			await document.startViewTransition(transition).updateCallbackDone;
 		} else {
 			await transition()
 		}
