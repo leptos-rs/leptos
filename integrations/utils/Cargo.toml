@@ -16,6 +16,7 @@ leptos_meta = { workspace = true, features = ["ssr"] }
 leptos_router = { workspace = true, features = ["ssr"] }
 leptos_config = { workspace = true }
 mime = { workspace = true }
+percent-encoding = { workspace = true, default-features = true }
 reactive_graph = { workspace = true, features = ["sandboxed-arenas"] }
 tokio = { workspace = true, default-features = false, optional = true }
 lru = { workspace = true, optional = true }
