@@ -351,6 +351,8 @@ macro_rules! spawn_derived {
                 let inner = Arc::downgrade(&this.inner);
                 let wakers = Arc::downgrade(&this.wakers);
                 let loading = Arc::downgrade(&this.loading);
+                #[cfg(feature = "sandboxed-arenas")]
+                let task_owner = owner.clone();
                 let fut = async move {
                     // if the AsyncDerived has *already* been marked dirty (i.e., one of its
                     // sources has changed after creation), we should throw out the Future
@@ -440,8 +442,9 @@ macro_rules! spawn_derived {
 
                 let fut = cancel_on_cleanup(fut);
 
+                // Capture the derived's arena even when the caller has no owner.
                 #[cfg(feature = "sandboxed-arenas")]
-                let fut = Sandboxed::new(fut);
+                let fut = task_owner.with(|| Sandboxed::new(fut));
 
                 fut
             });

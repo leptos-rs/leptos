@@ -179,3 +179,51 @@ async fn async_derived_stops_polling_when_owner_disposed() {
 
     assert!(!resumed.load(Ordering::Relaxed));
 }
+
+/// A root derived's task drops replaced values inside its own arena.
+#[cfg(feature = "sandboxed-arenas")]
+#[tokio::test]
+async fn ownerless_derived_publishes_reload_in_own_arena() {
+    use reactive_graph::{
+        owner::StoredValue, signal::ArcRwSignal, traits::Dispose,
+    };
+    use std::time::Duration;
+
+    #[derive(Clone)]
+    struct Value(u32, Option<StoredValue<()>>);
+    impl Drop for Value {
+        fn drop(&mut self) {
+            if let Some(stored) = self.1 {
+                stored.dispose();
+            }
+        }
+    }
+
+    _ = Executor::init_tokio();
+    let source = ArcRwSignal::new(0);
+    let input = source.clone();
+    let derived = ArcAsyncDerived::new(move || {
+        let value = input.get();
+        let stored = StoredValue::new(());
+        // Only the replaced value disposes; the final value drops in the caller.
+        async move { Value(value, (value == 0).then_some(stored)) }
+    });
+    let first =
+        derived.with_untracked(|value| value.as_ref().map(|value| value.0));
+    source.set(1);
+    let published = tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            derived.ready().await;
+            if derived
+                .with_untracked(|value| value.as_ref().map(|value| value.0))
+                == Some(1)
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await;
+    assert_eq!(first, Some(0));
+    assert_eq!(published, Ok(()));
+}

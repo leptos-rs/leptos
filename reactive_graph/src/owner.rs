@@ -26,6 +26,8 @@ pub use arc_stored_value::ArcStoredValue;
 use arena::ArenaMap;
 use arena::NodeId;
 #[cfg(feature = "sandboxed-arenas")]
+use arena::sandboxed::RestoreArena;
+#[cfg(feature = "sandboxed-arenas")]
 pub use arena::sandboxed::Sandboxed;
 pub use arena_item::*;
 pub use context::*;
@@ -268,24 +270,8 @@ impl Owner {
 
     /// Runs the given function with this as the current `Owner`.
     pub fn with<T>(&self, fun: impl FnOnce() -> T) -> T {
-        // codegen optimisation:
-        fn inner_1(self_: &Owner) -> Option<WeakOwner> {
-            let prev = OWNER.with_borrow_mut(|o| o.replace(self_.downgrade()));
-            #[cfg(feature = "sandboxed-arenas")]
-            Arena::set(&self_.inner.read().or_poisoned().arena);
-            prev
-        }
-        let prev = inner_1(self);
-
-        let val = fun();
-
-        // monomorphisation optimisation:
-        fn inner_2(prev: Option<WeakOwner>) {
-            OWNER.with_borrow_mut(|o| *o = prev);
-        }
-        inner_2(prev);
-
-        val
+        let _restore = RestoreOwner::install(self);
+        fun()
     }
 
     /// Cleans up this owner, the given function with this as the current `Owner`.
@@ -515,6 +501,39 @@ impl Owner {
     }
 }
 
+/// RAII guard for [`Owner::with`]: installs an owner (and, with
+/// `sandboxed-arenas`, its arena) and restores the previous ones on drop, also
+/// when the callback panics. It is not generic, so this code is compiled once
+/// rather than for every `T` of `Owner::with`.
+struct RestoreOwner {
+    prev: Option<WeakOwner>,
+    #[cfg(feature = "sandboxed-arenas")]
+    _arena: RestoreArena,
+}
+
+impl RestoreOwner {
+    fn install(owner: &Owner) -> Self {
+        // The arena guard comes first: if a later step panics, it still
+        // restores the arena.
+        #[cfg(feature = "sandboxed-arenas")]
+        let arena = RestoreArena::install(Some(
+            &owner.inner.read().or_poisoned().arena,
+        ));
+        let prev = OWNER.with_borrow_mut(|o| o.replace(owner.downgrade()));
+        Self {
+            prev,
+            #[cfg(feature = "sandboxed-arenas")]
+            _arena: arena,
+        }
+    }
+}
+
+impl Drop for RestoreOwner {
+    fn drop(&mut self) {
+        OWNER.with_borrow_mut(|o| *o = self.prev.take());
+    }
+}
+
 #[doc(hidden)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IsHydrating(pub bool);
@@ -653,7 +672,12 @@ mod tests {
         signal::signal,
         traits::{Dispose, GetValue, Set},
     };
-    use std::{sync::mpsc, thread, time::Duration};
+    use std::{
+        panic::{AssertUnwindSafe, catch_unwind},
+        sync::mpsc,
+        thread,
+        time::Duration,
+    };
 
     // A long-lived owner under which many values are allocated and immediately
     // disposed must not accumulate dead `NodeId`s: `register` prunes disposed
@@ -705,6 +729,38 @@ mod tests {
 
         let len = parent.inner.read().or_poisoned().children.len();
         assert!(len <= 64, "parent accumulated {len} dead child Weak refs");
+    }
+
+    #[test]
+    fn with_restores_previous_owner_after_panic() {
+        let owner_a = Owner::new();
+        let owner_b = Owner::new();
+        owner_a.set();
+
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            owner_b.with(|| panic!("user callback"))
+        }));
+
+        assert!(result.is_err());
+        assert_eq!(
+            Owner::current(),
+            Some(owner_a),
+            "a panic in Owner::with left its owner as the current owner"
+        );
+    }
+
+    #[test]
+    fn with_restores_absent_owner() {
+        let owner = Owner::new();
+
+        owner.with(|| {});
+        assert_eq!(Owner::current(), None);
+
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            owner.with(|| panic!("user callback"))
+        }));
+        assert!(result.is_err());
+        assert_eq!(Owner::current(), None);
     }
 
     fn does_not_deadlock(f: impl FnOnce() + Send + 'static) -> bool {

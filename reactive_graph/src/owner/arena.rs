@@ -117,7 +117,7 @@ impl Arena {
 
 #[cfg(feature = "sandboxed-arenas")]
 pub mod sandboxed {
-    use super::{Arena, ArenaMap, MAP};
+    use super::{ArenaMap, MAP};
     use futures::Stream;
     use pin_project_lite::pin_project;
     use std::{
@@ -156,9 +156,10 @@ pub mod sandboxed {
     }
 
     /// RAII guard that snapshots the current thread-local arena and restores it
-    /// on drop, so polling a `Sandboxed` future does not leak its arena into the
-    /// caller's context (including across `await` points and panics).
-    struct RestoreArena(Option<Weak<RwLock<ArenaMap>>>);
+    /// on drop, so polling a `Sandboxed` future or running `Owner::with` does
+    /// not leak its arena into the caller's context (including across `await`
+    /// points and panics).
+    pub(crate) struct RestoreArena(Option<Weak<RwLock<ArenaMap>>>);
 
     impl Drop for RestoreArena {
         fn drop(&mut self) {
@@ -167,12 +168,16 @@ pub mod sandboxed {
     }
 
     impl RestoreArena {
-        fn install(arena: Option<&Arc<RwLock<ArenaMap>>>) -> Self {
-            let guard = MAP.with_borrow(|m| RestoreArena(m.clone()));
+        pub(crate) fn install(arena: Option<&Arc<RwLock<ArenaMap>>>) -> Self {
             if let Some(arena) = arena {
-                Arena::set(arena);
+                // One borrow: if it fails, it panics before a guard exists
+                // whose drop would panic again and abort.
+                MAP.with_borrow_mut(|m| {
+                    RestoreArena(m.replace(Arc::downgrade(arena)))
+                })
+            } else {
+                MAP.with_borrow(|m| RestoreArena(m.clone()))
             }
-            guard
         }
     }
 
