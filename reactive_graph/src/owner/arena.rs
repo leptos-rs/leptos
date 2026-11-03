@@ -179,6 +179,19 @@ pub mod sandboxed {
                 MAP.with_borrow(|m| RestoreArena(m.clone()))
             }
         }
+
+        pub(crate) fn try_install(
+            arena: &Arc<RwLock<ArenaMap>>,
+        ) -> Option<Self> {
+            // Owner cleanup runs in `Drop`, also during unwinding and
+            // thread-local teardown, where a panic would abort.
+            MAP.try_with(|m| {
+                let mut m = m.try_borrow_mut().ok()?;
+                Some(RestoreArena(m.replace(Arc::downgrade(arena))))
+            })
+            .ok()
+            .flatten()
+        }
     }
 
     impl<Fut> Future for Sandboxed<Fut>

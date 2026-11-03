@@ -296,16 +296,6 @@ impl Owner {
     pub fn on_cleanup(fun: impl FnOnce() + Send + Sync + 'static) {
         if let Some(owner) = Owner::current() {
             let mut inner = owner.inner.write().or_poisoned();
-
-            #[cfg(feature = "sandboxed-arenas")]
-            let fun = {
-                let arena = Arc::clone(&inner.arena);
-                move || {
-                    Arena::set(&arena);
-                    fun()
-                }
-            };
-
             inner.cleanups.push(Box::new(fun));
         }
     }
@@ -591,6 +581,12 @@ impl Debug for OwnerInner {
 
 impl Drop for OwnerInner {
     fn drop(&mut self) {
+        #[cfg(feature = "sandboxed-arenas")]
+        let _restore = RestoreArena::try_install(&self.arena);
+        // Fields otherwise drop after the arena guard restores the caller.
+        #[cfg(feature = "sandboxed-arenas")]
+        let _contexts = mem::take(&mut self.contexts);
+
         for child in std::mem::take(&mut self.children) {
             if let Some(child) = child.upgrade() {
                 child.cleanup();
@@ -627,6 +623,11 @@ trait Cleanup {
 
 impl Cleanup for RwLock<OwnerInner> {
     fn cleanup(&self) {
+        #[cfg(feature = "sandboxed-arenas")]
+        let arena = self.read().or_poisoned().arena.clone();
+        #[cfg(feature = "sandboxed-arenas")]
+        let _restore = RestoreArena::try_install(&arena);
+
         let (cleanups, nodes, children) = {
             let mut lock = self.write().or_poisoned();
             (
@@ -654,7 +655,6 @@ impl Cleanup for RwLock<OwnerInner> {
             });
             #[cfg(feature = "sandboxed-arenas")]
             {
-                let arena = self.read().or_poisoned().arena.clone();
                 let mut arena = arena.write().or_poisoned();
                 for node in nodes {
                     nodes_to_drop.extend(arena.remove(node));
