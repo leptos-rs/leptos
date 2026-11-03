@@ -26,7 +26,9 @@ use std::{
 /// in its sources.
 ///
 /// When one of its dependencies changes, this will re-run its async computation, then notify other
-/// values that depend on it that it has changed.
+/// values that depend on it that it has changed. If a dependency changes while the computation is
+/// still pending, the pending `Future` is dropped and the computation starts again with the new
+/// values.
 ///
 /// This is an arena-allocated type, which is `Copy` and is disposed when its reactive
 /// [`Owner`](crate::owner::Owner) cleans up. For a reference-counted signal that lives as

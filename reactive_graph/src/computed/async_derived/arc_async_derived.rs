@@ -29,7 +29,7 @@ use core::fmt::Debug;
 use futures::{
     FutureExt, StreamExt,
     channel::oneshot,
-    future::{AbortHandle, Abortable, poll_fn},
+    future::{AbortHandle, Abortable, Either, poll_fn},
 };
 use or_poisoned::OrPoisoned;
 use std::{
@@ -42,14 +42,16 @@ use std::{
         Arc, Mutex, RwLock, Weak,
         atomic::{AtomicBool, Ordering},
     },
-    task::Waker,
+    task::{Poll, Waker},
 };
 
 /// A reactive value that is derived by running an asynchronous computation in response to changes
 /// in its sources.
 ///
 /// When one of its dependencies changes, this will re-run its async computation, then notify other
-/// values that depend on it that it has changed.
+/// values that depend on it that it has changed. If a dependency changes while the computation is
+/// still pending, the pending `Future` is dropped and the computation starts again with the new
+/// values.
 ///
 /// This is a reference-counted type, which is `Clone` but not `Copy`.
 /// For arena-allocated `Copy` memos, use [`AsyncDerived`](super::AsyncDerived).
@@ -361,25 +363,28 @@ macro_rules! spawn_derived {
                         .map(|inner| inner.state == AsyncDerivedState::Dirty)
                         .unwrap_or(false);
                     if already_dirty {
-                        initial_fut.take();
+                        if let Some(fut) = initial_fut.take() {
+                            owner.with(|| drop(fut));
+                        }
                     }
 
+                    let needs_rerun = || inner.upgrade()
+                        .is_some_and(|inner| ArcAsyncDerivedInner::needs_rerun(&inner));
+                    let should_rerun = || !owner.paused() && if $should_track {
+                        any_subscriber
+                            .with_observer(needs_rerun)
+                    } else {
+                        any_subscriber
+                            .with_observer_untracked(needs_rerun)
+                    };
+
                     while rx.next().await.is_some() {
-                        let needs_rerun = || inner.upgrade()
-                            .is_some_and(|inner| ArcAsyncDerivedInner::needs_rerun(&inner));
-                        let update_if_necessary = !owner.paused() && if $should_track {
-                            any_subscriber
-                                .with_observer(needs_rerun)
-                        } else {
-                            any_subscriber
-                                .with_observer_untracked(needs_rerun)
-                        };
-                        if update_if_necessary || first_run.is_some() {
+                        if should_rerun() || first_run.is_some() {
                             match (value.upgrade(), inner.upgrade(), wakers.upgrade(), loading.upgrade()) {
                                 (Some(value), Some(inner), Some(wakers), Some(loading)) => {
                                     // generate new Future
                                     let owner = inner.read().or_poisoned().owner.clone();
-                                    let fut = initial_fut.take().unwrap_or_else(|| {
+                                    let new_fut = || {
                                         let fut = if $should_track {
                                             any_subscriber.clear_sources(&any_subscriber);
                                             owner.with_cleanup(|| {
@@ -395,7 +400,8 @@ macro_rules! spawn_derived {
                                         #[cfg(feature = "sandboxed-arenas")]
                                         let fut = Sandboxed::new(fut);
                                         Box::pin(fut)
-                                    });
+                                    };
+                                    let mut fut = initial_fut.take().unwrap_or_else(new_fut);
 
                                     // register with global transition listener, if any
                                     let ready_tx = first_run.take().unwrap_or_else(|| {
@@ -407,21 +413,41 @@ macro_rules! spawn_derived {
                                     });
 
                                     // generate and assign new value
-                                    loading.store(true, Ordering::Relaxed);
-
-                                    let this_version = {
+                                    let start_load = || {
+                                        loading.store(true, Ordering::Relaxed);
                                         let mut guard = inner.write().or_poisoned();
                                         guard.version += 1;
-                                        let version = guard.version;
                                         let suspense_ids = mem::take(&mut guard.suspenses)
                                             .into_iter()
                                             .map(|sc| SharedTaskHandle::new(sc.task_id()))
                                             .collect::<Vec<_>>();
                                         guard.pending_suspenses.extend(suspense_ids);
-                                        version
+                                        guard.version
                                     };
+                                    let mut this_version = start_load();
 
-                                    let new_value = fut.await;
+                                    let new_value = loop {
+                                        // check for a change first, so a Future made obsolete by
+                                        // it is not polled again
+                                        let next = poll_fn(|cx| match rx.poll_next_unpin(cx) {
+                                            Poll::Ready(notified) => Poll::Ready(Either::Left(notified)),
+                                            Poll::Pending => fut.poll_unpin(cx).map(Either::Right),
+                                        })
+                                        .await;
+                                        match next {
+                                            Either::Left(Some(())) => {
+                                                if should_rerun() {
+                                                    // drop the obsolete Future before `new_fut` cleans up the
+                                                    // owner, as its destructor may use values that are disposed
+                                                    owner.with(|| drop(fut));
+                                                    fut = new_fut();
+                                                    this_version = start_load();
+                                                }
+                                            }
+                                            Either::Left(None) => return,
+                                            Either::Right(new_value) => break new_value,
+                                        }
+                                    };
 
                                     let latest_version = {
                                         let mut guard = inner.write().or_poisoned();

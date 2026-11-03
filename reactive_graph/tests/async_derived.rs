@@ -1,11 +1,26 @@
 use any_spawner::Executor;
+use futures::{FutureExt, channel::oneshot, future::BoxFuture};
 use reactive_graph::{
     computed::{ArcAsyncDerived, AsyncDerived},
-    owner::Owner,
+    owner::{Owner, on_cleanup},
     signal::RwSignal,
-    traits::{Get, Read, Set, With, WithUntracked},
+    traits::{Get, GetUntracked, Read, Set, With, WithUntracked},
 };
-use std::future::pending;
+#[cfg(feature = "sandboxed-arenas")]
+use reactive_graph::{
+    owner::StoredValue, signal::ArcRwSignal, traits::GetValue,
+};
+#[cfg(feature = "sandboxed-arenas")]
+use std::sync::atomic::AtomicU32;
+use std::{
+    future::{pending, ready},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst},
+    },
+    time::Duration,
+};
+use tokio::time::timeout;
 
 #[tokio::test]
 async fn arc_async_derived_calculates_eagerly() {
@@ -276,6 +291,281 @@ mod dependency_checks {
         assert_eq!(b.get_untracked(), Some(10));
         assert_eq!(subscriber.get_untracked(), (Some(10), 1));
     }
+
+    /// A pending async subscriber must preserve its source's pending reload.
+    #[tokio::test]
+    async fn pending_async_subscriber_preserves_pending_reload() {
+        _ = Executor::init_tokio();
+        let (_owner, s, m, b) = shared_source();
+        let t = RwSignal::new(0);
+        let (release, gate) = oneshot::channel::<()>();
+        let gate = gate.map(|_| ()).shared();
+        let a = ArcAsyncDerived::new({
+            let b = b.clone();
+            move || {
+                let value = (b.get(), m.get());
+                let wait = (t.get() > 0).then(|| gate.clone());
+                async move {
+                    if let Some(wait) = wait {
+                        wait.await;
+                    }
+                    value
+                }
+            }
+        });
+        settle().await;
+        // `a` loads again and waits for `release` while `s` changes
+        t.set(1);
+        settle().await;
+        s.set(1);
+        settle().await;
+        assert_eq!(b.get_untracked(), Some(10));
+        assert!(release.send(()).is_ok());
+        settle().await;
+        assert_eq!(a.get_untracked(), Some((Some(10), 1)));
+    }
+}
+
+/// Yields to the executor until `done` holds, at most a fixed number of times.
+async fn yield_until(done: impl Fn() -> bool) -> bool {
+    for _ in 0..64 {
+        if done() {
+            return true;
+        }
+        tokio::task::yield_now().await;
+    }
+    done()
+}
+
+/// Creates a derived whose run `n` reads `source`, awaits `wait_for(n)` and
+/// returns the value read. Returns once run 0 is pending in the spawned task.
+async fn derived_waiting_on(
+    wait_for: impl Fn(usize) -> BoxFuture<'static, ()> + Send + Sync + 'static,
+) -> (RwSignal<u32>, ArcAsyncDerived<u32>, Arc<AtomicUsize>) {
+    _ = Executor::init_tokio();
+    let source = RwSignal::new(0);
+    let runs = Arc::new(AtomicUsize::new(0));
+    let started = Arc::new(AtomicBool::new(false));
+    let derived = ArcAsyncDerived::new({
+        let (runs, started) = (Arc::clone(&runs), Arc::clone(&started));
+        move || {
+            let value = source.get();
+            let wait = wait_for(runs.fetch_add(1, SeqCst));
+            let started = Arc::clone(&started);
+            async move {
+                // `new` polls once in place; continue in the spawned task
+                Executor::tick().await;
+                started.store(true, SeqCst);
+                wait.await;
+                value
+            }
+        }
+    });
+    assert!(yield_until(|| started.load(SeqCst)).await);
+    (source, derived, runs)
+}
+
+#[tokio::test]
+async fn async_derived_restarts_when_source_changes_while_loading() {
+    let owner = Owner::new();
+    owner.set();
+
+    let (source, derived, runs) = derived_waiting_on(|run| match run {
+        0 => pending().boxed(),
+        _ => ready(()).boxed(),
+    })
+    .await;
+    assert_eq!(runs.load(SeqCst), 1);
+
+    source.set(42);
+    assert_eq!(
+        timeout(Duration::from_secs(5), derived.clone()).await,
+        Ok(42),
+        "the change did not restart the pending load; calls: {}",
+        runs.load(SeqCst)
+    );
+    assert_eq!(runs.load(SeqCst), 2);
+}
+
+#[tokio::test]
+async fn async_derived_does_not_publish_superseded_result() {
+    let owner = Owner::new();
+    owner.set();
+
+    let (release, gate) = oneshot::channel::<()>();
+    let gate = gate.map(|_| ()).shared();
+    let (source, derived, runs) = derived_waiting_on(move |run| match run {
+        0 => gate.clone().boxed(),
+        _ => pending().boxed(),
+    })
+    .await;
+
+    // the first load can finish, but only after its input has changed
+    source.set(1);
+    assert!(release.send(()).is_ok());
+    yield_until(|| runs.load(SeqCst) >= 2).await;
+
+    assert_eq!(runs.load(SeqCst), 2);
+    assert_eq!(
+        derived.get_untracked(),
+        None,
+        "the result computed from the old input was published"
+    );
+}
+
+#[tokio::test]
+async fn async_derived_drops_superseded_future_before_cleanup() {
+    static DROPPED: AtomicBool = AtomicBool::new(false);
+    static CLEANED_AFTER_DROP: AtomicBool = AtomicBool::new(false);
+    struct SetOnDrop;
+    impl Drop for SetOnDrop {
+        fn drop(&mut self) {
+            DROPPED.store(true, SeqCst);
+        }
+    }
+
+    let owner = Owner::new();
+    owner.set();
+
+    let (release, gate) = oneshot::channel::<()>();
+    let gate = gate.map(|_| ()).shared();
+    let (source, derived, runs) = derived_waiting_on(move |run| match run {
+        0 => {
+            // runs when the replacement load cleans up the owner
+            on_cleanup(|| {
+                CLEANED_AFTER_DROP.store(DROPPED.load(SeqCst), SeqCst)
+            });
+            async {
+                let _guard = SetOnDrop;
+                pending().await
+            }
+            .boxed()
+        }
+        _ => gate.clone().boxed(),
+    })
+    .await;
+    assert!(!DROPPED.load(SeqCst));
+
+    source.set(1);
+    yield_until(|| runs.load(SeqCst) >= 2).await;
+
+    assert_eq!(runs.load(SeqCst), 2);
+    assert!(DROPPED.load(SeqCst));
+    assert!(
+        CLEANED_AFTER_DROP.load(SeqCst),
+        "the owner was cleaned up before the superseded future was dropped"
+    );
+    assert_eq!(derived.get_untracked(), None);
+
+    assert!(release.send(()).is_ok());
+    let value = timeout(Duration::from_secs(5), derived.clone()).await;
+    assert_eq!(value, Ok(1));
+    assert_eq!(runs.load(SeqCst), 2);
+}
+
+#[tokio::test]
+async fn async_derived_manual_set_wins_over_pending_load() {
+    static FINISHED: AtomicBool = AtomicBool::new(false);
+    let owner = Owner::new();
+    owner.set();
+
+    let (release, gate) = oneshot::channel::<()>();
+    let gate = gate.map(|_| FINISHED.store(true, SeqCst)).shared();
+    let (_, derived, _) =
+        derived_waiting_on(move |_| gate.clone().boxed()).await;
+
+    derived.set(Some(5));
+    assert!(release.send(()).is_ok());
+    assert!(yield_until(|| FINISHED.load(SeqCst)).await);
+    assert_eq!(derived.get_untracked(), Some(5));
+}
+
+#[tokio::test]
+async fn async_derived_paused_owner_does_not_restart_pending_load() {
+    let owner = Owner::new();
+    owner.set();
+
+    let (release, gate) = oneshot::channel::<()>();
+    let gate = gate.map(|_| ()).shared();
+    let (source, derived, runs) =
+        derived_waiting_on(move |_| gate.clone().boxed()).await;
+
+    owner.pause();
+    source.set(1);
+    assert!(release.send(()).is_ok());
+
+    let value = timeout(Duration::from_secs(5), derived.clone()).await;
+    assert_eq!(value, Ok(0));
+    assert_eq!(runs.load(SeqCst), 1);
+}
+
+#[cfg(feature = "sandboxed-arenas")]
+fn derived_recording_drop(
+    source: ArcRwSignal<u32>,
+    started: Arc<AtomicBool>,
+    recorded: Arc<AtomicU32>,
+) -> ArcAsyncDerived<u32> {
+    struct RecordOnDrop(StoredValue<u32>, Arc<AtomicU32>);
+    impl Drop for RecordOnDrop {
+        fn drop(&mut self) {
+            self.1.store(self.0.try_get_value().unwrap_or(0), SeqCst);
+        }
+    }
+
+    ArcAsyncDerived::new(move || {
+        let value = source.get();
+        let guard = (value == 0).then(|| {
+            RecordOnDrop(StoredValue::new(7_u32), Arc::clone(&recorded))
+        });
+        let started = Arc::clone(&started);
+        async move {
+            let _guard = guard;
+            Executor::tick().await;
+            if value == 0 {
+                started.store(true, SeqCst);
+                pending::<()>().await;
+            }
+            value
+        }
+    })
+}
+
+/// Cancelled futures must drop their live locals inside the derived's owner.
+#[cfg(feature = "sandboxed-arenas")]
+#[tokio::test]
+async fn async_derived_cancellation_drops_future_in_own_arena() {
+    _ = Executor::init_tokio();
+    assert_eq!(Owner::current(), None);
+    let source = ArcRwSignal::new(0);
+    let started = Arc::new(AtomicBool::new(false));
+    let recorded = Arc::new(AtomicU32::new(u32::MAX));
+    let derived = derived_recording_drop(
+        source.clone(),
+        Arc::clone(&started),
+        Arc::clone(&recorded),
+    );
+    assert!(yield_until(|| started.load(SeqCst)).await);
+    source.set(1);
+    assert_eq!(timeout(Duration::from_secs(5), derived).await, Ok(1));
+    assert_eq!(recorded.load(SeqCst), 7);
+}
+
+/// Stale initial futures must drop their live locals inside the derived's owner.
+#[cfg(feature = "sandboxed-arenas")]
+#[tokio::test]
+async fn async_derived_initial_discard_drops_future_in_own_arena() {
+    _ = Executor::init_tokio();
+    assert_eq!(Owner::current(), None);
+    let source = ArcRwSignal::new(0);
+    let recorded = Arc::new(AtomicU32::new(u32::MAX));
+    let derived = derived_recording_drop(
+        source.clone(),
+        Arc::new(AtomicBool::new(false)),
+        Arc::clone(&recorded),
+    );
+    source.set(1);
+    assert_eq!(timeout(Duration::from_secs(5), derived).await, Ok(1));
+    assert_eq!(recorded.load(SeqCst), 7);
 }
 
 #[cfg(feature = "effects")]
@@ -327,6 +617,46 @@ mod stale_dependencies {
         }
         assert_eq!(derived.get_untracked(), Some(42));
         assert_eq!(runs.load(SeqCst), 2);
+    }
+
+    /// A signal that the pending run did not read cannot restart its load.
+    #[tokio::test]
+    async fn unused_signal_does_not_restart_pending_load() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let mode = RwSignal::new(0);
+        let ticker = RwSignal::new(0);
+        let (release, gate) = oneshot::channel::<()>();
+        let gate = gate.map(|_| ()).shared();
+        let runs = Arc::new(AtomicUsize::new(0));
+        let derived = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                let mode = mode.get();
+                let value = if mode == 0 { ticker.get() } else { 42 };
+                let gate = gate.clone();
+                async move {
+                    if mode != 0 {
+                        gate.await;
+                    }
+                    value
+                }
+            }
+        });
+        settle().await;
+        // the new run waits for `release` and does not read `ticker`
+        mode.set(1);
+        settle().await;
+        for value in 1..=3 {
+            ticker.set(value);
+            settle().await;
+        }
+        assert_eq!(runs.load(SeqCst), 2);
+        assert!(release.send(()).is_ok());
+        settle().await;
+        assert_eq!(derived.get_untracked(), Some(42));
     }
 
     /// Dependencies first read after an await in a later run remain tracked.
