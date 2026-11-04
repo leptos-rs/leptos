@@ -57,7 +57,15 @@ impl ReactiveNode for RwLock<ArcAsyncDerivedInner> {
     }
 
     fn update_if_necessary(&self) -> bool {
-        let mut guard = self.write().or_poisoned();
+        // Subscribers are marked dirty when a load finishes. Only this derived's
+        // own task may consume its pending reload.
+        false
+    }
+}
+
+impl ArcAsyncDerivedInner {
+    pub(crate) fn needs_rerun(this: &RwLock<Self>) -> bool {
+        let mut guard = this.write().or_poisoned();
         let (is_dirty, sources) = (
             guard.state == AsyncDerivedState::Dirty,
             (guard.state != AsyncDerivedState::Notifying)
