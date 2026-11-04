@@ -277,3 +277,85 @@ mod dependency_checks {
         assert_eq!(subscriber.get_untracked(), (Some(10), 1));
     }
 }
+
+#[cfg(feature = "effects")]
+mod stale_dependencies {
+    use super::*;
+    use reactive_graph::traits::GetUntracked;
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering::SeqCst},
+        },
+        time::Duration,
+    };
+
+    async fn settle() {
+        for _ in 0..64 {
+            tokio::task::yield_now().await;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        for _ in 0..64 {
+            tokio::task::yield_now().await;
+        }
+    }
+
+    /// A signal stops invalidating a derived once a later run stops reading it.
+    #[tokio::test]
+    async fn stops_tracking_unused_signal() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let mode = RwSignal::new(0);
+        let ticker = RwSignal::new(0);
+        let runs = Arc::new(AtomicUsize::new(0));
+        let derived = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                let value = if mode.get() == 0 { ticker.get() } else { 42 };
+                async move { value }
+            }
+        });
+        settle().await;
+        mode.set(1);
+        settle().await;
+        assert_eq!(runs.load(SeqCst), 2);
+        for value in 1..=2 {
+            ticker.set(value);
+            settle().await;
+        }
+        assert_eq!(derived.get_untracked(), Some(42));
+        assert_eq!(runs.load(SeqCst), 2);
+    }
+
+    /// Dependencies first read after an await in a later run remain tracked.
+    #[tokio::test]
+    async fn tracks_dependency_first_read_after_await() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let mode = RwSignal::new(false);
+        let late = RwSignal::new(0);
+        let runs = Arc::new(AtomicUsize::new(0));
+        let derived = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                let read_late = mode.get();
+                async move {
+                    tokio::task::yield_now().await;
+                    if read_late { late.get() } else { 0 }
+                }
+            }
+        });
+        settle().await;
+        mode.set(true);
+        settle().await;
+        assert_eq!(runs.load(SeqCst), 2);
+        late.set(7);
+        settle().await;
+        assert_eq!(derived.get_untracked(), Some(7));
+        assert_eq!(runs.load(SeqCst), 3);
+    }
+}

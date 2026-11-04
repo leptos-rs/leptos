@@ -381,6 +381,7 @@ macro_rules! spawn_derived {
                                     let owner = inner.read().or_poisoned().owner.clone();
                                     let fut = initial_fut.take().unwrap_or_else(|| {
                                         let fut = if $should_track {
+                                            any_subscriber.clear_sources(&any_subscriber);
                                             owner.with_cleanup(|| {
                                                 any_subscriber
                                                     .with_observer(|| ScopedFuture::new($fun()))
