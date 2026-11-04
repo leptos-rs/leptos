@@ -66,7 +66,7 @@ async function navigateToPage(
 		};
 		// Not all browsers support startViewTransition; see https://caniuse.com/?search=startViewTransition
 		if (useViewTransition && document.startViewTransition) {
-			await document.startViewTransition(transition);
+			await document.startViewTransition(transition).updateCallbackDone;
 		} else {
 			await transition()
 		}
@@ -172,7 +172,44 @@ function diffPages(htmlString) {
 	const parser = new DOMParser();
 	const doc = parser.parseFromString(htmlString, 'text/html');
 
-	diffRange(document, document, doc, doc);
+	diffElement(document.documentElement, doc.documentElement);
+	diffElement(document.body, doc.body);
+	diffHead(document.head, doc.head);
+	diffRange(document, document.body, doc, doc.body);
+}
+
+function diffHead(oldHead, newHead) {
+	let cursor = oldHead.firstChild;
+	for (const newChild of newHead.childNodes) {
+		let match = cursor;
+		while (match && !match.isEqualNode(newChild)) {
+			match = match.nextSibling;
+		}
+		if (match) {
+			while (cursor !== match) {
+				const next = cursor.nextSibling;
+				cursor.remove();
+				cursor = next;
+			}
+			cursor = match.nextSibling;
+		} else {
+			oldHead.insertBefore(document.importNode(newChild, true), cursor);
+		}
+	}
+	while (cursor) {
+		const next = cursor.nextSibling;
+		cursor.remove();
+		cursor = next;
+	}
+}
+
+function replaceNode(oldDocWalker, newDocWalker, oldNode, newNode) {
+	disposeIslands(oldNode);
+	const replacement = document.importNode(newNode, true);
+	oldNode.replaceWith(replacement);
+	oldDocWalker.currentNode = replacement;
+	skipSubtree(oldDocWalker);
+	skipSubtree(newDocWalker);
 }
 
 function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
@@ -192,8 +229,7 @@ function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
 		// if the nodes are different, we need to replace the old with the new
 		// because of the typed view tree, this should never actually happen
 		if (oldNode.nodeType !== newNode.nodeType) {
-			disposeIslands(oldNode);
-			oldNode.replaceWith(newNode);
+			replaceNode(oldDocWalker, newDocWalker, oldNode, newNode);
 		}
 		// if it's a text node, just update the text with the new text
 		else if (oldNode.nodeType === Node.TEXT_NODE) {
@@ -210,7 +246,11 @@ function diffRange(oldDocument, oldRoot, newDocument, newRoot, oldEnd, newEnd) {
 		}
 		// if it's an element, replace if it's a different tag, or update attributes
 		else if (oldNode.nodeType === Node.ELEMENT_NODE) {
-			diffElement(oldNode, newNode);
+			if (oldNode.tagName !== newNode.tagName) {
+				replaceNode(oldDocWalker, newDocWalker, oldNode, newNode);
+			} else {
+				diffElement(oldNode, newNode);
+			}
 		}
 		// we use comment "branch marker" nodes to distinguish between different branches in the statically-typed view tree
 		// if one of these marker is hit, then there are two options
@@ -392,15 +432,8 @@ function diffElement(oldNode, newNode) {
 	const oldEl = oldNode;
 	/** @type Element */
 	const newEl = newNode;
-	if (oldEl.tagName !== newEl.tagName) {
-		disposeIslands(oldEl);
-		oldEl.replaceWith(newEl);
-
-	}
-	else {
-		for(const attr of newEl.attributes) {
-			oldEl.setAttribute(attr.name, attr.value);
-		}
+	for(const attr of newEl.attributes) {
+		oldEl.setAttribute(attr.name, attr.value);
 	}
 }
 
