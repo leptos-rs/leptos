@@ -58,13 +58,16 @@ impl Future for AsyncDerivedReadyFuture {
         #[cfg(debug_assertions)]
         let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
-        self.source.track();
         // hold the `wakers` lock across the change in `loading`
         let mut wakers = self.wakers.write().or_poisoned();
         if self.loading.load(Ordering::Relaxed) {
             wakers.push(waker.clone());
             Poll::Pending
         } else {
+            drop(wakers);
+            // Subscribe only once the load is over, so it cannot invalidate this
+            // await, and with no lock held, as writers lock `inner` first.
+            self.source.track();
             Poll::Ready(())
         }
     }
@@ -127,8 +130,6 @@ where
         #[cfg(debug_assertions)]
         let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
-        self.source.track();
-        let value = self.value.read_arc();
 
         if let Some(suspense_context) = use_context::<SuspenseContext>() {
             self.inner
@@ -138,17 +139,20 @@ where
                 .push(suspense_context);
         }
 
-        pin_mut!(value);
         let mut wakers = self.wakers.write().or_poisoned();
-        match (self.loading.load(Ordering::Relaxed), value.poll(cx)) {
-            (true, _) => {
-                wakers.push(waker.clone());
-                Poll::Pending
-            }
-            (_, Poll::Pending) => Poll::Pending,
-            (_, Poll::Ready(guard)) => {
-                Poll::Ready(guard.as_ref().unwrap().clone())
-            }
+        if self.loading.load(Ordering::Relaxed) {
+            wakers.push(waker.clone());
+            return Poll::Pending;
+        }
+        drop(wakers);
+        // Subscribe only once the load is over, so it cannot invalidate this
+        // await, and with no lock held, as writers lock `inner` first.
+        self.source.track();
+        let value = self.value.read_arc();
+        pin_mut!(value);
+        match value.poll(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(guard) => Poll::Ready(guard.as_ref().unwrap().clone()),
         }
     }
 }
@@ -203,17 +207,20 @@ where
         #[cfg(debug_assertions)]
         let _guard = SpecialNonReactiveZone::enter();
         let waker = cx.waker();
+        let mut wakers = self.wakers.write().or_poisoned();
+        if self.loading.load(Ordering::Relaxed) {
+            wakers.push(waker.clone());
+            return Poll::Pending;
+        }
+        drop(wakers);
+        // Subscribe only once the load is over, so it cannot invalidate this
+        // await, and with no lock held, as writers lock `inner` first.
         self.source.track();
         let value = self.value.read_arc();
         pin_mut!(value);
-        let mut wakers = self.wakers.write().or_poisoned();
-        match (self.loading.load(Ordering::Relaxed), value.poll(cx)) {
-            (true, _) => {
-                wakers.push(waker.clone());
-                Poll::Pending
-            }
-            (_, Poll::Pending) => Poll::Pending,
-            (_, Poll::Ready(guard)) => Poll::Ready(ReadGuard::new(
+        match value.poll(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(guard) => Poll::Ready(ReadGuard::new(
                 Mapped::new_with_guard(AsyncPlain { guard }, |guard| {
                     guard.as_ref().unwrap()
                 }),
