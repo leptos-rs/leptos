@@ -677,11 +677,12 @@ where
             let params = params.clone();
             ArcMemo::new({
                 move |_| {
-                    parent_params
-                        .iter()
-                        .flat_map(|params| params.get().into_iter())
-                        .chain(params.get())
-                        .collect::<ParamsMap>()
+                    merge_params(
+                        parent_params
+                            .iter()
+                            .map(|params| params.get())
+                            .chain(iter::once(params.get())),
+                    )
                 }
             })
         };
@@ -907,11 +908,12 @@ where
                         let params = current.params.clone();
                         ArcMemo::new({
                             move |_| {
-                                parent_params
-                                    .iter()
-                                    .flat_map(|params| params.get().into_iter())
-                                    .chain(params.get())
-                                    .collect::<ParamsMap>()
+                                merge_params(
+                                    parent_params
+                                        .iter()
+                                        .map(|params| params.get())
+                                        .chain(iter::once(params.get())),
+                                )
                             }
                         })
                     };
@@ -1128,4 +1130,50 @@ where
             view_fn(outer_owner.child())
         }
     })
+}
+
+/// Merges the params of the parent routes and the current route into one map.
+///
+/// The values in each map have already been percent-decoded when the map was
+/// built, so they are inserted as-is rather than decoded a second time.
+fn merge_params(maps: impl IntoIterator<Item = ParamsMap>) -> ParamsMap {
+    let mut merged = ParamsMap::new();
+    for map in maps {
+        for (key, value) in map {
+            merged.insert_decoded(key, value);
+        }
+    }
+    merged
+}
+
+// Percent-decoding goes through js-sys without `ssr`, like the tests in params.rs.
+#[cfg(all(test, feature = "ssr"))]
+mod tests {
+    use super::merge_params;
+    use crate::params::ParamsMap;
+
+    #[test]
+    fn merge_params_does_not_decode_values_again() {
+        // `%252B` decodes once to `%2B`, which must not become `+`
+        let parent: ParamsMap = [("section", "x%2541")].into_iter().collect();
+        let child: ParamsMap = [("tag", "a%252Bb")].into_iter().collect();
+        assert_eq!(child.get_str("tag"), Some("a%2Bb"));
+
+        let merged = merge_params([parent, child]);
+        assert_eq!(merged.get_str("section"), Some("x%41"));
+        assert_eq!(merged.get_str("tag"), Some("a%2Bb"));
+    }
+
+    #[test]
+    fn merge_params_keeps_every_value_of_a_repeated_key() {
+        let parent: ParamsMap = [("id", "1")].into_iter().collect();
+        let child: ParamsMap = [("id", "a%2520b")].into_iter().collect();
+
+        let merged = merge_params([parent, child]);
+        assert_eq!(
+            merged.get_all("id"),
+            Some(vec!["1".to_string(), "a%20b".to_string()])
+        );
+        assert_eq!(merged.get_str("id"), Some("a%20b"));
+    }
 }
