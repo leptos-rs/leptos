@@ -156,7 +156,7 @@ impl RouterContext {
         if !query_mutations.is_empty() {
             for (key, value) in query_mutations {
                 if let Some(value) = value {
-                    url.search_params_mut().replace(key, value);
+                    url.search_params_mut().replace_decoded(key, value);
                 } else {
                     url.search_params_mut().remove(&key);
                 }
