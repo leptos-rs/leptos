@@ -139,6 +139,43 @@ async fn async_derived_with_initial() {
 }
 
 #[tokio::test]
+async fn a_memo_source_changed_before_the_first_poll_is_fetched_again() {
+    use reactive_graph::{computed::ArcMemo, signal::ArcRwSignal};
+
+    _ = Executor::init_tokio();
+    let owner = Owner::new();
+    owner.set();
+
+    // The shape `Resource` builds: a memo over its source, tracked manually.
+    let signal = ArcRwSignal::new(1);
+    let source = ArcMemo::new({
+        let signal = signal.clone();
+        move |_| signal.get()
+    });
+    let value = ArcAsyncDerived::new_with_manual_dependencies(
+        None,
+        {
+            let source = source.clone();
+            move || {
+                let source = source.get();
+                async move {
+                    Executor::tick().await;
+                    source
+                }
+            }
+        },
+        &source,
+    );
+
+    // The derived's task has not run yet, and a memo only asks its
+    // subscribers to check it, so the derived is not marked dirty.
+    signal.set(2);
+
+    assert_eq!(value.clone().await, 2);
+    assert_eq!(value.get(), Some(2));
+}
+
+#[tokio::test]
 async fn async_derived_stops_polling_when_owner_disposed() {
     use futures::channel::oneshot;
     use std::sync::{

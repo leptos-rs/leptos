@@ -381,6 +381,13 @@ macro_rules! spawn_derived {
                         if update_if_necessary || first_run.is_some() {
                             match (value.upgrade(), inner.upgrade(), wakers.upgrade(), loading.upgrade()) {
                                 (Some(value), Some(inner), Some(wakers), Some(loading)) => {
+                                    // A source that changed after the initial Future was built
+                                    // makes it stale. A memo source only marks this for checking,
+                                    // so the `Dirty` test above does not catch that change.
+                                    if update_if_necessary {
+                                        initial_fut.take();
+                                    }
+
                                     // generate new Future
                                     let owner = inner.read().or_poisoned().owner.clone();
                                     let fut = initial_fut.take().unwrap_or_else(|| {
