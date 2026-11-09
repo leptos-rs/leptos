@@ -14,6 +14,7 @@ mod issue_4971;
 mod issue_4980;
 mod issue_4985;
 mod issue_4992;
+mod issue_5000;
 mod pr_4015;
 mod pr_4091;
 
