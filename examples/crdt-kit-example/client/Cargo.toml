@@ -1,0 +1,19 @@
+[package]
+name = "crdt-kit-example-client"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+leptos = { version = "0.8", features = ["csr"] }
+gloo-net = { version = "0.6", features = ["websocket"] }
+gloo-timers = { version = "0.3", features = ["futures"] }  # ← Important
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+crdt-kit = { version = "0.5", default-features = false, features = ["serde"] }
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = ["console"] }
+futures-channel = "0.3.32"
+chrono = "0.4.45"
+rand = "0.10.2"
+getrandom = { version = "0.4.3", features = ["wasm_js"] }
