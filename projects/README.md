@@ -19,7 +19,7 @@ Feel free to submit projects to this directory via PR!
 [Ory](https://www.ory.sh/docs/welcome) is a combination of different authorization services. Ory Kratos is their Identification service, which provides password storage, emailing, login and registration functionality, etc. This example shows running Ory Kratos alongside a leptos server and making use of their UI Node data types in leptos. TODO: This example needs a bit more work to show off SSO passwordless etc 
 
 ### tauri-from-scratch
-This example walks you through in explicit detail how to use [Tauri](https://tauri.app/) to render your Leptos App on non web targets using [WebView](https://en.wikipedia.org/wiki/WebView) while communicating with your leptos server and servering an SSR supported web experience. TODO: It could be simplified since part of the readme includes copying and pasting boilerplate.
+This example walks you through in explicit detail how to use [Tauri](https://tauri.app/) to render your Leptos App on non web targets using [WebView](https://en.wikipedia.org/wiki/WebView) while communicating with your leptos server and serving an SSR supported web experience. TODO: It could be simplified since part of the readme includes copying and pasting boilerplate.
 
 ### counter_dwarf_debug
 This example shows how to add breakpoints within the browser or visual studio code for debugging.
