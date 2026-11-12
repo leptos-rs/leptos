@@ -3,7 +3,9 @@ use crate::{
     children::{TypedChildren, ViewFnOnce},
     error::ErrorBoundarySuspendedChildren,
 };
-use futures::{FutureExt, channel::oneshot, future::poll_fn, select};
+use futures::{
+    FutureExt, channel::oneshot, future::poll_fn, select, select_biased,
+};
 use hydration_context::{SerializedDataId, SerializedDataIdScope};
 use leptos_macro::component;
 use or_poisoned::OrPoisoned;
@@ -401,20 +403,9 @@ where
                 // however, it means that you can use reactive accesses to resources/async derived
                 // inside component props, at any level, and have those picked up by Suspense, and
                 // that it will wait for those to resolve
-                select! {
-                    // if there are local resources, bail
-                    // this will only have fired by this point for local resources accessed
-                    // *synchronously*
-                    _ = local_rx => {
-                        let sc = Owner::current_shared_context().expect("no shared context");
-                        sc.set_incomplete_chunk(self.id);
-                        if let Some(tx) =
-                            notify_error_boundary.write_value().take()
-                        {
-                            let _ = tx.send(());
-                        }
-                        None
-                    }
+                select_biased! {
+                    // `tasks_ready` must be polled before we check `local_rx`. polling it
+                    // walks its tree, which will fire the local resource notifier if it should
                     _ = tasks_ready => {
                         // every task has finished, so the error boundary can
                         // render its children too
@@ -453,6 +444,19 @@ where
                                 Some(OwnedView::new_with_owner(children, owner))
                             }
                         }
+                    }
+                    // if there are local resources, bail
+                    // this will only have fired by this point for local resources accessed
+                    // synchronously
+                    _ = local_rx => {
+                        let sc = Owner::current_shared_context().expect("no shared context");
+                        sc.set_incomplete_chunk(self.id);
+                        if let Some(tx) =
+                            notify_error_boundary.write_value().take()
+                        {
+                            let _ = tx.send(());
+                        }
+                        None
                     }
                 }
             },
