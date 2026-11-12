@@ -25,38 +25,61 @@ use reactive_graph::{
     signal::{ArcRwSignal, RwSignal},
 };
 use std::{
+    cell::RefCell,
     future::{IntoFuture, pending},
     ops::{Deref, DerefMut},
     panic::Location,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-    },
+    sync::{Arc, Weak, atomic::AtomicBool},
 };
 
-/// The number of live [`SuppressResourceLoad`] guards. Resource loading is
-/// suppressed while this is greater than zero. A counter rather than a boolean
-/// is used so that nested guards compose correctly.
-pub(crate) static SUPPRESS_RESOURCE_LOAD_COUNT: AtomicUsize =
-    AtomicUsize::new(0);
+thread_local! {
+    /// The number of live [`SuppressResourceLoad`] guards on this thread, and
+    /// the suppression scope they keep open. Nested guards share the scope of
+    /// the outermost one, so a counter is used to close it only when that one
+    /// drops.
+    static SUPPRESSION: RefCell<(usize, Option<Arc<()>>)> =
+        const { RefCell::new((0, None)) };
+}
 
-/// Returns whether resource loading is currently suppressed by one or more
-/// live [`SuppressResourceLoad`] guards.
-pub(crate) fn suppressing_resource_load() -> bool {
-    SUPPRESS_RESOURCE_LOAD_COUNT.load(Ordering::Acquire) > 0
+/// Returns the suppression scope kept open by the live [`SuppressResourceLoad`]
+/// guards on the current thread, or an empty [`Weak`] if there are none.
+///
+/// Resources capture this when they are created and check it with
+/// [`suppressing_resource_load`] when their fetcher future is first polled,
+/// which can happen later and on another thread.
+pub(crate) fn suppression_scope() -> Weak<()> {
+    SUPPRESSION.with_borrow(|(_, scope)| {
+        scope.as_ref().map(Arc::downgrade).unwrap_or_default()
+    })
+}
+
+/// Returns whether `scope` (from [`suppression_scope`]) is still open, i.e.
+/// whether the guards that opened it are still alive.
+pub(crate) fn suppressing_resource_load(scope: &Weak<()>) -> bool {
+    scope.strong_count() > 0
 }
 
 /// Used to prevent resources from actually loading, in environments (like server route generation)
 /// where they are not needed.
+///
+/// This applies to resources created on the current thread while the guard is
+/// alive: they do not load if their fetcher future is first polled before the
+/// guard drops, on whichever thread that happens. Resources created on other
+/// threads, such as by a render running concurrently with route generation,
+/// are not affected. The guard should be dropped on the thread that created it.
 ///
 /// Guards are reentrant: nesting two of them keeps suppression active until the
 /// outermost guard is dropped.
 pub struct SuppressResourceLoad;
 
 impl SuppressResourceLoad {
-    /// Prevents resources from loading until this (and any outer guard) is dropped.
+    /// Prevents resources created on this thread from loading until this (and
+    /// any outer guard) is dropped.
     pub fn new() -> Self {
-        SUPPRESS_RESOURCE_LOAD_COUNT.fetch_add(1, Ordering::Release);
+        SUPPRESSION.with_borrow_mut(|(count, scope)| {
+            *count += 1;
+            scope.get_or_insert_with(Arc::default);
+        });
         Self
     }
 }
@@ -69,7 +92,12 @@ impl Default for SuppressResourceLoad {
 
 impl Drop for SuppressResourceLoad {
     fn drop(&mut self) {
-        SUPPRESS_RESOURCE_LOAD_COUNT.fetch_sub(1, Ordering::Release);
+        SUPPRESSION.with_borrow_mut(|(count, scope)| {
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                *scope = None;
+            }
+        });
     }
 }
 
@@ -320,13 +348,15 @@ where
             let refetch = refetch.clone();
             move |_| (refetch.get(), run_in_resource_source_signal(&source))
         });
+        let suppression = suppression_scope();
         let fun = {
             let source = source.clone();
             move || {
                 let (_, source) = source.get();
                 let fut = fetcher(source);
+                let suppression = suppression.clone();
                 async move {
-                    if suppressing_resource_load() {
+                    if suppressing_resource_load(&suppression) {
                         pending().await
                     } else {
                         fut.await
@@ -1473,30 +1503,38 @@ where
 
 #[cfg(test)]
 mod suppress_resource_load_tests {
-    use super::{SuppressResourceLoad, suppressing_resource_load};
+    use super::{
+        SuppressResourceLoad, suppressing_resource_load, suppression_scope,
+    };
 
-    // Touches the process-global suppression counter, so it is kept as a
-    // single test to avoid interfering with any other in-crate test.
+    fn suppressing() -> bool {
+        suppressing_resource_load(&suppression_scope())
+    }
+
     #[test]
     fn nested_guards_suppress_until_outermost_drops() {
-        assert!(!suppressing_resource_load());
+        assert!(!suppressing());
 
         let outer = SuppressResourceLoad::new();
-        assert!(suppressing_resource_load());
+        assert!(suppressing());
+        let captured = suppression_scope();
 
         {
             let _inner = SuppressResourceLoad::new();
-            assert!(suppressing_resource_load());
+            assert!(suppressing());
         }
         // The inner guard has dropped, but the outer one is still alive, so
         // suppression must remain active. (With the previous boolean flag this
         // assertion failed: the inner drop cleared it.)
         assert!(
-            suppressing_resource_load(),
+            suppressing(),
             "suppression cleared while an outer guard was still alive"
         );
+        assert!(suppressing_resource_load(&captured));
 
         drop(outer);
-        assert!(!suppressing_resource_load());
+        assert!(!suppressing());
+        // a scope captured earlier closes with the outermost guard
+        assert!(!suppressing_resource_load(&captured));
     }
 }
