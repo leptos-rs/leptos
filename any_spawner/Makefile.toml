@@ -2,3 +2,7 @@ extend = [
   { path = "../cargo-make/main.toml" },
   { path = "../cargo-make/wasm-test.toml" },
 ]
+
+# the browser tests need the `wasm-bindgen` feature
+[tasks.test-wasm]
+env = { CARGO_MAKE_WASM_TEST_ARGS = "--headless --chrome --features=wasm-bindgen" }
