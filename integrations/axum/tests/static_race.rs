@@ -77,7 +77,8 @@ mod tests {
             .output_name("static-race-repro")
             .site_root(site_root.to_string_lossy().to_string())
             .site_pkg_dir("pkg")
-            .build();
+            .build()
+            .unwrap();
 
         // Deliberately do NOT run the StaticRouteGenerator: the `.html` must
         // be missing so the first requests race down the on-demand

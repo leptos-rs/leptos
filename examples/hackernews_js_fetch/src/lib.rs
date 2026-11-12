@@ -81,7 +81,8 @@ mod ssr_imports {
             let leptos_options = LeptosOptions::builder()
                 .output_name("client")
                 .site_pkg_dir("pkg")
-                .build();
+                .build()
+                .expect("the default site layout is valid");
 
             let routes = generate_route_list(App);
 

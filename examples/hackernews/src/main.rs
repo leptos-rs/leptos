@@ -1,7 +1,6 @@
 // server-only stuff
 #[cfg(feature = "ssr")]
 mod ssr_imports {
-    pub use actix_files::Files;
     pub use actix_web::*;
     pub use hackernews::App;
 
@@ -19,7 +18,9 @@ mod ssr_imports {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     use leptos::prelude::*;
-    use leptos_actix::{generate_route_list, LeptosRoutes};
+    use leptos_actix::{
+        generate_route_list, site_pkg_files, site_root_files, LeptosRoutes,
+    };
     use leptos_meta::MetaTags;
     use ssr_imports::*;
 
@@ -30,7 +31,6 @@ async fn main() -> std::io::Result<()> {
         // Generate the list of routes in your Leptos App
         let routes = generate_route_list(App);
         let leptos_options = &conf.leptos_options;
-        let site_root = &leptos_options.site_root;
 
         App::new()
             .service(css)
@@ -56,7 +56,8 @@ async fn main() -> std::io::Result<()> {
                         </html>
                     }
             }})
-            .service(Files::new("/", site_root.as_ref()))
+            .service(site_pkg_files(leptos_options))
+            .service(site_root_files(leptos_options))
         //.wrap(middleware::Compress::default())
     })
     .bind(&addr)?

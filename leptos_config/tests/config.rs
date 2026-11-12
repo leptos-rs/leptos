@@ -1,6 +1,6 @@
 use leptos_config::{
-    Env, LeptosOptions, get_config_from_env, get_config_from_file,
-    get_config_from_str, get_configuration,
+    Env, LeptosOptions, errors::LeptosConfigError, get_config_from_env,
+    get_config_from_file, get_config_from_str, get_configuration,
 };
 use std::{fs::File, io::Write, net::SocketAddr, path::Path, str::FromStr};
 use tempfile::NamedTempFile;
@@ -162,6 +162,35 @@ fn get_config_from_str_content() {
     assert_eq!(config.reload_external_port, Some(8080));
 }
 
+#[test]
+fn get_config_from_str_checks_site_layout() {
+    let toml = "[package.metadata.leptos]\noutput-name = \
+                \"app\"\nsite-root-url = \"/static\"\n";
+    let (config, same_url) = temp_env::with_vars_unset(
+        [
+            "LEPTOS_OUTPUT_NAME",
+            "LEPTOS_SITE_ROOT",
+            "LEPTOS_SITE_ROOT_URL",
+            "LEPTOS_SITE_PKG_DIR",
+            "LEPTOS_SITE_PKG_URL",
+        ],
+        || {
+            (
+                get_config_from_str(toml).unwrap(),
+                get_config_from_str(&format!(
+                    "{toml}site-pkg-url = \"/static\"\n"
+                )),
+            )
+        },
+    );
+
+    assert_eq!(config.pkg_url_path(), "static/pkg");
+    assert!(matches!(
+        same_url,
+        Err(LeptosConfigError::SitePkgUrlIsSiteRootUrl { .. })
+    ));
+}
+
 #[tokio::test]
 async fn get_configuration_from_env() {
     // Test config values from environment variables
@@ -169,7 +198,7 @@ async fn get_configuration_from_env() {
         [
             ("LEPTOS_OUTPUT_NAME", Some("app-test")),
             ("LEPTOS_SITE_ROOT", Some("my_target/site")),
-            ("LEPTOS_SITE_PKG_DIR", Some("my_pkg")),
+            ("LEPTOS_SITE_PKG_DIR", Some("../my_pkg")),
             ("LEPTOS_SITE_PKG_URL", Some("my_pkg_url")),
             ("LEPTOS_SITE_ADDR", Some("0.0.0.0:80")),
             ("LEPTOS_RELOAD_PORT", Some("8080")),
@@ -181,7 +210,7 @@ async fn get_configuration_from_env() {
 
     assert_eq!(config.output_name.as_ref(), "app-test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
-    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
+    assert_eq!(config.site_pkg_dir.as_ref(), "../my_pkg");
     assert_eq!(config.site_pkg_url.as_deref(), Some("my_pkg_url"));
     assert_eq!(
         config.site_addr,
@@ -207,7 +236,7 @@ async fn get_configuration_from_env() {
 
     assert_eq!(config.site_root.as_ref(), "target/site");
     assert_eq!(config.site_pkg_dir.as_ref(), "pkg");
-    assert_eq!(config.site_pkg_url, None);
+    assert_eq!(config.site_pkg_url.as_deref(), Some("pkg"));
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("127.0.0.1:3000").unwrap()
@@ -218,7 +247,10 @@ async fn get_configuration_from_env() {
 
 #[test]
 fn leptos_options_builder_default() {
-    let conf = LeptosOptions::builder().output_name("app-test").build();
+    let conf = LeptosOptions::builder()
+        .output_name("app-test")
+        .build()
+        .unwrap();
     assert_eq!(conf.output_name.as_ref(), "app-test");
     assert!(matches!(conf.env, Env::DEV));
     assert_eq!(conf.site_pkg_dir.as_ref(), "pkg");

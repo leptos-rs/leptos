@@ -126,7 +126,8 @@ mod tests {
             .output_name("static-cache-hit-race")
             .site_root(site_root.to_string_lossy().to_string())
             .site_pkg_dir("pkg")
-            .build();
+            .build()
+            .unwrap();
 
         // Capacity-1 channel: the pump is paced by the regeneration loop, so a
         // backlog can't build up and shutdown stays prompt. Install the receiver

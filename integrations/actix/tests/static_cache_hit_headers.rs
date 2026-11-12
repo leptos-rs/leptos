@@ -106,7 +106,8 @@ mod tests {
             .output_name("static-cache-hit-headers")
             .site_root(site_root.to_string_lossy().to_string())
             .site_pkg_dir("pkg")
-            .build();
+            .build()
+            .unwrap();
 
         // Do not pre-run the generator: the first request generates the file.
         let (routes, _generator) = generate_route_list_with_ssg(EpochApp);
