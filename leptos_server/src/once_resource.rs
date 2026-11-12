@@ -1,5 +1,6 @@
 use crate::{
-    FromEncodedStr, IntoEncodedString, initial_value, suppressing_resource_load,
+    FromEncodedStr, IntoEncodedString, initial_value,
+    suppressing_resource_load, suppression_scope,
 };
 #[cfg(feature = "serde-lite")]
 use codee::SerdeLite;
@@ -122,6 +123,7 @@ where
         let fut = ScopedFuture::new(fut);
 
         if !is_ready {
+            let suppression = suppression_scope();
             let value = Arc::clone(&value);
             let wakers = Arc::clone(&wakers);
             let pending_suspenses = Arc::clone(&pending_suspenses);
@@ -132,8 +134,10 @@ where
                 // resource is constructed. Checking at construction time made
                 // a resource created inside a `SuppressResourceLoad` scope
                 // never load, even after the guard dropped; `Resource` checks
-                // at fetch time, and this keeps the two consistent.
-                let loaded = if suppressing_resource_load() {
+                // at fetch time, and this keeps the two consistent. The scope
+                // itself is captured at construction: the loader runs on an
+                // executor thread, not on the one holding the guard.
+                let loaded = if suppressing_resource_load(&suppression) {
                     pending().await
                 } else {
                     fut.await
