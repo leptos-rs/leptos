@@ -17,11 +17,15 @@ mod issue_4992;
 mod issue_5000;
 mod pr_4015;
 mod pr_4091;
+mod pr_5013;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]
 pub fn hydrate() {
     use app::*;
     console_error_panic_hook::set_once();
+    #[cfg(feature = "lazy")]
+    leptos::mount::hydrate_lazy(App);
+    #[cfg(not(feature = "lazy"))]
     leptos::mount::hydrate_body(App);
 }

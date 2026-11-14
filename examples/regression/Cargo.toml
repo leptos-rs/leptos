@@ -23,6 +23,9 @@ wasm-bindgen = "0.2.106"
 hydrate = [
   "leptos/hydrate",
 ]
+lazy = [
+  "leptos/lazy",
+]
 ssr = [
   "dep:axum",
   "dep:tokio",
