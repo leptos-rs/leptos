@@ -60,7 +60,7 @@ async fn wasm_chunk_requests(world: &mut AppWorld, mode: String) -> Result<()> {
 }
 
 #[when("I wait for a second")]
-async fn i_wait_for_a_second(world: &mut AppWorld) -> Result<()> {
+async fn i_wait_for_a_second(_world: &mut AppWorld) -> Result<()> {
     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     Ok(())
@@ -71,6 +71,7 @@ async fn i_wait_for_a_second(world: &mut AppWorld) -> Result<()> {
 async fn i_refresh_the_browser(world: &mut AppWorld) -> Result<()> {
     let client = &world.client;
     client.refresh().await?;
+    action::wait_for_hydration(client).await?;
 
     Ok(())
 }
