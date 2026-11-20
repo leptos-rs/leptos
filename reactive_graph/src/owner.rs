@@ -261,6 +261,26 @@ impl Owner {
         child
     }
 
+    /// Creates a new `Owner` that is a child of this one, but is not disposed when this
+    /// owner is cleaned up.
+    pub fn detached_child(&self) -> Self {
+        let inner = self.inner.read().or_poisoned();
+        Self {
+            inner: Arc::new(RwLock::new(OwnerInner {
+                parent: Some(Arc::downgrade(&self.inner)),
+                nodes: Default::default(),
+                contexts: Default::default(),
+                cleanups: Default::default(),
+                children: Default::default(),
+                #[cfg(feature = "sandboxed-arenas")]
+                arena: inner.arena.clone(),
+                paused: inner.paused,
+            })),
+            #[cfg(feature = "hydration")]
+            shared_context: self.shared_context.clone(),
+        }
+    }
+
     /// Sets this as the current `Owner`.
     pub fn set(&self) {
         OWNER.with_borrow_mut(|owner| *owner = Some(self.downgrade()));

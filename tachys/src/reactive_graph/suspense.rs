@@ -23,7 +23,7 @@ use reactive_graph::{
         AnySource, AnySubscriber, Observer, ReactiveNode, Source, Subscriber,
         ToAnySubscriber, WithObserver,
     },
-    owner::{on_cleanup, provide_context, use_context},
+    owner::{Owner, on_cleanup, provide_context, use_context},
 };
 use std::{
     cell::RefCell,
@@ -141,6 +141,13 @@ where
     T: Render,
 {
     inner: Rc<RefCell<OptionState<T>>>,
+    owner: Rc<RefCell<Owner>>,
+}
+
+fn view_owner() -> Owner {
+    Owner::current()
+        .map(|owner| owner.detached_child())
+        .unwrap_or_default()
 }
 
 impl<T> Mountable for SuspendState<T>
@@ -189,7 +196,8 @@ where
         // otherwise, start with the fallback
         let initial = fut.as_mut().now_or_never().and_then(Result::ok);
         let initially_pending = initial.is_none();
-        let inner = Rc::new(RefCell::new(initial.build()));
+        let owner = view_owner();
+        let inner = Rc::new(RefCell::new(owner.with(|| initial.build())));
 
         // get a unique ID if there's a SuspenseContext
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
@@ -201,6 +209,7 @@ where
         if initially_pending {
             reactive_graph::spawn_local_scoped({
                 let state = Rc::clone(&inner);
+                let owner = owner.clone();
                 async move {
                     let _guard = error_hook.as_ref().map(|hook| {
                         throw_error::set_error_hook(Arc::clone(hook))
@@ -210,7 +219,9 @@ where
                     drop(id);
 
                     if let Ok(value) = value {
-                        Some(value).rebuild(&mut *state.borrow_mut());
+                        owner.with(|| {
+                            Some(value).rebuild(&mut *state.borrow_mut())
+                        });
                     }
 
                     subscriber.forward();
@@ -220,7 +231,10 @@ where
             subscriber.forward();
         }
 
-        SuspendState { inner }
+        SuspendState {
+            inner,
+            owner: Rc::new(RefCell::new(owner)),
+        }
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -237,8 +251,13 @@ where
         let id = use_context::<SuspenseContext>().map(|sc| sc.task_id());
         let error_hook = use_context::<Arc<dyn ErrorHook>>();
 
+        // the current view stays mounted until the new one is ready, but its owner
+        // was cleaned up; pause it until it is replaced
+        state.owner.borrow().pause();
+
         // spawn the future, and rebuild the state when it resolves
         reactive_graph::spawn_local_scoped({
+            let prev_owner = Rc::clone(&state.owner);
             let state = Rc::clone(&state.inner);
             async move {
                 let _guard = error_hook
@@ -253,7 +272,14 @@ where
                 // has no parent
                 Executor::tick().await;
                 if let Ok(value) = value {
-                    Some(value).rebuild(&mut *state.borrow_mut());
+                    let owner = view_owner();
+                    owner
+                        .with(|| Some(value).rebuild(&mut *state.borrow_mut()));
+                    // anything the new view kept from the previous one should keep running;
+                    // everything else is cleaned up when the previous owner is dropped
+                    let prev =
+                        mem::replace(&mut *prev_owner.borrow_mut(), owner);
+                    prev.resume();
                 }
 
                 subscriber.forward();
@@ -404,8 +430,9 @@ where
         // otherwise, start with the fallback
         let initial = fut.as_mut().now_or_never().and_then(Result::ok);
         let initially_pending = initial.is_none();
+        let owner = view_owner();
         let inner = Rc::new(RefCell::new(
-            initial.hydrate::<FROM_SERVER>(cursor, position),
+            owner.with(|| initial.hydrate::<FROM_SERVER>(cursor, position)),
         ));
 
         // get a unique ID if there's a SuspenseContext
@@ -418,6 +445,7 @@ where
         if initially_pending {
             reactive_graph::spawn_local_scoped({
                 let state = Rc::clone(&inner);
+                let owner = owner.clone();
                 async move {
                     let _guard = error_hook.as_ref().map(|hook| {
                         throw_error::set_error_hook(Arc::clone(hook))
@@ -427,7 +455,9 @@ where
                     drop(id);
 
                     if let Ok(value) = value {
-                        Some(value).rebuild(&mut *state.borrow_mut());
+                        owner.with(|| {
+                            Some(value).rebuild(&mut *state.borrow_mut())
+                        });
                     }
 
                     subscriber.forward();
@@ -437,7 +467,10 @@ where
             subscriber.forward();
         }
 
-        SuspendState { inner }
+        SuspendState {
+            inner,
+            owner: Rc::new(RefCell::new(owner)),
+        }
     }
 
     async fn hydrate_async(
@@ -467,10 +500,15 @@ where
         };
 
         // if pending, wait so we hydrate the real value against the server's HTML
-        let inner =
-            Rc::new(RefCell::new(value.hydrate_async(cursor, position).await));
+        let owner = view_owner();
+        let inner = owner
+            .with(|| ScopedFuture::new(value.hydrate_async(cursor, position)))
+            .await;
         subscriber.forward();
-        SuspendState { inner }
+        SuspendState {
+            inner: Rc::new(RefCell::new(inner)),
+            owner: Rc::new(RefCell::new(owner)),
+        }
     }
 
     async fn resolve(self) -> Self::AsyncOutput {

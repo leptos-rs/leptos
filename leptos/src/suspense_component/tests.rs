@@ -145,3 +145,68 @@ fn suspense_cancels_queued_children_when_parent_rebuilds() {
 fn transition_cancels_queued_children_when_parent_rebuilds() {
     assert_queued_child_cancellation::<true>();
 }
+
+/// When `Suspend` reruns and is pending, the previous view stays mounted,
+/// but its owner has been cleaned up. Children read inside it shouldn't rerun
+/// or they can read disposed values.
+fn assert_pending_rerun_pauses_previous_view<const TRANSITION: bool>() {
+    use reactive_graph::wrappers::read::Signal;
+    use tachys::reactive_graph::Suspend;
+
+    _ = Executor::init_futures_executor();
+    Owner::new().with(|| {
+        let generation = RwSignal::new(0);
+        let outer = RwSignal::new(0);
+        let reads = Arc::new(Mutex::new(Vec::new()));
+        let drops = Arc::new(AtomicUsize::new(0));
+        let state = boundary::<TRANSITION, _>(
+            {
+                let reads = Arc::clone(&reads);
+                let drops = Arc::clone(&drops);
+                move || {
+                    let current = generation.get();
+                    let prop = Signal::stored(current);
+                    let reads = Arc::clone(&reads);
+                    let drops = Arc::clone(&drops);
+                    Suspend::new(async move {
+                        if current > 0 {
+                            futures::future::pending::<()>().await;
+                        }
+                        move || {
+                            outer.track();
+                            reads.lock().unwrap().push(prop.try_get());
+                            DropProbe(Arc::clone(&drops))
+                        }
+                    })
+                }
+            },
+            Arc::clone(&drops),
+        )
+        .build();
+        Executor::poll_local();
+        assert_eq!(*reads.lock().unwrap(), vec![Some(0)]);
+
+        generation.set(1);
+        Executor::poll_local();
+        outer.set(1);
+        Executor::poll_local();
+
+        assert_eq!(
+            *reads.lock().unwrap(),
+            vec![Some(0)],
+            "the previous view's binding read a disposed value"
+        );
+        drop(state);
+        Executor::poll_local();
+    });
+}
+
+#[test]
+fn suspense_pauses_previous_view_while_rerun_is_pending() {
+    assert_pending_rerun_pauses_previous_view::<false>();
+}
+
+#[test]
+fn transition_pauses_previous_view_while_rerun_is_pending() {
+    assert_pending_rerun_pauses_previous_view::<true>();
+}
