@@ -424,6 +424,21 @@ impl Stream for StreamBuilder {
                                                 .find(&marker)
                                                 .unwrap();
 
+                                        if !replace {
+                                            // under some circumstances, the fallback should not be replaced
+                                            // (e.g., if it resolved to `None` beause of a local resource);
+                                            // in those cases, keep the fallback and only remove the markers
+                                            this.sync_buf.replace_range(
+                                                end..end + marker_len,
+                                                "",
+                                            );
+                                            this.sync_buf.replace_range(
+                                                start..start + marker_len,
+                                                "",
+                                            );
+                                            continue;
+                                        }
+
                                         // TODO can probably make this more efficient
                                         let (before, replaced) =
                                             this.sync_buf.split_at(start);
@@ -532,6 +547,44 @@ impl Stream for StreamBuilder {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod replace_tests {
+    use super::StreamBuilder;
+    use crate::view::Position;
+    use futures::{StreamExt, executor::block_on};
+
+    fn render(view: Option<&'static str>) -> String {
+        let mut buf = StreamBuilder::new(Some(vec![0]));
+        buf.next_id();
+        let mut position = Position::FirstChild;
+        buf.push_fallback("FALLBACK", &mut position.clone(), false, vec![]);
+        buf.push_async_out_of_order(
+            async move { view },
+            &mut position,
+            false,
+            vec![],
+        );
+        block_on(buf.finish().collect::<String>())
+    }
+
+    #[test]
+    fn in_buffer_chunk_that_does_not_replace_keeps_fallback() {
+        let html = render(None);
+        assert!(html.contains("FALLBACK"), "{html}");
+        assert!(
+            !html.contains("<!--s-"),
+            "markers should be removed: {html}"
+        );
+    }
+
+    #[test]
+    fn in_buffer_chunk_that_replaces_removes_fallback() {
+        let html = render(Some("RESOLVED"));
+        assert!(html.contains("RESOLVED"), "{html}");
+        assert!(!html.contains("FALLBACK"), "{html}");
     }
 }
 
