@@ -172,6 +172,7 @@ impl Owner {
                 contexts: Default::default(),
                 cleanups: Default::default(),
                 children: Default::default(),
+                detached: Default::default(),
                 #[cfg(feature = "sandboxed-arenas")]
                 arena: parent
                     .as_ref()
@@ -206,6 +207,7 @@ impl Owner {
                 contexts: Default::default(),
                 cleanups: Default::default(),
                 children: Default::default(),
+                detached: Default::default(),
                 #[cfg(feature = "sandboxed-arenas")]
                 arena: Default::default(),
                 paused: false,
@@ -250,6 +252,7 @@ impl Owner {
                 contexts: Default::default(),
                 cleanups: Default::default(),
                 children: Default::default(),
+                detached: Default::default(),
                 #[cfg(feature = "sandboxed-arenas")]
                 arena,
                 paused,
@@ -264,21 +267,24 @@ impl Owner {
     /// Creates a new `Owner` that is a child of this one, but is not disposed when this
     /// owner is cleaned up.
     pub fn detached_child(&self) -> Self {
-        let inner = self.inner.read().or_poisoned();
-        Self {
+        let mut inner = self.inner.write().or_poisoned();
+        let child = Self {
             inner: Arc::new(RwLock::new(OwnerInner {
                 parent: Some(Arc::downgrade(&self.inner)),
                 nodes: Default::default(),
                 contexts: Default::default(),
                 cleanups: Default::default(),
                 children: Default::default(),
+                detached: Default::default(),
                 #[cfg(feature = "sandboxed-arenas")]
                 arena: inner.arena.clone(),
                 paused: inner.paused,
             })),
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
-        }
+        };
+        push_weak(&mut inner.detached, &child.inner);
+        child
     }
 
     /// Sets this as the current `Owner`.
@@ -483,6 +489,7 @@ impl Owner {
                 let mut curr = curr.write().or_poisoned();
                 curr.paused = true;
                 stack.extend(curr.children.iter().map(Weak::clone));
+                stack.extend(curr.detached.iter().map(Weak::clone));
             }
         }
     }
@@ -506,6 +513,7 @@ impl Owner {
                 let mut curr = curr.write().or_poisoned();
                 curr.paused = false;
                 stack.extend(curr.children.iter().map(Weak::clone));
+                stack.extend(curr.detached.iter().map(Weak::clone));
             }
         }
     }
@@ -566,6 +574,7 @@ pub(crate) struct OwnerInner {
     pub contexts: FxHashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub cleanups: Vec<Box<dyn FnOnce() + Send + Sync>>,
     pub children: Vec<Weak<RwLock<OwnerInner>>>,
+    detached: Vec<Weak<RwLock<OwnerInner>>>,
     #[cfg(feature = "sandboxed-arenas")]
     arena: Arc<RwLock<ArenaMap>>,
     paused: bool,
@@ -573,19 +582,20 @@ pub(crate) struct OwnerInner {
 
 impl OwnerInner {
     fn push_child(&mut self, child: &Arc<RwLock<OwnerInner>>) {
-        // Prune dead `Weak`s when `children` would reallocate: a long-lived
-        // parent, such as a `<For>` whose rows come from `Owner::new`, would
-        // otherwise accumulate them and walk them on cleanup. Reserving room
-        // for the live children makes the next scan wait at least that many
-        // pushes, so this stays amortized O(1) even when few die in between.
-        if !self.children.is_empty()
-            && self.children.len() == self.children.capacity()
-        {
-            self.children.retain(|child| child.strong_count() > 0);
-            self.children.reserve(self.children.len());
-        }
-        self.children.push(Arc::downgrade(child));
+        push_weak(&mut self.children, child);
     }
+}
+
+fn push_weak(
+    list: &mut Vec<Weak<RwLock<OwnerInner>>>,
+    child: &Arc<RwLock<OwnerInner>>,
+) {
+    // Prune dead `Weak`s when the list would reallocate
+    if !list.is_empty() && list.len() == list.capacity() {
+        list.retain(|child| child.strong_count() > 0);
+        list.reserve(list.len());
+    }
+    list.push(Arc::downgrade(child));
 }
 
 impl Debug for OwnerInner {
@@ -650,6 +660,8 @@ impl Cleanup for RwLock<OwnerInner> {
 
         let (cleanups, nodes, children) = {
             let mut lock = self.write().or_poisoned();
+            // detached children manage their own lifetime: just forget them
+            lock.detached.clear();
             (
                 mem::take(&mut lock.cleanups),
                 mem::take(&mut lock.nodes),
