@@ -213,3 +213,144 @@ fn suspense_freezes_outgoing_bindings_while_rerun_is_pending() {
 fn transition_freezes_outgoing_bindings_while_rerun_is_pending() {
     assert_pending_rerun_freezes_outgoing_bindings::<true>();
 }
+
+/// The same, when part of the outgoing view is built under an owner created
+/// while the view was constructed, as `<Provider/>` and each row of a `<For/>`
+/// do. That owner belongs to the branch, so the rerun cleans it up.
+fn assert_pending_rerun_freezes_outgoing_owned_view<const TRANSITION: bool>() {
+    use reactive_graph::wrappers::read::Signal;
+    use tachys::reactive_graph::{OwnedView, Suspend};
+
+    _ = Executor::init_futures_executor();
+    Owner::new().with(|| {
+        let generation = RwSignal::new(0);
+        let outlives_branch = RwSignal::new(0);
+        let reads = Arc::new(Mutex::new(Vec::new()));
+        let drops = Arc::new(AtomicUsize::new(0));
+        let state = boundary::<TRANSITION, _>(
+            {
+                let reads = Arc::clone(&reads);
+                let drops = Arc::clone(&drops);
+                move || {
+                    let current = generation.get();
+                    let reads = Arc::clone(&reads);
+                    let drops = Arc::clone(&drops);
+                    Suspend::new(async move {
+                        if current > 0 {
+                            // The replacement view never resolves in this test.
+                            futures::future::pending::<()>().await;
+                        }
+                        let owner = Owner::current()
+                            .expect("no reactive owner")
+                            .child();
+                        let prop = owner.with(|| Signal::stored(current));
+                        OwnedView::new_with_owner(
+                            move || {
+                                outlives_branch.track();
+                                reads.lock().unwrap().push(prop.try_get());
+                                DropProbe(Arc::clone(&drops))
+                            },
+                            owner,
+                        )
+                    })
+                }
+            },
+            Arc::clone(&drops),
+        )
+        .build();
+        Executor::poll_local();
+        assert_eq!(*reads.lock().unwrap(), vec![Some(0)]);
+
+        generation.set(1);
+        Executor::poll_local();
+        outlives_branch.set(1);
+        Executor::poll_local();
+
+        assert_eq!(
+            *reads.lock().unwrap(),
+            vec![Some(0)],
+            "the outgoing view's binding read a value its branch had disposed"
+        );
+        drop(state);
+        Executor::poll_local();
+    });
+}
+
+#[test]
+fn suspense_freezes_outgoing_owned_view_while_rerun_is_pending() {
+    assert_pending_rerun_freezes_outgoing_owned_view::<false>();
+}
+
+#[test]
+fn transition_freezes_outgoing_owned_view_while_rerun_is_pending() {
+    assert_pending_rerun_freezes_outgoing_owned_view::<true>();
+}
+
+/// The same, when the outgoing view contains another `Suspend`, whose future
+/// creates the value its view reads.
+fn assert_pending_rerun_freezes_outgoing_nested_suspend<
+    const TRANSITION: bool,
+>() {
+    use reactive_graph::wrappers::read::Signal;
+    use tachys::reactive_graph::Suspend;
+
+    _ = Executor::init_futures_executor();
+    Owner::new().with(|| {
+        let generation = RwSignal::new(0);
+        let outlives_branch = RwSignal::new(0);
+        let reads = Arc::new(Mutex::new(Vec::new()));
+        let drops = Arc::new(AtomicUsize::new(0));
+        let state = boundary::<TRANSITION, _>(
+            {
+                let reads = Arc::clone(&reads);
+                let drops = Arc::clone(&drops);
+                move || {
+                    let current = generation.get();
+                    let reads = Arc::clone(&reads);
+                    let drops = Arc::clone(&drops);
+                    Suspend::new(async move {
+                        if current > 0 {
+                            // The replacement view never resolves in this test.
+                            futures::future::pending::<()>().await;
+                        }
+                        Suspend::new(async move {
+                            let prop = Signal::stored(current);
+                            move || {
+                                outlives_branch.track();
+                                reads.lock().unwrap().push(prop.try_get());
+                                DropProbe(Arc::clone(&drops))
+                            }
+                        })
+                    })
+                }
+            },
+            Arc::clone(&drops),
+        )
+        .build();
+        Executor::poll_local();
+        assert_eq!(*reads.lock().unwrap(), vec![Some(0)]);
+
+        generation.set(1);
+        Executor::poll_local();
+        outlives_branch.set(1);
+        Executor::poll_local();
+
+        assert_eq!(
+            *reads.lock().unwrap(),
+            vec![Some(0)],
+            "the outgoing view's binding read a value its branch had disposed"
+        );
+        drop(state);
+        Executor::poll_local();
+    });
+}
+
+#[test]
+fn suspense_freezes_outgoing_nested_suspend_while_rerun_is_pending() {
+    assert_pending_rerun_freezes_outgoing_nested_suspend::<false>();
+}
+
+#[test]
+fn transition_freezes_outgoing_nested_suspend_while_rerun_is_pending() {
+    assert_pending_rerun_freezes_outgoing_nested_suspend::<true>();
+}
