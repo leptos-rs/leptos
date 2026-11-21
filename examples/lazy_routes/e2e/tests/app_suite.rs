@@ -21,6 +21,7 @@ async fn main() -> Result<()> {
         let path = entry?.path();
         if path.extension() == Some(OsStr::new("feature")) {
             AppWorld::cucumber()
+                .max_concurrent_scenarios(1)
                 .fail_on_skipped()
                 .run_and_exit(path)
                 .await;

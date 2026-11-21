@@ -22,6 +22,17 @@ features = ["HtmlLinkElement", "HtmlMetaElement", "HtmlTitleElement"]
 workspace = true
 default-features = true
 
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+leptos = { workspace = true, features = ["csr"] }
+wasm-bindgen-test = { workspace = true, default-features = true }
+web-sys = { features = [
+  "Document",
+  "Element",
+  "HtmlElement",
+  "Node",
+  "Window",
+], workspace = true, default-features = true }
+
 [features]
 default = []
 ssr = []

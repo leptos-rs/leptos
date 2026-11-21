@@ -587,11 +587,7 @@ impl Drop for OwnerInner {
         #[cfg(feature = "sandboxed-arenas")]
         let _contexts = mem::take(&mut self.contexts);
 
-        for child in std::mem::take(&mut self.children) {
-            if let Some(child) = child.upgrade() {
-                child.cleanup();
-            }
-        }
+        detach(mem::take(&mut self.children));
 
         for cleanup in mem::take(&mut self.cleanups) {
             cleanup();
@@ -618,7 +614,14 @@ impl Drop for OwnerInner {
 }
 
 trait Cleanup {
+    /// Cleans up an owner that stays in use, as [`Owner::cleanup`] and
+    /// [`Owner::with_cleanup`] do. The owner itself stays live; every owner it
+    /// detaches is paused first, see [`detach`].
     fn cleanup(&self);
+
+    /// Tears down an owner that [`detach`] has already paused, with all its
+    /// descendants.
+    fn teardown(&self);
 }
 
 impl Cleanup for RwLock<OwnerInner> {
@@ -628,37 +631,90 @@ impl Cleanup for RwLock<OwnerInner> {
         #[cfg(feature = "sandboxed-arenas")]
         let _restore = RestoreArena::try_install(&arena);
 
-        let (cleanups, nodes, children) = {
-            let mut lock = self.write().or_poisoned();
-            (
-                mem::take(&mut lock.cleanups),
-                mem::take(&mut lock.nodes),
-                mem::take(&mut lock.children),
-            )
-        };
+        let (cleanups, nodes, children) = take_contents(self);
+        detach(children);
+        finish(self, cleanups, nodes);
+    }
+
+    fn teardown(&self) {
+        #[cfg(feature = "sandboxed-arenas")]
+        let arena = self.read().or_poisoned().arena.clone();
+        #[cfg(feature = "sandboxed-arenas")]
+        let _restore = RestoreArena::try_install(&arena);
+
+        let (cleanups, nodes, children) = take_contents(self);
         for child in children {
             if let Some(child) = child.upgrade() {
-                child.cleanup();
+                child.teardown();
             }
         }
-        for cleanup in cleanups {
-            cleanup();
-        }
+        finish(self, cleanups, nodes);
+    }
+}
 
-        if !nodes.is_empty() {
-            let mut nodes_to_drop = Vec::with_capacity(nodes.len());
-            #[cfg(not(feature = "sandboxed-arenas"))]
-            Arena::with_mut(|arena| {
-                for node in nodes {
-                    nodes_to_drop.extend(arena.remove(node));
-                }
-            });
-            #[cfg(feature = "sandboxed-arenas")]
-            {
-                let mut arena = arena.write().or_poisoned();
-                for node in nodes {
-                    nodes_to_drop.extend(arena.remove(node));
-                }
+type OwnerContents = (
+    Vec<Box<dyn FnOnce() + Send + Sync>>,
+    Vec<NodeId>,
+    Vec<Weak<RwLock<OwnerInner>>>,
+);
+
+fn take_contents(owner: &RwLock<OwnerInner>) -> OwnerContents {
+    let mut lock = owner.write().or_poisoned();
+    (
+        mem::take(&mut lock.cleanups),
+        mem::take(&mut lock.nodes),
+        mem::take(&mut lock.children),
+    )
+}
+
+/// Lets go of the children of an owner that is cleaned up or dropped.
+///
+/// Nothing re-attaches a detached owner, but a view can still hold its effects:
+/// the outgoing view a pending `Suspend` keeps mounted, for one. Every detached
+/// owner is therefore paused, with all its descendants, before any of their
+/// cleanups runs, and stays paused. A cleanup can write a signal, and an
+/// [`ImmediateEffect`](crate::effect::ImmediateEffect) runs as soon as it is
+/// notified; the other effects check the flag when their task wakes. Either way,
+/// no effect runs against the values the teardown disposes.
+fn detach(children: Vec<Weak<RwLock<OwnerInner>>>) {
+    let children: Vec<_> = children.iter().filter_map(Weak::upgrade).collect();
+    let mut stack: Vec<_> = children.iter().map(Arc::downgrade).collect();
+    while let Some(curr) = stack.pop() {
+        if let Some(curr) = curr.upgrade() {
+            let mut curr = curr.write().or_poisoned();
+            curr.paused = true;
+            stack.extend(curr.children.iter().map(Weak::clone));
+        }
+    }
+    for child in children {
+        child.teardown();
+    }
+}
+
+fn finish(
+    #[cfg_attr(not(feature = "sandboxed-arenas"), allow(unused_variables))]
+    owner: &RwLock<OwnerInner>,
+    cleanups: Vec<Box<dyn FnOnce() + Send + Sync>>,
+    nodes: Vec<NodeId>,
+) {
+    for cleanup in cleanups {
+        cleanup();
+    }
+
+    if !nodes.is_empty() {
+        let mut nodes_to_drop = Vec::with_capacity(nodes.len());
+        #[cfg(not(feature = "sandboxed-arenas"))]
+        Arena::with_mut(|arena| {
+            for node in nodes {
+                nodes_to_drop.extend(arena.remove(node));
+            }
+        });
+        #[cfg(feature = "sandboxed-arenas")]
+        {
+            let arena = owner.read().or_poisoned().arena.clone();
+            let mut arena = arena.write().or_poisoned();
+            for node in nodes {
+                nodes_to_drop.extend(arena.remove(node));
             }
         }
     }
