@@ -1,6 +1,6 @@
 use super::*;
 use any_spawner::Executor;
-use reactive_graph::{signal::RwSignal, traits::Set};
+use reactive_graph::{signal::RwSignal, traits::Set, wrappers::read::Signal};
 use std::sync::{
     Mutex,
     atomic::{AtomicUsize, Ordering},
@@ -146,53 +146,61 @@ fn transition_cancels_queued_children_when_parent_rebuilds() {
     assert_queued_child_cancellation::<true>();
 }
 
-/// When `Suspend` reruns and is pending, the previous view stays mounted,
-/// but its owner has been cleaned up. Children read inside it shouldn't rerun
-/// or they can read disposed values.
-fn assert_pending_rerun_pauses_previous_view<const TRANSITION: bool>() {
-    use reactive_graph::wrappers::read::Signal;
-    use tachys::reactive_graph::Suspend;
+#[derive(Clone)]
+struct OwnerTest {
+    outer: RwSignal<i32>,
+    reads: Arc<Mutex<Vec<Option<i32>>>>,
+    drops: Arc<AtomicUsize>,
+}
 
+impl OwnerTest {
+    fn view(
+        self,
+        prop: Signal<i32>,
+    ) -> impl FnMut() -> DropProbe + Send + 'static {
+        move || {
+            self.outer.track();
+            self.reads.lock().unwrap().push(prop.try_get());
+            DropProbe(Arc::clone(&self.drops))
+        }
+    }
+}
+
+/// When the boundary's children rerun and the new `Suspend` is pending, the
+/// previous view stays mounted, but the owner it was created in has been
+/// cleaned up. Its bindings must not rerun, or they read disposed values.
+fn assert_pending_rerun_pauses_previous_view<const TRANSITION: bool, V>(
+    view: impl Fn(i32, OwnerTest) -> V + Send + Sync + 'static,
+) where
+    V: Render + 'static,
+    V::State: 'static,
+{
     _ = Executor::init_futures_executor();
     Owner::new().with(|| {
         let generation = RwSignal::new(0);
-        let outer = RwSignal::new(0);
-        let reads = Arc::new(Mutex::new(Vec::new()));
-        let drops = Arc::new(AtomicUsize::new(0));
+        let cx = OwnerTest {
+            outer: RwSignal::new(0),
+            reads: Arc::new(Mutex::new(Vec::new())),
+            drops: Arc::new(AtomicUsize::new(0)),
+        };
         let state = boundary::<TRANSITION, _>(
             {
-                let reads = Arc::clone(&reads);
-                let drops = Arc::clone(&drops);
-                move || {
-                    let current = generation.get();
-                    let prop = Signal::stored(current);
-                    let reads = Arc::clone(&reads);
-                    let drops = Arc::clone(&drops);
-                    Suspend::new(async move {
-                        if current > 0 {
-                            futures::future::pending::<()>().await;
-                        }
-                        move || {
-                            outer.track();
-                            reads.lock().unwrap().push(prop.try_get());
-                            DropProbe(Arc::clone(&drops))
-                        }
-                    })
-                }
+                let cx = cx.clone();
+                move || view(generation.get(), cx.clone())
             },
-            Arc::clone(&drops),
+            Arc::clone(&cx.drops),
         )
         .build();
         Executor::poll_local();
-        assert_eq!(*reads.lock().unwrap(), vec![Some(0)]);
+        assert_eq!(*cx.reads.lock().unwrap(), vec![Some(0)]);
 
         generation.set(1);
         Executor::poll_local();
-        outer.set(1);
+        cx.outer.set(1);
         Executor::poll_local();
 
         assert_eq!(
-            *reads.lock().unwrap(),
+            *cx.reads.lock().unwrap(),
             vec![Some(0)],
             "the previous view's binding read a disposed value"
         );
@@ -201,12 +209,77 @@ fn assert_pending_rerun_pauses_previous_view<const TRANSITION: bool>() {
     });
 }
 
+async fn load(generation: i32) {
+    if generation > 0 {
+        futures::future::pending::<()>().await;
+    }
+}
+
+fn previous_view<const TRANSITION: bool>() {
+    use reactive_graph::wrappers::read::Signal;
+    use tachys::reactive_graph::Suspend;
+
+    assert_pending_rerun_pauses_previous_view::<TRANSITION, _>(|g, probe| {
+        let prop = Signal::stored(g);
+        Suspend::new(async move {
+            load(g).await;
+            probe.view(prop)
+        })
+    });
+}
+
 #[test]
 fn suspense_pauses_previous_view_while_rerun_is_pending() {
-    assert_pending_rerun_pauses_previous_view::<false>();
+    previous_view::<false>();
 }
 
 #[test]
 fn transition_pauses_previous_view_while_rerun_is_pending() {
-    assert_pending_rerun_pauses_previous_view::<true>();
+    previous_view::<true>();
+}
+
+fn previous_owned_view<const TRANSITION: bool>() {
+    use reactive_graph::wrappers::read::Signal;
+    use tachys::reactive_graph::{OwnedView, Suspend};
+
+    assert_pending_rerun_pauses_previous_view::<TRANSITION, _>(|g, probe| {
+        Suspend::new(async move {
+            load(g).await;
+            let owner = Owner::current().expect("no reactive owner").child();
+            let prop = owner.with(|| Signal::stored(g));
+            OwnedView::new_with_owner(probe.view(prop), owner)
+        })
+    });
+}
+
+#[test]
+fn suspense_pauses_previous_owned_view_while_rerun_is_pending() {
+    previous_owned_view::<false>();
+}
+
+#[test]
+fn transition_pauses_previous_owned_view_while_rerun_is_pending() {
+    previous_owned_view::<true>();
+}
+
+fn previous_nested_suspend<const TRANSITION: bool>() {
+    use reactive_graph::wrappers::read::Signal;
+    use tachys::reactive_graph::Suspend;
+
+    assert_pending_rerun_pauses_previous_view::<TRANSITION, _>(|g, probe| {
+        Suspend::new(async move {
+            load(g).await;
+            Suspend::new(async move { probe.view(Signal::stored(g)) })
+        })
+    });
+}
+
+#[test]
+fn suspense_pauses_previous_nested_suspend_while_rerun_is_pending() {
+    previous_nested_suspend::<false>();
+}
+
+#[test]
+fn transition_pauses_previous_nested_suspend_while_rerun_is_pending() {
+    previous_nested_suspend::<true>();
 }

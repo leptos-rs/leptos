@@ -40,6 +40,8 @@ use throw_error::ErrorHook;
 pub struct Suspend<T> {
     pub(crate) subscriber: SuspendSubscriber,
     pub(crate) inner: Pin<Box<dyn Future<Output = T> + Send>>,
+    /// The owner the future runs in, and the view it resolves to is built in.
+    owner: Owner,
 }
 
 #[derive(Debug, Clone)]
@@ -123,9 +125,25 @@ impl<T> Suspend<T> {
     {
         let subscriber = SuspendSubscriber::new();
         let any_subscriber = subscriber.to_any_subscriber();
-        let inner = any_subscriber
-            .with_observer(|| Box::pin(ScopedFuture::new(fut.into_future())));
-        Self { subscriber, inner }
+
+        let owner = Owner::current()
+            .map(|owner| owner.detached_child())
+            .unwrap_or_default();
+        on_cleanup({
+            let owner = owner.clone();
+            move || drop(owner)
+        });
+
+        let inner = owner.with(|| {
+            any_subscriber.with_observer(|| {
+                Box::pin(ScopedFuture::new(fut.into_future()))
+            })
+        });
+        Self {
+            subscriber,
+            inner,
+            owner,
+        }
     }
 }
 
@@ -142,12 +160,6 @@ where
 {
     inner: Rc<RefCell<OptionState<T>>>,
     owner: Rc<RefCell<Owner>>,
-}
-
-fn view_owner() -> Owner {
-    Owner::current()
-        .map(|owner| owner.detached_child())
-        .unwrap_or_default()
 }
 
 impl<T> Mountable for SuspendState<T>
@@ -182,7 +194,11 @@ where
     type State = SuspendState<T>;
 
     fn build(self) -> Self::State {
-        let Self { subscriber, inner } = self;
+        let Self {
+            subscriber,
+            inner,
+            owner,
+        } = self;
 
         // create a Future that will be aborted on on_cleanup
         // this prevents trying to access signals or other resources inside the Suspend, after the
@@ -196,7 +212,6 @@ where
         // otherwise, start with the fallback
         let initial = fut.as_mut().now_or_never().and_then(Result::ok);
         let initially_pending = initial.is_none();
-        let owner = view_owner();
         let inner = Rc::new(RefCell::new(owner.with(|| initial.build())));
 
         // get a unique ID if there's a SuspenseContext
@@ -238,7 +253,11 @@ where
     }
 
     fn rebuild(self, state: &mut Self::State) {
-        let Self { subscriber, inner } = self;
+        let Self {
+            subscriber,
+            inner,
+            owner,
+        } = self;
 
         // create a Future that will be aborted on on_cleanup
         // this prevents trying to access signals or other resources inside the Suspend, after the
@@ -272,7 +291,6 @@ where
                 // has no parent
                 Executor::tick().await;
                 if let Ok(value) = value {
-                    let owner = view_owner();
                     owner
                         .with(|| Some(value).rebuild(&mut *state.borrow_mut()));
                     // anything the new view kept from the previous one should keep running;
@@ -416,7 +434,11 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        let Self { subscriber, inner } = self;
+        let Self {
+            subscriber,
+            inner,
+            owner,
+        } = self;
 
         // create a Future that will be aborted on on_cleanup
         // this prevents trying to access signals or other resources inside the Suspend, after the
@@ -430,7 +452,6 @@ where
         // otherwise, start with the fallback
         let initial = fut.as_mut().now_or_never().and_then(Result::ok);
         let initially_pending = initial.is_none();
-        let owner = view_owner();
         let inner = Rc::new(RefCell::new(
             owner.with(|| initial.hydrate::<FROM_SERVER>(cursor, position)),
         ));
@@ -478,7 +499,11 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        let Self { subscriber, inner } = self;
+        let Self {
+            subscriber,
+            inner,
+            owner,
+        } = self;
 
         // create a Future that will be aborted on on_cleanup
         // this prevents trying to access signals or other resources inside the Suspend, after the
@@ -500,7 +525,6 @@ where
         };
 
         // if pending, wait so we hydrate the real value against the server's HTML
-        let owner = view_owner();
         let inner = owner
             .with(|| ScopedFuture::new(value.hydrate_async(cursor, position)))
             .await;
