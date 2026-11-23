@@ -60,6 +60,11 @@ pub use stored_value::{FromLocal, StoredValue, store_value};
 #[must_use]
 pub struct Owner {
     pub(crate) inner: Arc<RwLock<OwnerInner>>,
+    /// For a [detached child](Owner::detached_child), its parent: kept alive by every handle
+    /// to the detached owner, so that contexts provided above it can still be found from
+    /// anything created under it. It lives in the handle rather than in [`OwnerInner`], so that
+    /// the parent's own reference to its detached children doesn't form a cycle.
+    parent_guard: Option<Arc<RwLock<OwnerInner>>>,
     #[cfg(feature = "hydration")]
     pub(crate) shared_context: Option<Arc<dyn SharedContext + Send + Sync>>,
 }
@@ -69,6 +74,7 @@ impl Owner {
     pub fn downgrade(&self) -> WeakOwner {
         WeakOwner {
             inner: Arc::downgrade(&self.inner),
+            parent_guard: self.parent_guard.as_ref().map(Arc::downgrade),
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.as_ref().map(Arc::downgrade),
         }
@@ -82,6 +88,7 @@ impl Owner {
 #[derive(Clone)]
 pub struct WeakOwner {
     inner: Weak<RwLock<OwnerInner>>,
+    parent_guard: Option<Weak<RwLock<OwnerInner>>>,
     #[cfg(feature = "hydration")]
     shared_context: Option<Weak<dyn SharedContext + Send + Sync>>,
 }
@@ -97,6 +104,10 @@ impl WeakOwner {
                 self.shared_context.as_ref().and_then(|sc| sc.upgrade());
             Owner {
                 inner,
+                parent_guard: self
+                    .parent_guard
+                    .as_ref()
+                    .and_then(Weak::upgrade),
                 #[cfg(feature = "hydration")]
                 shared_context,
             }
@@ -181,6 +192,7 @@ impl Owner {
                     .unwrap_or_default(),
                 paused: false,
             })),
+            parent_guard: None,
             #[cfg(feature = "hydration")]
             shared_context,
         };
@@ -212,6 +224,7 @@ impl Owner {
                 arena: Default::default(),
                 paused: false,
             })),
+            parent_guard: None,
             #[cfg(feature = "hydration")]
             shared_context,
         };
@@ -233,6 +246,7 @@ impl Owner {
             .and_then(|p| p.upgrade())
             .map(|inner| Owner {
                 inner,
+                parent_guard: None,
                 #[cfg(feature = "hydration")]
                 shared_context: self.shared_context.clone(),
             })
@@ -257,6 +271,7 @@ impl Owner {
                 arena,
                 paused,
             })),
+            parent_guard: None,
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
         };
@@ -266,6 +281,10 @@ impl Owner {
 
     /// Creates a new `Owner` that is a child of this one, but is not disposed when this
     /// owner is cleaned up.
+    ///
+    /// This owner keeps the detached child alive until it is cleaned up or dropped, and every
+    /// handle to the detached child keeps this owner alive, so that contexts provided here or
+    /// above can still be found from the detached child for as long as it lives.
     pub fn detached_child(&self) -> Self {
         let mut inner = self.inner.write().or_poisoned();
         let child = Self {
@@ -280,10 +299,11 @@ impl Owner {
                 arena: inner.arena.clone(),
                 paused: inner.paused,
             })),
+            parent_guard: Some(Arc::clone(&self.inner)),
             #[cfg(feature = "hydration")]
             shared_context: self.shared_context.clone(),
         };
-        push_weak(&mut inner.detached, &child.inner);
+        inner.push_detached(&child.inner);
         child
     }
 
@@ -489,7 +509,7 @@ impl Owner {
                 let mut curr = curr.write().or_poisoned();
                 curr.paused = true;
                 stack.extend(curr.children.iter().map(Weak::clone));
-                stack.extend(curr.detached.iter().map(Weak::clone));
+                stack.extend(curr.detached.iter().map(Arc::downgrade));
             }
         }
     }
@@ -513,7 +533,7 @@ impl Owner {
                 let mut curr = curr.write().or_poisoned();
                 curr.paused = false;
                 stack.extend(curr.children.iter().map(Weak::clone));
-                stack.extend(curr.detached.iter().map(Weak::clone));
+                stack.extend(curr.detached.iter().map(Arc::downgrade));
             }
         }
     }
@@ -574,7 +594,9 @@ pub(crate) struct OwnerInner {
     pub contexts: FxHashMap<TypeId, Box<dyn Any + Send + Sync>>,
     pub cleanups: Vec<Box<dyn FnOnce() + Send + Sync>>,
     pub children: Vec<Weak<RwLock<OwnerInner>>>,
-    detached: Vec<Weak<RwLock<OwnerInner>>>,
+    /// Strong, so that a detached child lives at least as long as its parent; see
+    /// [`Owner::detached_child`].
+    detached: Vec<Arc<RwLock<OwnerInner>>>,
     #[cfg(feature = "sandboxed-arenas")]
     arena: Arc<RwLock<ArenaMap>>,
     paused: bool,
@@ -582,20 +604,23 @@ pub(crate) struct OwnerInner {
 
 impl OwnerInner {
     fn push_child(&mut self, child: &Arc<RwLock<OwnerInner>>) {
-        push_weak(&mut self.children, child);
+        // Prune dead `Weak`s when `children` would reallocate: a long-lived
+        // parent, such as a `<For>` whose rows come from `Owner::new`, would
+        // otherwise accumulate them and walk them on cleanup. Reserving room
+        // for the live children makes the next scan wait at least that many
+        // pushes, so this stays amortized O(1) even when few die in between.
+        if !self.children.is_empty()
+            && self.children.len() == self.children.capacity()
+        {
+            self.children.retain(|child| child.strong_count() > 0);
+            self.children.reserve(self.children.len());
+        }
+        self.children.push(Arc::downgrade(child));
     }
-}
 
-fn push_weak(
-    list: &mut Vec<Weak<RwLock<OwnerInner>>>,
-    child: &Arc<RwLock<OwnerInner>>,
-) {
-    // Prune dead `Weak`s when the list would reallocate
-    if !list.is_empty() && list.len() == list.capacity() {
-        list.retain(|child| child.strong_count() > 0);
-        list.reserve(list.len());
+    fn push_detached(&mut self, child: &Arc<RwLock<OwnerInner>>) {
+        self.detached.push(Arc::clone(child));
     }
-    list.push(Arc::downgrade(child));
 }
 
 impl Debug for OwnerInner {
@@ -658,14 +683,13 @@ impl Cleanup for RwLock<OwnerInner> {
         #[cfg(feature = "sandboxed-arenas")]
         let _restore = RestoreArena::try_install(&arena);
 
-        let (cleanups, nodes, children) = {
+        let (cleanups, nodes, children, detached) = {
             let mut lock = self.write().or_poisoned();
-            // detached children manage their own lifetime: just forget them
-            lock.detached.clear();
             (
                 mem::take(&mut lock.cleanups),
                 mem::take(&mut lock.nodes),
                 mem::take(&mut lock.children),
+                mem::take(&mut lock.detached),
             )
         };
         for child in children {
@@ -676,6 +700,9 @@ impl Cleanup for RwLock<OwnerInner> {
         for cleanup in cleanups {
             cleanup();
         }
+        // detached children are not cleaned up, but no longer kept alive by this owner:
+        // they are disposed of whenever the last handle to them is dropped
+        drop(detached);
 
         if !nodes.is_empty() {
             let mut nodes_to_drop = Vec::with_capacity(nodes.len());
@@ -865,5 +892,74 @@ mod tests {
                 |outer| outer.cleanup(),
             );
         }));
+    }
+
+    #[derive(Clone, PartialEq, Debug)]
+    struct DetachedMarker;
+
+    /// A handle to a detached child, including one captured with `Owner::current()`
+    /// while it is set, keeps its parent's contexts reachable after the parent's own
+    /// handles are gone.
+    #[test]
+    fn detached_child_handle_keeps_parent_alive() {
+        let root = Owner::new();
+        root.with(|| provide_context(DetachedMarker));
+        let parent = root.child();
+        let detached = parent.detached_child();
+        let captured = detached.with(|| Owner::current().unwrap());
+        let weak_parent = parent.downgrade();
+        drop(parent);
+        drop(detached);
+
+        assert!(weak_parent.upgrade().is_some());
+        assert_eq!(
+            captured.with(use_context::<DetachedMarker>),
+            Some(DetachedMarker)
+        );
+
+        drop(captured);
+        assert!(weak_parent.upgrade().is_none());
+    }
+
+    /// The parent keeps its detached children alive, and they keep it alive, without
+    /// forming a cycle: dropping every outside handle frees both.
+    #[test]
+    fn detached_child_does_not_leak_parent() {
+        let parent = Owner::new();
+        let detached = parent.detached_child();
+        let weak_parent = parent.downgrade();
+        let weak_detached = detached.downgrade();
+
+        // the parent alone keeps the detached child alive
+        drop(detached);
+        assert!(weak_detached.upgrade().is_some());
+
+        drop(parent);
+        assert!(weak_parent.upgrade().is_none());
+        assert!(weak_detached.upgrade().is_none());
+    }
+
+    /// Cleaning up the parent doesn't dispose of a detached child that is still held,
+    /// but stops the parent from keeping it alive.
+    #[test]
+    fn detached_child_survives_parent_cleanup() {
+        let parent = Owner::new();
+        let detached = parent.detached_child();
+        let cleaned = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        detached.with(|| {
+            let cleaned = Arc::clone(&cleaned);
+            on_cleanup(move || {
+                cleaned.store(true, std::sync::atomic::Ordering::SeqCst)
+            });
+        });
+        let weak_detached = detached.downgrade();
+
+        parent.cleanup();
+        assert!(!cleaned.load(std::sync::atomic::Ordering::SeqCst));
+        assert!(weak_detached.upgrade().is_some());
+
+        drop(detached);
+        assert!(cleaned.load(std::sync::atomic::Ordering::SeqCst));
+        assert!(weak_detached.upgrade().is_none());
     }
 }

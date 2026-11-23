@@ -129,10 +129,6 @@ impl<T> Suspend<T> {
         let owner = Owner::current()
             .map(|owner| owner.detached_child())
             .unwrap_or_default();
-        on_cleanup({
-            let owner = owner.clone();
-            move || drop(owner)
-        });
 
         let inner = owner.with(|| {
             any_subscriber.with_observer(|| {

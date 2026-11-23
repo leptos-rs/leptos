@@ -283,3 +283,15 @@ fn suspense_pauses_previous_nested_suspend_while_rerun_is_pending() {
 fn transition_pauses_previous_nested_suspend_while_rerun_is_pending() {
     previous_nested_suspend::<true>();
 }
+
+#[test]
+fn dropping_root_owner_frees_suspend_without_cleanup() {
+    let root = Owner::new();
+    let weak = root.downgrade();
+    root.with(|| {
+        let suspend = tachys::reactive_graph::Suspend::new(async { "ready" });
+        drop(suspend);
+    });
+    drop(root);
+    assert!(weak.upgrade().is_none(), "root owner leaked");
+}
