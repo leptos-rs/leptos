@@ -7,15 +7,14 @@ use crate::{
 use hydration_context::SerializedDataIdScope;
 use leptos_macro::component;
 use reactive_graph::{
-    computed::{ArcMemo, suspense::SuspenseContext},
+    computed::suspense::SuspenseContext,
     effect::Effect,
     owner::{Owner, provide_context, use_context},
     signal::ArcRwSignal,
-    traits::{Get, Set, Track, With, WithUntracked},
+    traits::{Get, Set},
     wrappers::write::SignalSetter,
 };
 use slotmap::{DefaultKey, SlotMap};
-use std::sync::Arc;
 use tachys::reactive_graph::OwnedView;
 #[cfg(erase_components)]
 use tachys::view::any_view::IntoMaybeErased;
@@ -117,19 +116,11 @@ where
         let children = children.into_inner()();
         let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
         provide_context(SuspenseContext::new(tasks.clone()));
-        let none_pending = ArcMemo::new({
-            let tasks = tasks.clone();
-            move |prev: Option<&bool>| {
-                tasks.track();
-                if prev.is_none() && starts_local {
-                    false
-                } else {
-                    tasks.with(SlotMap::is_empty)
-                }
-            }
-        });
-        let has_tasks =
-            Arc::new(move || !tasks.with_untracked(SlotMap::is_empty));
+        let none_pending = crate::suspense_component::none_pending_memo(
+            tasks.clone(),
+            starts_local,
+        );
+        let has_tasks = crate::suspense_component::has_tasks_fn(tasks);
         if let Some(set_pending) = set_pending {
             Effect::new_isomorphic({
                 let none_pending = none_pending.clone();
