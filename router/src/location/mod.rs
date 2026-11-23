@@ -361,7 +361,9 @@ where
             // we've passed all the checks to navigate on the client side, so we prevent the
             // default behavior of the click
             ev.prevent_default();
-            let to = path_name
+            // push the path as the browser parsed it from the href, without decoding it: a
+            // decoded path changes what a reload or back/forward resolves (#5000)
+            let to = url.path.clone()
                 + if url.search.is_empty() { "" } else { "?" }
                 + &url.search
                 + &url.hash;

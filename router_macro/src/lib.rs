@@ -295,7 +295,7 @@ impl ToTokens for Segments {
 /// ```
 ///
 /// [`impl LazyRoute`]: https://docs.rs/leptos_router/latest/leptos_router/trait.LazyRoute.html
-/// [`lazy`]: https://docs.rs/leptos_macro/latest/leptos_macro/macro.lazy.html
+/// [`lazy`]: https://docs.rs/leptos_macro/latest/leptos_macro/attr.lazy.html
 #[proc_macro_attribute]
 pub fn lazy_route(
     args: proc_macro::TokenStream,
