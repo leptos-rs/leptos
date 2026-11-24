@@ -461,21 +461,23 @@ mod tests {
 
     #[cfg(feature = "embed")]
     #[tokio::test]
-    async fn configuration_serves_embedded_pkg_under_site_pkg_url() {
+    async fn configuration_serves_pkg_from_the_embedded_site_root() {
         use leptos_axum::rust_embed::{self, Embed};
 
         // Reuse the tracked service_mode/public/robots.txt fixture.
         #[derive(Clone, Copy, Embed)]
         #[folder = "tests/service_mode/public"]
-        #[prefix = "/pkg/"]
-        struct TestPkg;
+        #[prefix = "/bundle/"]
+        struct TestSiteRoot;
 
         let options = LeptosOptions::builder()
             .output_name("app")
+            .site_root("site")
+            .site_pkg_root("site/bundle")
             .site_pkg_url("assets")
             .build();
         let app = Router::new().leptos_route_configure(
-            leptos_axum::RouterConfiguration::embed(TestPkg)
+            leptos_axum::RouterConfiguration::embed(TestSiteRoot)
                 .app(App)
                 .shell(conf_shell)
                 .state(options),
@@ -484,7 +486,97 @@ mod tests {
         let (status, body) = get(app.clone(), "/assets/robots.txt").await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, include_str!("service_mode/public/robots.txt"));
-        let (status, _) = get(app, "/pkg/robots.txt").await;
+        let (status, _) = get(app, "/bundle/robots.txt").await;
         assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[cfg(feature = "embed")]
+    #[tokio::test]
+    async fn configuration_keeps_the_site_root_with_a_separate_pkg_embed() {
+        use leptos_axum::{
+            RouterConfiguration,
+            rust_embed::{self, Embed},
+        };
+
+        #[derive(Clone, Copy, Embed)]
+        #[folder = "tests/service_mode/public"]
+        #[prefix = "/"]
+        struct TestSiteRoot;
+
+        #[derive(Clone, Copy, Embed)]
+        #[folder = "tests/service_mode/style"]
+        #[prefix = "/"]
+        struct TestPkg;
+
+        let options = LeptosOptions::builder()
+            .output_name("app")
+            .site_root("site")
+            .site_pkg_root("build/pkg")
+            .site_pkg_url("assets")
+            .build();
+        let app = Router::new().leptos_route_configure(
+            RouterConfiguration::embed_with_assets(TestSiteRoot)
+                .enable_embed_site_pkg(TestPkg)
+                .app(App)
+                .shell(conf_shell)
+                .state(options),
+        );
+
+        for (path, body) in [
+            (
+                "/assets/main.css",
+                include_str!("service_mode/style/main.css"),
+            ),
+            (
+                "/robots.txt",
+                include_str!("service_mode/public/robots.txt"),
+            ),
+        ] {
+            assert_eq!(
+                get(app.clone(), path).await,
+                (StatusCode::OK, body.into())
+            );
+        }
+        assert_eq!(
+            get(app, "/assets/robots.txt").await.0,
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[cfg(feature = "embed")]
+    #[tokio::test]
+    async fn configuration_skips_pkg_outside_the_embedded_site_root() {
+        use leptos_axum::{
+            RouterConfiguration,
+            rust_embed::{self, Embed},
+        };
+
+        #[derive(Clone, Copy, Embed)]
+        #[folder = "tests/service_mode/public"]
+        #[prefix = "/"]
+        struct TestSiteRoot;
+
+        let options = LeptosOptions::builder()
+            .output_name("app")
+            .site_root("site")
+            .site_pkg_root("site/../pkg")
+            .site_pkg_url("assets")
+            .build();
+        let app: Router = Router::new().leptos_route_configure(
+            RouterConfiguration::embed(TestSiteRoot)
+                .app(App)
+                .shell(conf_shell)
+                .state(options),
+        );
+        // The pkg did not claim this route.
+        let app = app.route(
+            "/assets/{*path}",
+            axum::routing::get(|| async { "custom" }),
+        );
+
+        assert_eq!(
+            get(app, "/assets/app.js").await,
+            (StatusCode::OK, "custom".into())
+        );
     }
 }

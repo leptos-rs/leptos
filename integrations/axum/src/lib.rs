@@ -98,7 +98,10 @@ pub(crate) mod private {
     pub trait Sealed {}
 
     impl<S> Sealed for axum::Router<S> {}
-    impl<APP, CX, SH, S, SR> Sealed for RouterConfiguration<APP, CX, SH, S, SR> {}
+    impl<APP, CX, SH, S, SR, SP> Sealed
+        for RouterConfiguration<APP, CX, SH, S, SR, SP>
+    {
+    }
 }
 
 mod config;
