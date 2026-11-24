@@ -7,7 +7,7 @@
 //! [`examples`](https://github.com/leptos-rs/leptos/tree/main/examples)
 //! directory in the Leptos repository.
 
-use actix_files::NamedFile;
+use actix_files::{Files, NamedFile};
 use actix_http::header::{ACCEPT, HeaderName, HeaderValue, LOCATION, REFERER};
 use actix_web::{
     dev::{ServiceFactory, ServiceRequest},
@@ -1845,6 +1845,23 @@ impl LeptosRoutes for &mut ServiceConfig {
     }
 }
 
+/// Serves [`LeptosOptions::site_pkg_path`] at the configured pkg URL.
+///
+/// Actix uses the first matching service. Register the service with the
+/// longer URL first. Register this service before [`site_root_files`] when
+/// the URLs are equal.
+pub fn site_pkg_files(options: &LeptosOptions) -> Files {
+    Files::new(&options.site_pkg_route_base(), options.site_pkg_path())
+}
+
+/// Serves the site root at [`LeptosOptions::site_root_route_base`].
+///
+/// Actix uses the first matching service. Register the service with the
+/// longer URL first. Register [`site_pkg_files`] first when the URLs are equal.
+pub fn site_root_files(options: &LeptosOptions) -> Files {
+    Files::new(&options.site_root_route_base(), &*options.site_root)
+}
+
 /// A helper to make it easier to use Actix extractors in server functions.
 ///
 /// It is generic over some type `T` that implements [`FromRequest`] and can
@@ -1896,9 +1913,66 @@ mod tests {
         ActixResponse, ExtendResponse, HttpResponse, LOCATION, LeptosOptions,
         Method, OrPoisoned, Owner, Request, ResponseOptions, SsrMode, header,
         provide_context, redirect, render_app_to_stream_with_context,
-        unsupported_ssr_mode_route, write_static_route,
+        site_pkg_files, site_root_files, unsupported_ssr_mode_route,
+        write_static_route,
     };
-    use actix_web::test::TestRequest;
+    use actix_web::{
+        App,
+        http::StatusCode,
+        test::{TestRequest, call_service, init_service, read_body},
+    };
+
+    #[actix_web::test]
+    async fn site_files_serve_the_independent_mounts() {
+        let dir = std::env::temp_dir()
+            .join(format!("leptos_actix_site_files_{}", std::process::id()));
+        let root = dir.join("site");
+        let pkg = dir.join("build/pkg");
+        for path in [&pkg, &root.join("assets"), &root.join("pkg")] {
+            std::fs::create_dir_all(path).unwrap();
+        }
+        std::fs::write(pkg.join("app.js"), "pkg js").unwrap();
+        std::fs::write(root.join("assets/app.js"), "site root js").unwrap();
+        std::fs::write(root.join("pkg/readme.txt"), "user file").unwrap();
+
+        let options = LeptosOptions::builder()
+            .output_name("app")
+            .site_root(root.to_string_lossy().into_owned())
+            .site_root_url("/static")
+            .site_pkg_root(pkg.to_string_lossy().into_owned())
+            .site_pkg_url("/static/assets")
+            .build();
+        let app = init_service(
+            App::new()
+                .service(site_pkg_files(&options))
+                .service(site_root_files(&options)),
+        )
+        .await;
+
+        for (path, body) in [
+            ("/static/assets/app.js", "pkg js"),
+            ("/static/pkg/readme.txt", "user file"),
+        ] {
+            let req = TestRequest::get().uri(path).to_request();
+            let response = call_service(&app, req).await;
+            assert_eq!(response.status(), StatusCode::OK, "{path}");
+            assert_eq!(
+                &read_body(response).await[..],
+                body.as_bytes(),
+                "{path}"
+            );
+        }
+        for path in ["/static/pkg/app.js", "/pkg/readme.txt"] {
+            let req = TestRequest::get().uri(path).to_request();
+            assert_eq!(
+                call_service(&app, req).await.status(),
+                StatusCode::NOT_FOUND,
+                "{path}"
+            );
+        }
+
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     // A redirect target containing CR/LF cannot be encoded as a header value.
     // `redirect` must skip the redirect instead of panicking, otherwise any
