@@ -1,4 +1,5 @@
 ((root, pkg_path, output_name, wasm_output_name) => {
+	const pkg_url = pkg_path ? `${root}/${pkg_path}` : root;
 	let MOST_RECENT_CHILDREN_CB = [];
 
 	function idle(c) {
@@ -56,9 +57,9 @@
 		}
 	}
 	idle(() => {
-		import(`${root}/${pkg_path}/${output_name}.js`)
+		import(`${pkg_url}/${output_name}.js`)
 			.then(mod => {
-				mod.default({module_or_path: `${root}/${pkg_path}/${wasm_output_name}.wasm`}).then(() => {
+				mod.default({module_or_path: `${pkg_url}/${wasm_output_name}.wasm`}).then(() => {
 					mod.hydrate();
 					hydrateIslands(document.body, mod);
 				});
