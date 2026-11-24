@@ -45,6 +45,11 @@ pub struct LeptosOptions {
     #[builder(setter(into), default=default_site_root())]
     #[serde(default = "default_site_root")]
     pub site_root: Arc<str>,
+    /// The URL path at which the site root is served. Set with
+    /// `site-root-url` or `LEPTOS_SITE_ROOT_URL`. Defaults to `/`.
+    #[builder(setter(into), default=default_site_root_url())]
+    #[serde(default = "default_site_root_url")]
+    pub site_root_url: Arc<str>,
     /// The legacy directory of generated JS, WASM, and CSS files under `site_root`.
     #[deprecated(
         since = "0.9.0",
@@ -56,6 +61,7 @@ pub struct LeptosOptions {
     pub site_pkg_dir: Option<Arc<str>>,
     /// The directory of generated JS, WASM, and CSS files, relative to the
     /// working directory. Set with `site-pkg-root` or `LEPTOS_SITE_PKG_ROOT`.
+    /// It may be inside or outside the site root.
     ///
     /// Defaults to `site_root/pkg`, or `site_root/site_pkg_dir` if the
     /// deprecated `site-pkg-dir` is set.
@@ -64,7 +70,8 @@ pub struct LeptosOptions {
     pub site_pkg_root: Option<Arc<str>>,
     /// The URL path at which the generated JS, WASM, and CSS files are served.
     ///
-    /// Defaults to `/pkg/`, or the URL based on the deprecated `site-pkg-dir`.
+    /// Defaults to `pkg` under `site-root-url`. A deprecated `site-pkg-dir`
+    /// value replaces `pkg` in that default URL.
     #[builder(default, setter(into, strip_option))]
     #[serde(default)]
     pub site_pkg_url: Option<Arc<str>>,
@@ -206,13 +213,10 @@ impl LeptosOptions {
         path
     }
 
-    /// Returns the pkg URL path without leading or trailing slashes.
+    /// Returns the legacy pkg URL path without leading or trailing slashes.
+    /// Use [`Self::site_pkg_route_base`] for the URL under `site_root_url`.
     #[deprecated(since = "0.9.0", note = "use `site_pkg_route_base` instead")]
     pub fn pkg_url_path(&self) -> &str {
-        self.pkg_url_segment()
-    }
-
-    fn pkg_url_segment(&self) -> &str {
         self.site_pkg_url
             .as_deref()
             .unwrap_or_else(|| self.legacy_site_pkg_dir())
@@ -220,11 +224,23 @@ impl LeptosOptions {
     }
 
     /// Returns the pkg URL with leading and trailing slashes, or `/` at the root.
+    /// Without an explicit pkg URL, it uses the site root URL and pkg name.
     pub fn site_pkg_route_base(&self) -> String {
-        match self.pkg_url_segment() {
-            "" => "/".to_owned(),
-            pkg => format!("/{pkg}/"),
+        if let Some(url) = &self.site_pkg_url {
+            return route_base(url);
         }
+        let mut base = self.site_root_route_base();
+        let pkg = self.legacy_site_pkg_dir().trim_matches('/');
+        if !pkg.is_empty() {
+            base.push_str(pkg);
+            base.push('/');
+        }
+        base
+    }
+
+    /// Returns the site root URL with leading and trailing slashes.
+    pub fn site_root_route_base(&self) -> String {
+        route_base(&self.site_root_url)
     }
 
     /// Returns the pkg URL as a route base.
@@ -267,6 +283,7 @@ impl LeptosOptions {
         let options = LeptosOptions {
             output_name: output_name.into(),
             site_root: env_w_default("LEPTOS_SITE_ROOT", "target/site")?.into(),
+            site_root_url: env_w_default("LEPTOS_SITE_ROOT_URL", "/")?.into(),
             site_pkg_dir: env_wo_default("LEPTOS_SITE_PKG_DIR")?
                 .map(Into::into),
             site_pkg_root: env_wo_default("LEPTOS_SITE_PKG_ROOT")?
@@ -304,6 +321,17 @@ impl LeptosOptions {
 
 fn default_site_root() -> Arc<str> {
     ".".into()
+}
+
+fn default_site_root_url() -> Arc<str> {
+    "/".into()
+}
+
+fn route_base(url: &str) -> String {
+    match url.trim_matches('/') {
+        "" => "/".to_owned(),
+        path => format!("/{path}/"),
+    }
 }
 
 fn default_env() -> Env {

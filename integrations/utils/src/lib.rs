@@ -427,8 +427,9 @@ pub fn resolve_site_pkg_dir(options: &LeptosOptions) -> Cow<'_, str> {
 
 /// Resolves a static asset request to a directory and path within it.
 ///
-/// Checks the pkg mount first, then the site root. Returns `None` for path
-/// traversal.
+/// Uses the matching mount with the longer URL path. The pkg mount wins
+/// when the paths are equal. Returns `None` for a path outside both mounts
+/// or for path traversal.
 pub fn resolve_static_dir<'a>(
     options: &'a LeptosOptions,
     request_path: &'a str,
@@ -436,16 +437,18 @@ pub fn resolve_static_dir<'a>(
     if is_path_traversal(request_path) {
         return None;
     }
-    if let Some(path) =
-        strip_route_base(request_path, &options.site_pkg_route_base())
+    let pkg_base = options.site_pkg_route_base();
+    let root_base = options.site_root_route_base();
+    let pkg_path = strip_route_base(request_path, &pkg_base);
+    let root_path = strip_route_base(request_path, &root_base);
+    if let Some(path) = pkg_path
+        && (root_path.is_none() || pkg_base.len() >= root_base.len())
     {
         let dir = options.site_pkg_path().to_string_lossy().into_owned();
         return Some((Cow::Owned(dir), Cow::Borrowed(path)));
     }
-    Some((
-        Cow::Borrowed(&*options.site_root),
-        Cow::Borrowed(request_path),
-    ))
+    root_path
+        .map(|path| (Cow::Borrowed(&*options.site_root), Cow::Borrowed(path)))
 }
 
 fn strip_route_base<'a>(request_path: &'a str, base: &str) -> Option<&'a str> {
@@ -600,12 +603,43 @@ mod tests {
     }
 
     #[test]
-    fn resolve_static_dir_checks_pkg_at_the_url_root_first() {
+    fn resolve_static_dir_prefers_pkg_when_mount_urls_are_equal() {
         let options = opts_with_pkg_url("build/pkg", "/");
         assert_eq!(
             resolve_static_dir(&options, "/app.js"),
             Some(("build/pkg".into(), "/app.js".into()))
         );
+    }
+
+    #[test]
+    fn resolve_static_dir_prefers_the_longer_mount_url() {
+        let mut options = opts_with_pkg_url("build/pkg", "/");
+        options.site_root_url = "/static".into();
+
+        assert_eq!(
+            resolve_static_dir(&options, "/static/robots.txt"),
+            Some(("/var/www/site/static".into(), "/robots.txt".into())),
+        );
+        assert_eq!(
+            resolve_static_dir(&options, "/app.js"),
+            Some(("build/pkg".into(), "/app.js".into())),
+        );
+    }
+
+    #[test]
+    fn resolve_static_dir_checks_both_mounts_under_the_site_root_url() {
+        let mut options = opts_with_pkg("build/pkg");
+        options.site_root_url = "/static".into();
+        assert_eq!(
+            resolve_static_dir(&options, "/static/pkg/app.js"),
+            Some(("build/pkg".into(), "/app.js".into())),
+        );
+        assert_eq!(
+            resolve_static_dir(&options, "/static/robots.txt"),
+            Some(("/var/www/site/static".into(), "/robots.txt".into())),
+        );
+        assert_eq!(resolve_static_dir(&options, "/pkg/app.js"), None);
+        assert_eq!(resolve_static_dir(&options, "/static-other/file"), None);
     }
 
     #[test]

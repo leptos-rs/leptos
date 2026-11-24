@@ -170,6 +170,7 @@ fn loads_independent_pkg_mount_from_cargo_toml() {
     let options = temp_env::with_vars_unset(
         [
             "LEPTOS_SITE_ROOT",
+            "LEPTOS_SITE_ROOT_URL",
             "LEPTOS_SITE_PKG_ROOT",
             "LEPTOS_SITE_PKG_URL",
         ],
@@ -179,6 +180,7 @@ fn loads_independent_pkg_mount_from_cargo_toml() {
 [package.metadata.leptos]
 output-name = "app-test"
 site-root = "site"
+site-root-url = "/static"
 site-pkg-root = "build/pkg"
 site-pkg-url = "/assets"
 "#,
@@ -187,6 +189,7 @@ site-pkg-url = "/assets"
         },
     );
     assert_eq!(options.site_pkg_path(), Path::new("build/pkg"));
+    assert_eq!(options.site_root_route_base(), "/static/");
     assert_eq!(options.site_pkg_route_base(), "/assets/");
 }
 
@@ -197,6 +200,7 @@ async fn get_configuration_from_env() {
         [
             ("LEPTOS_OUTPUT_NAME", Some("app-test")),
             ("LEPTOS_SITE_ROOT", Some("my_target/site")),
+            ("LEPTOS_SITE_ROOT_URL", Some("/static")),
             ("LEPTOS_SITE_PKG_DIR", Some("my_pkg")),
             ("LEPTOS_SITE_PKG_ROOT", Some("custom/pkg")),
             ("LEPTOS_SITE_PKG_URL", Some("my_pkg_url")),
@@ -210,6 +214,7 @@ async fn get_configuration_from_env() {
 
     assert_eq!(config.output_name.as_ref(), "app-test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
+    assert_eq!(config.site_root_url.as_ref(), "/static");
     assert_eq!(config.site_pkg_path(), Path::new("custom/pkg"));
     assert_eq!(config.site_pkg_url.as_deref(), Some("my_pkg_url"));
     assert_eq!(
@@ -224,6 +229,7 @@ async fn get_configuration_from_env() {
         [
             ("LEPTOS_OUTPUT_NAME", None::<&str>),
             ("LEPTOS_SITE_ROOT", None::<&str>),
+            ("LEPTOS_SITE_ROOT_URL", None::<&str>),
             ("LEPTOS_SITE_PKG_DIR", None::<&str>),
             ("LEPTOS_SITE_PKG_ROOT", None::<&str>),
             ("LEPTOS_SITE_PKG_URL", None::<&str>),
@@ -236,6 +242,7 @@ async fn get_configuration_from_env() {
     .await;
 
     assert_eq!(config.site_root.as_ref(), "target/site");
+    assert_eq!(config.site_root_url.as_ref(), "/");
     assert_eq!(config.site_pkg_root, None);
     assert_eq!(config.site_pkg_path(), Path::new("target/site/pkg"));
     assert_eq!(config.site_pkg_url, None);

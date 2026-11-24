@@ -196,10 +196,10 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("app")
             .site_root(site_root.path().to_string_lossy().to_string())
+            .site_root_url("/static")
             .build();
         let app = Router::new().leptos_route_configure(
-            leptos_axum::RouterConfiguration::new()
-                .enable_fs_leptos_site_root("/static")
+            leptos_axum::RouterConfiguration::new_with_assets()
                 .app(App)
                 .shell(conf_shell)
                 .state(options),
@@ -278,10 +278,10 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("app")
             .site_root(site_root.path().to_string_lossy().to_string())
+            .site_root_url("/static")
             .build();
         let app = Router::new().leptos_route_configure(
-            leptos_axum::RouterConfiguration::new()
-                .enable_fs_leptos_site_root("/static")
+            leptos_axum::RouterConfiguration::new_with_assets()
                 .app(RoutedApp)
                 .shell(routed_shell)
                 .state(options),
@@ -370,6 +370,93 @@ mod tests {
         );
         let (status, body) = get(app, "/robots.txt").await;
         assert_eq!((status, body.as_str()), (StatusCode::OK, "robots"));
+    }
+
+    #[tokio::test]
+    async fn configuration_mounts_site_root_and_pkg_under_site_root_url() {
+        let site_root = TempDir::new().unwrap();
+        pkg_dir_with_app_js(&site_root.path().join("pkg"));
+        std::fs::write(site_root.path().join("robots.txt"), "robots").unwrap();
+        let options = LeptosOptions::builder()
+            .output_name("app")
+            .site_root(site_root.path().to_string_lossy().to_string())
+            .site_root_url("/static")
+            .build();
+        let app = Router::new().leptos_route_configure(
+            leptos_axum::RouterConfiguration::new()
+                .enable_fs_leptos_site_root()
+                .app(App)
+                .shell(conf_shell)
+                .state(options),
+        );
+
+        for (path, body) in [
+            ("/static/pkg/app.js", "app js"),
+            ("/static/robots.txt", "robots"),
+        ] {
+            assert_eq!(
+                get(app.clone(), path).await,
+                (StatusCode::OK, body.into())
+            );
+        }
+        for path in ["/pkg/app.js", "/robots.txt"] {
+            assert_eq!(get(app.clone(), path).await.0, StatusCode::NOT_FOUND);
+        }
+    }
+
+    #[tokio::test]
+    async fn configuration_prefers_the_longer_mount_url() {
+        let site_root = TempDir::new().unwrap();
+        let pkg = TempDir::new().unwrap();
+        pkg_dir_with_app_js(pkg.path());
+        std::fs::write(site_root.path().join("robots.txt"), "robots").unwrap();
+        let options = LeptosOptions::builder()
+            .output_name("app")
+            .site_root(site_root.path().to_string_lossy().to_string())
+            .site_root_url("/static")
+            .site_pkg_root(pkg.path().to_string_lossy().to_string())
+            .site_pkg_url("/")
+            .build();
+        let app = Router::new().leptos_route_configure(
+            leptos_axum::RouterConfiguration::new_with_assets()
+                .app(App)
+                .shell(conf_shell)
+                .state(options),
+        );
+
+        for (path, body) in
+            [("/static/robots.txt", "robots"), ("/app.js", "app js")]
+        {
+            assert_eq!(
+                get(app.clone(), path).await,
+                (StatusCode::OK, body.into())
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn configuration_prefers_pkg_when_mount_urls_are_equal() {
+        let site_root = TempDir::new().unwrap();
+        pkg_dir_with_app_js(&site_root.path().join("pkg"));
+        std::fs::write(site_root.path().join("app.js"), "site root js")
+            .unwrap();
+        let options = LeptosOptions::builder()
+            .output_name("app")
+            .site_root(site_root.path().to_string_lossy().to_string())
+            .site_root_url("/assets/")
+            .site_pkg_url("assets")
+            .build();
+        let app = Router::new().leptos_route_configure(
+            leptos_axum::RouterConfiguration::new_with_assets()
+                .app(App)
+                .shell(conf_shell)
+                .state(options),
+        );
+
+        assert_eq!(
+            get(app, "/assets/app.js").await,
+            (StatusCode::OK, "app js".into())
+        );
     }
 
     #[cfg(feature = "embed")]

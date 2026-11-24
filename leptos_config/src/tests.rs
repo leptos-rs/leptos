@@ -222,3 +222,21 @@ fn pkg_dir_warning_is_only_for_nondefault_legacy_values() {
         assert!(warnings[0].contains(key));
     }
 }
+
+#[test]
+#[allow(deprecated)]
+fn site_pkg_url_defaults_to_the_current_site_root_url_and_pkg_name() {
+    let mut options = LeptosOptions::builder().output_name("test").build();
+    assert_eq!(options.site_root_route_base(), "/");
+
+    options.site_root_url = "/static///".into();
+    assert_eq!(options.site_root_route_base(), "/static/");
+    assert_eq!(options.site_pkg_route_base(), "/static/pkg/");
+    assert_eq!(options.css_path(), "/static/pkg/test.css");
+
+    options.site_pkg_dir = Some("/legacy/pkg/".into());
+    assert_eq!(options.site_pkg_route_base(), "/static/legacy/pkg/");
+
+    options.site_pkg_url = Some("/".into());
+    assert_eq!(options.site_pkg_route_base(), "/");
+}

@@ -3020,9 +3020,8 @@ async fn get_static_file(
     }
 }
 
-/// A helper to create a [`ServeDir`] service for the static files under
-/// `LEPTOS_SITE_ROOT`.  This may be further configured before being assigned
-/// as a fallback service or mounted at a URL on the router.
+/// Creates a [`ServeDir`] service for the site root. Mount it at
+/// [`LeptosOptions::site_root_route_base`] or as a fallback service at `/`.
 ///
 /// [`ServeDir`]: tower_http::services::ServeDir
 #[cfg(feature = "default")]

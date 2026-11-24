@@ -67,7 +67,19 @@ mod router {
     impl From<Cli> for Router {
         fn from(cli: Cli) -> Self {
             let conf = get_configuration(None).unwrap();
-            let leptos_options = conf.leptos_options;
+            let mut leptos_options = conf.leptos_options;
+            match cli.mode {
+                Mode::ConfNewFsSiteRootAssets
+                | Mode::ConfEmbedWithSiteRootAssets => {
+                    leptos_options.site_root_url = "/assets".into();
+                }
+                Mode::ConfEmbedWithSiteRootAtRoot
+                | Mode::ConfDefaultEmbedLeptosSiteRoot
+                | Mode::ConfDefaultEmbedMixedFs => {
+                    leptos_options.site_root_url = "/".into();
+                }
+                _ => {}
+            }
             let routes = generate_route_list(App);
 
             match cli.mode {
@@ -266,7 +278,7 @@ mod router {
                         leptos_axum::RouterConfiguration::new()
                             .app(App)
                             .shell(shell)
-                            .enable_fs_leptos_site_root("/assets")
+                            .enable_fs_leptos_site_root()
                             .state(leptos_options.clone()),
                     ),
                 Mode::ConfNewWithAssetsWithContext => Router::new()
@@ -311,14 +323,14 @@ mod router {
                     leptos_axum::RouterConfiguration::embed(SiteRoot)
                         .app(App)
                         .shell(shell)
-                        .set_embed_leptos_site_root_path("/")
+                        .enable_embed_leptos_site_root(SiteRoot)
                         .state(leptos_options.clone()),
                 ),
                 Mode::ConfEmbedWithSiteRootAssets => Router::new().leptos_route_configure(
                     leptos_axum::RouterConfiguration::embed(SiteRoot)
                         .app(App)
                         .shell(shell)
-                        .set_embed_leptos_site_root_path("/assets")
+                        .enable_embed_leptos_site_root(SiteRoot)
                         .state(leptos_options.clone()),
                 ),
                 Mode::ConfDefaultEmbedSitePkg => Router::new()
@@ -335,7 +347,7 @@ mod router {
                             .app(App)
                             .shell(shell)
                             .state(leptos_options.clone())
-                            .enable_embed_leptos_site_root("/", SiteRoot),
+                            .enable_embed_leptos_site_root(SiteRoot),
                     ),
                 Mode::ConfDefaultEmbedMixedFs => Router::new()
                     .leptos_route_configure(
@@ -344,7 +356,7 @@ mod router {
                             .shell(shell)
                             .state(leptos_options.clone())
                             .enable_embed_site_pkg(SitePkg)
-                            .enable_fs_leptos_site_root("/"),
+                            .enable_fs_leptos_site_root(),
                     ),
 
                 Mode::LeptosOptionsCssBase => Router::new().nest(

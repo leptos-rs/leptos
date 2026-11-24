@@ -399,7 +399,10 @@ async fn conf_new_fs_site_root_assets() -> anyhow::Result<()> {
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
     // should provide the two site artifacts.
-    for path in ["/pkg/service_mode.js", "/pkg/service_mode.wasm"] {
+    for path in [
+        "/assets/pkg/service_mode.js",
+        "/assets/pkg/service_mode.wasm",
+    ] {
         let res = service.get(path)?.send().await?;
         assert_eq!(res.status(), StatusCode::OK);
         assert_ne!(res.content_length(), Some(0));
@@ -421,7 +424,7 @@ async fn conf_new_fs_site_root_assets() -> anyhow::Result<()> {
     assert_eq!(res.content_length(), Some(15406));
 
     // The other paths won't be found but will have the standard fallback error page.
-    for path in ["/pkg/no_such_path", "/no_such_path", "/robots.txt"] {
+    for path in ["/assets/pkg/no_such_path", "/no_such_path", "/robots.txt"] {
         let res = service.get(path)?.send().await?;
         assert_eq!(
             res.status(),
@@ -661,7 +664,6 @@ async fn conf_embed_with_site_root_at_root() -> anyhow::Result<()> {
     Ok(())
 }
 
-// This should be identical with the previous one `conf_embed_with_assets`
 #[tokio::test]
 async fn conf_embed_with_site_root_assets() -> anyhow::Result<()> {
     // Ensure that the service is started with a `LEPTOS_SITE_ROOT` pointed at some alternative location to
@@ -681,10 +683,10 @@ async fn conf_embed_with_site_root_assets() -> anyhow::Result<()> {
     assert_eq!(res.status(), StatusCode::OK);
     assert!(res.text().await?.contains("Home Page"));
     // should provide the two site artifacts.
-    let res = service.get("/pkg/service_mode.js")?.send().await?;
+    let res = service.get("/assets/pkg/service_mode.js")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
-    let res = service.get("/pkg/service_mode.wasm")?.send().await?;
+    let res = service.get("/assets/pkg/service_mode.wasm")?.send().await?;
     assert_eq!(res.status(), StatusCode::OK);
     assert_ne!(res.content_length(), Some(0));
     // no fallback rendering anywhere
@@ -711,7 +713,7 @@ async fn conf_embed_with_site_root_assets() -> anyhow::Result<()> {
     assert_eq!(res.content_length(), Some(15406));
 
     // The other paths won't be found but will have the standard fallback error page.
-    for path in ["/pkg/no_such_path", "/no_such_path", "/robots.txt"] {
+    for path in ["/assets/pkg/no_such_path", "/no_such_path", "/robots.txt"] {
         let res = service.get(path)?.send().await?;
         assert_eq!(
             res.status(),
