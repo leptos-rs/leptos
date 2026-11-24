@@ -8,6 +8,7 @@ mod selector;
 use crate::{
     prelude::*,
     signal::RwSignal,
+    traits::SignalOrFn,
     wrappers::{
         read::Signal,
         write::{IntoSignalSetter, SignalSetter},
@@ -163,7 +164,7 @@ where
 #[deprecated = "This function is being removed to conform to Rust idioms. \
                 Please use `Selector::new()` instead."]
 pub fn create_selector<T>(
-    source: impl Fn() -> T + Clone + Send + Sync + 'static,
+    source: impl SignalOrFn<Output = T> + Clone + Send + Sync + 'static,
 ) -> Selector<T>
 where
     T: PartialEq + Eq + Send + Sync + Clone + std::hash::Hash + 'static,
@@ -178,7 +179,7 @@ where
 #[deprecated = "This function is being removed to conform to Rust idioms. \
                 Please use `Selector::new_with_fn()` instead."]
 pub fn create_selector_with_fn<T>(
-    source: impl Fn() -> T + Clone + Send + Sync + 'static,
+    source: impl SignalOrFn<Output = T> + Clone + Send + Sync + 'static,
     f: impl Fn(&T, &T) -> bool + Send + Sync + Clone + 'static,
 ) -> Selector<T>
 where
