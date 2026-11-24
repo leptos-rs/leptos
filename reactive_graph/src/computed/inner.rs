@@ -25,6 +25,9 @@ where
 
 pub(crate) struct MemoInnerReactivity {
     pub(crate) state: ReactiveNodeState,
+    /// Incremented each time `state` is marked, so a run can tell whether it
+    /// was marked again while the memo was computing.
+    pub(crate) generation: u64,
     pub(crate) sources: SourceSet,
     pub(crate) subscribers: SubscriberSet,
     pub(crate) any_subscriber: AnySubscriber,
@@ -54,6 +57,7 @@ where
             owner: Owner::new(),
             reactivity: RwLock::new(MemoInnerReactivity {
                 state: ReactiveNodeState::Dirty,
+                generation: 0,
                 sources: Default::default(),
                 subscribers: SubscriberSet::new(),
                 any_subscriber,
@@ -70,6 +74,7 @@ where
         let subs = {
             let mut lock = self.reactivity.write().or_poisoned();
             lock.state = ReactiveNodeState::Dirty;
+            lock.generation = lock.generation.wrapping_add(1);
             lock.subscribers.clone()
         };
 
@@ -86,6 +91,7 @@ where
                 if lock.state != ReactiveNodeState::Dirty {
                     lock.state = ReactiveNodeState::Check;
                 }
+                lock.generation = lock.generation.wrapping_add(1);
                 lock.subscribers.clone()
             };
 
@@ -130,13 +136,15 @@ where
             /// codegen optimisation:
             fn inner_1(
                 reactivity: &RwLock<MemoInnerReactivity>,
-            ) -> AnySubscriber {
-                let any_subscriber =
-                    reactivity.read().or_poisoned().any_subscriber.clone();
+            ) -> (AnySubscriber, u64) {
+                let (any_subscriber, generation) = {
+                    let lock = reactivity.read().or_poisoned();
+                    (lock.any_subscriber.clone(), lock.generation)
+                };
                 any_subscriber.clear_sources(&any_subscriber);
-                any_subscriber
+                (any_subscriber, generation)
             }
-            let any_subscriber = inner_1(&self.reactivity);
+            let (any_subscriber, generation) = inner_1(&self.reactivity);
 
             let (new_value, changed) = self.owner.with_cleanup(|| {
                 any_subscriber.with_observer(|| {
@@ -155,9 +163,15 @@ where
             /// codegen optimisation:
             fn inner_2(
                 changed: bool,
+                generation: u64,
                 mut reactivity_lock: RwLockWriteGuard<'_, MemoInnerReactivity>,
             ) {
-                reactivity_lock.state = ReactiveNodeState::Clean;
+                // A source marked this memo while it computed, possibly
+                // after `fun` read that source: keep the mark, so the
+                // next read recomputes instead of returning a stale value.
+                if reactivity_lock.generation == generation {
+                    reactivity_lock.state = ReactiveNodeState::Clean;
+                }
 
                 if changed {
                     let subs = reactivity_lock.subscribers.clone();
@@ -174,7 +188,7 @@ where
                     drop(reactivity_lock);
                 }
             }
-            inner_2(changed, reactivity_lock);
+            inner_2(changed, generation, reactivity_lock);
 
             changed
         } else {
