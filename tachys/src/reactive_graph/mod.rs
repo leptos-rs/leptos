@@ -8,7 +8,9 @@ use crate::{
         ToTemplate, add_attr::AddAnyAttr,
     },
 };
-use reactive_graph::effect::RenderEffect;
+use reactive_graph::{
+    computed::ScopedFuture, effect::RenderEffect, owner::Owner,
+};
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -48,6 +50,39 @@ where
     }
 }
 
+/// The owner that's provided each time a reactive function runs.
+#[derive(Default)]
+struct RunOwner(Option<Owner>);
+
+impl RunOwner {
+    fn new_owner(&self) -> Owner {
+        self.run_cleanups();
+        Owner::current()
+            .map(|effect_owner| effect_owner.parent().unwrap_or(effect_owner))
+            .unwrap_or_default()
+            .child()
+    }
+
+    fn run<T>(&mut self, fun: impl FnOnce() -> T) -> T {
+        let owner = self.new_owner();
+        let value = owner.with(fun);
+        self.0 = Some(owner);
+        value
+    }
+
+    fn run_cleanups(&self) {
+        if let Some(owner) = &self.0 {
+            owner.run_cleanups();
+        }
+    }
+}
+
+impl Drop for RunOwner {
+    fn drop(&mut self) {
+        self.run_cleanups();
+    }
+}
+
 impl<F, V> Render for F
 where
     F: ReactiveFunction<Output = V>,
@@ -59,17 +94,20 @@ where
     #[track_caller]
     fn build(mut self) -> Self::State {
         let hook = throw_error::get_error_hook();
+        let mut run_owner = RunOwner::default();
         RenderEffect::new(move |prev| {
             let _guard = hook
                 .as_ref()
                 .map(|h| throw_error::set_error_hook(Arc::clone(h)));
-            let value = self.invoke();
-            if let Some(mut state) = prev {
-                value.rebuild(&mut state);
-                state
-            } else {
-                value.build()
-            }
+            run_owner.run(|| {
+                let value = self.invoke();
+                if let Some(mut state) = prev {
+                    value.rebuild(&mut state);
+                    state
+                } else {
+                    value.build()
+                }
+            })
         })
         .into()
     }
@@ -200,6 +238,7 @@ where
             (cursor, position, hook)
         }
         let (cursor, position, hook) = prep(cursor, position);
+        let mut run_owner = RunOwner::default();
 
         RenderEffect::new(move |prev| {
             /// codegen optimisation:
@@ -211,13 +250,15 @@ where
             }
             let _guard = get_guard(&hook);
 
-            let value = self.invoke();
-            if let Some(mut state) = prev {
-                value.rebuild(&mut state);
-                state
-            } else {
-                value.hydrate::<FROM_SERVER>(&cursor, &position)
-            }
+            run_owner.run(|| {
+                let value = self.invoke();
+                if let Some(mut state) = prev {
+                    value.rebuild(&mut state);
+                    state
+                } else {
+                    value.hydrate::<FROM_SERVER>(&cursor, &position)
+                }
+            })
         })
         .into()
     }
@@ -244,10 +285,12 @@ where
         let (cursor, position, hook) = prep(cursor, position);
 
         let mut fun = self.into_shared();
+        let run_owner = Rc::new(RefCell::new(RunOwner::default()));
 
         RenderEffect::new_with_async_value(
             {
                 let mut fun = fun.clone();
+                let run_owner = Rc::clone(&run_owner);
                 move |prev| {
                     /// codegen optimisation:
                     fn get_guard(
@@ -259,16 +302,28 @@ where
                     }
                     let _guard = get_guard(&hook);
 
-                    let value = fun.invoke();
-                    if let Some(mut state) = prev {
-                        value.rebuild(&mut state);
-                        state
-                    } else {
-                        unreachable!()
-                    }
+                    run_owner.borrow_mut().run(|| {
+                        let value = fun.invoke();
+                        if let Some(mut state) = prev {
+                            value.rebuild(&mut state);
+                            state
+                        } else {
+                            unreachable!()
+                        }
+                    })
                 }
             },
-            async move { fun.invoke().hydrate_async(&cursor, &position).await },
+            async move {
+                let owner = run_owner.borrow().new_owner();
+                run_owner.borrow_mut().0 = Some(owner.clone());
+                owner
+                    .with(|| {
+                        ScopedFuture::new(async move {
+                            fun.invoke().hydrate_async(&cursor, &position).await
+                        })
+                    })
+                    .await
+            },
         )
         .await
         .into()
