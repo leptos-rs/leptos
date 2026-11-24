@@ -64,7 +64,9 @@ use leptos_integration_utils::{
     accept_header_includes_html, build_request_url,
 };
 #[cfg(feature = "default")]
-use leptos_integration_utils::{FileId, StaticHeadersCache};
+use leptos_integration_utils::{
+    FileId, StaticHeadersCache, resolve_site_pkg_dir,
+};
 use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
 use leptos_router::static_routes::{ResolvedStaticPath, StaticResponse};
@@ -2147,13 +2149,10 @@ where
         H: axum::handler::Handler<T, S>,
         T: 'static;
 
-    /// Extends the Axum router with a [`ServeDir`] service with the `LEPTOS_SITE_PKG_DIR` as the
-    /// base route for serving of static files like JS/WASM/CSS from the corresponding directory
-    /// that resides under `LEPTOS_SITE_ROOT`.
+    /// Mounts a [`ServeDir`] service for the generated JS, WASM, and CSS files.
     ///
-    /// When `LEPTOS_SITE_PKG_URL` is set, that is the base route instead, and the files are
-    /// served from `LEPTOS_SITE_PKG_DIR` (which may then be absolute) by
-    /// [`file_and_error_handler`].
+    /// The service uses [`LeptosOptions::site_pkg_dir_route_base`] as its URL.
+    /// A pkg URL of `/` mounts the files at `/{*path}`.
     ///
     /// The shell will be used to generate the error fallback page for the resources that are not found;
     /// typically this would be the same shell passed to [`leptos_routes`] for this current `Router`.
@@ -2191,9 +2190,8 @@ where
     ///     .leptos_route_site_pkg_dir(&leptos_options, shell);
     /// ```
     ///
-    /// Should no fallback or some other alternative fallback service be desired, the setup may be achieved
-    /// using the underlying helpers [`serve_site_root_service_route_path`] and [`site_pkg_dir_service`],
-    /// as long as `LEPTOS_SITE_PKG_URL` is unset.
+    /// Use [`serve_site_pkg_service`] to mount the files with a custom fallback
+    /// or with the default `ServeDir` response for missing files.
     ///
     /// ```
     /// # use axum::Router;
@@ -2219,16 +2217,21 @@ where
     /// #         </html>
     /// #     }
     /// # }
-    /// let app = Router::new()
-    ///     .leptos_routes(&leptos_options, routes, {
+    /// let app: Router<LeptosOptions> =
+    ///     Router::new().leptos_routes(&leptos_options, routes, {
     ///         let leptos_options = leptos_options.clone();
     ///         move || shell(leptos_options.clone())
-    ///     })
-    ///     .route_service(
-    ///         &leptos_axum::serve_site_root_service_route_path(&leptos_options),
-    ///         // modify the following `ServeDir` to suit your specific needs.
-    ///         leptos_axum::serve_site_root_service(&leptos_options),
-    ///     );
+    ///     });
+    /// let base = leptos_options.site_pkg_dir_route_base();
+    /// let service = leptos_axum::serve_site_pkg_service(&leptos_options);
+    /// let app = if base == "/" {
+    ///     app.route_service("/{*path}", service)
+    /// } else {
+    ///     app.nest(
+    ///         base.trim_end_matches('/'),
+    ///         Router::new().route_service("/{*path}", service),
+    ///     )
+    /// };
     /// ```
     ///
     /// [`ServeDir`]: tower_http::services::ServeDir
@@ -2393,22 +2396,35 @@ where
     /// let error_handler =
     ///     ErrorHandler::new_with_context(extra_cx, shell, leptos_options.clone());
     /// # #[cfg(feature = "default")]
-    /// let app = Router::new()
-    ///     .leptos_routes_with_context(&leptos_options, routes, extra_cx, {
+    /// let app = Router::new().leptos_routes_with_context(
+    ///     &leptos_options,
+    ///     routes,
+    ///     extra_cx,
+    ///     {
     ///         let leptos_options = leptos_options.clone();
     ///         move || shell(leptos_options.clone())
-    ///     })
-    ///     .route_service(
-    ///         &serve_site_root_service_route_path(&leptos_options),
-    ///         ServiceBuilder::new()
-    ///             .layer(LeptosContextLayer::new_with_context(extra_cx))
-    ///             .service(
-    ///                 serve_site_root_service(&leptos_options)
-    ///                     .fallback(error_handler.clone()),
-    ///             ),
-    ///     )
-    ///     .fallback_service(error_handler)
-    ///     .with_state(leptos_options);
+    ///     },
+    /// );
+    /// # #[cfg(feature = "default")]
+    /// let app: Router = {
+    ///     let base = leptos_options.site_pkg_dir_route_base();
+    ///     let service = ServiceBuilder::new()
+    ///         .layer(LeptosContextLayer::new_with_context(extra_cx))
+    ///         .service(
+    ///             serve_site_pkg_service(&leptos_options)
+    ///                 .fallback(error_handler.clone()),
+    ///         );
+    ///     let app = if base == "/" {
+    ///         app.route_service("/{*path}", service)
+    ///     } else {
+    ///         app.nest(
+    ///             base.trim_end_matches('/'),
+    ///             Router::new().route_service("/{*path}", service),
+    ///         )
+    ///     };
+    ///     app.fallback_service(error_handler)
+    ///         .with_state(leptos_options)
+    /// };
     /// # #[cfg(feature = "default")]
     /// # app.into_make_service();
     /// ```
@@ -2750,20 +2766,12 @@ where
         // Note that this does not currently address the use case required by #4377(#4394) as
         // `extend_response()` won't be called with the service as provided.
         let options = LeptosOptions::from_ref(options);
-        if options.site_pkg_url.is_some() {
-            // The url no longer mirrors the pkg dir's location under
-            // `site_root`; `file_and_error_handler` maps it to the pkg dir.
-            return self.route(
-                &format!("{}{{*path}}", options.site_pkg_dir_route_base()),
-                get(file_and_error_handler(shell)),
-            );
-        }
-        let path = serve_site_root_service_route_path(&options);
-        let serve_dir = serve_site_root_service(&options)
-            .fallback(ErrorHandler::new(shell, options));
-        let mut router = self;
-        router = router.route_service(&path, serve_dir);
-        router
+        config::StaticRoute::Mount(&options.site_pkg_dir_route_base()).mount(
+            self,
+            serve_site_pkg_service(&options),
+            Some(ErrorHandler::new(shell, options)),
+            None::<fn()>,
+        )
     }
 
     #[cfg_attr(
@@ -3018,18 +3026,21 @@ async fn get_static_file(
 
 /// A helper to create a [`ServeDir`] service for the static files under
 /// `LEPTOS_SITE_ROOT`.  This may be further configured before being assigned
-/// as the fallback service, e.g. to have it replicate the functionality of
-/// `file_and_error_handler`, or it may be attached as a service route on the
-/// router, such as with the path derived from [`serve_site_root_service_route_path`].
-/// [`LeptosRoutes::leptos_route_site_pkg_dir`] is the more convenient and
-/// is the recommended method for the latter option as it will set this up
-/// more directly and in a manner that is consistent with the entirety of the
-/// target application.
+/// as a fallback service or mounted at a URL on the router.
 ///
 /// [`ServeDir`]: tower_http::services::ServeDir
 #[cfg(feature = "default")]
 pub fn serve_site_root_service(options: &LeptosOptions) -> ServeDir {
     ServeDir::new(&*options.site_root)
+        .precompressed_gzip()
+        .precompressed_br()
+}
+
+/// Creates a [`ServeDir`] service for the pkg directory with gzip and Brotli
+/// support. Mount it at [`LeptosOptions::site_pkg_dir_route_base`].
+#[cfg(feature = "default")]
+pub fn serve_site_pkg_service(options: &LeptosOptions) -> ServeDir {
+    ServeDir::new(resolve_site_pkg_dir(options).as_ref())
         .precompressed_gzip()
         .precompressed_br()
 }
@@ -3044,16 +3055,13 @@ pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
     serve_site_root_service(options)
 }
 
-/// A helper for constructing the axum route path from the `LeptosOptions`, can be used
-/// in conjunction with the [`ServeDir`] service produced by [`serve_site_root_service`]
-/// for setting up a routed site pkg service with [`Router::route_service`].
-/// [`LeptosRoutes::leptos_route_site_pkg_dir`] is provided as the recommended
-/// method for setting this up together in a manner that is consistent with the
-/// entirety of the target application. Unlike it, this always routes on
-/// `site_pkg_dir`, ignoring `site_pkg_url`.
-///
-/// [`ServeDir`]: tower_http::services::ServeDir
-/// [`Router::route_service`]: axum::Router::route_service
+/// Returns the legacy wildcard route for serving the pkg from the site root.
+#[deprecated(
+    since = "0.9.0",
+    note = "use `LeptosRoutes::leptos_route_site_pkg_dir` or mount \
+            `serve_site_pkg_service` at \
+            `LeptosOptions::site_pkg_dir_route_base()`"
+)]
 pub fn serve_site_root_service_route_path(options: &LeptosOptions) -> String {
     // The path of the route being built will be constained to serve only the
     // contents of `site_pkg_dir` to avoid conflicts with the root routes.
@@ -3071,10 +3079,12 @@ pub fn serve_site_root_service_route_path(options: &LeptosOptions) -> String {
 }
 
 #[cfg(feature = "default")]
-#[allow(missing_docs)]
+#[allow(deprecated, missing_docs)]
 #[deprecated(
     since = "0.9.0",
-    note = "please use `serve_site_root_service_route_path` instead"
+    note = "use `LeptosRoutes::leptos_route_site_pkg_dir` or mount \
+            `serve_site_pkg_service` at \
+            `LeptosOptions::site_pkg_dir_route_base()`"
 )]
 pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
     serve_site_root_service_route_path(options)

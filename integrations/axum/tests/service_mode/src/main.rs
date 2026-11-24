@@ -134,22 +134,29 @@ mod router {
                             )),
                     )
                     .with_state(leptos_options),
-                Mode::RouteSitePkgNoFallback => Router::new()
-                    .leptos_routes(&leptos_options, routes, {
-                        let leptos_options = leptos_options.clone();
-                        move || shell(leptos_options.clone())
-                    })
-                    .route_service(
-                        &leptos_axum::serve_site_root_service_route_path(
-                            &leptos_options,
-                        ),
-                        leptos_axum::serve_site_root_service(&leptos_options),
-                    )
-                    .fallback_service(ErrorHandler::new(
-                        shell,
-                        leptos_options.clone(),
-                    ))
-                    .with_state(leptos_options),
+                Mode::RouteSitePkgNoFallback => {
+                    let app = Router::new()
+                        .leptos_routes(&leptos_options, routes, {
+                            let leptos_options = leptos_options.clone();
+                            move || shell(leptos_options.clone())
+                        })
+                        .fallback_service(ErrorHandler::new(
+                            shell,
+                            leptos_options.clone(),
+                        ));
+                    let base = leptos_options.site_pkg_dir_route_base();
+                    let service =
+                        leptos_axum::serve_site_pkg_service(&leptos_options);
+                    let app = if base == "/" {
+                        app.route_service("/{*path}", service)
+                    } else {
+                        app.nest(
+                            base.trim_end_matches('/'),
+                            Router::new().route_service("/{*path}", service),
+                        )
+                    };
+                    app.with_state(leptos_options)
+                }
                 Mode::RouteSitePkgDirMethod => Router::new()
                     .leptos_routes(&leptos_options, routes, {
                         let leptos_options = leptos_options.clone();
