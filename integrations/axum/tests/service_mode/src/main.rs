@@ -144,7 +144,7 @@ mod router {
                             shell,
                             leptos_options.clone(),
                         ));
-                    let base = leptos_options.site_pkg_dir_route_base();
+                    let base = leptos_options.site_pkg_route_base();
                     let service =
                         leptos_axum::serve_site_pkg_service(&leptos_options);
                     let app = if base == "/" {

@@ -104,7 +104,6 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("static-cache-hit-headers")
             .site_root(site_root.to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
             .build();
 
         // Do not pre-run the generator: the first request generates the file.

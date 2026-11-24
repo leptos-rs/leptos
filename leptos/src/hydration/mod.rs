@@ -3,10 +3,7 @@
 use crate::{WasmSplitManifest, prelude::*};
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
-use std::{
-    path::PathBuf,
-    sync::{Arc, OnceLock},
-};
+use std::sync::{Arc, OnceLock};
 
 /// Inserts auto-reloading code used in `cargo-leptos`.
 ///
@@ -92,7 +89,7 @@ pub fn HydrationScripts(
         OnceLock::new();
 
     let root = root.as_deref().unwrap_or_default().trim_end_matches('/');
-    let pkg_route_base = options.site_pkg_dir_route_base();
+    let pkg_route_base = options.site_pkg_route_base();
     let pkg_prefix = pkg_route_base.trim_end_matches('/');
     let pkg_path = pkg_prefix.trim_start_matches('/');
 
@@ -137,10 +134,7 @@ pub fn HydrationScripts(
             )
         };
 
-        let site_dir = &options.site_root;
-        let pkg_dir = &options.site_pkg_dir;
-        let path = PathBuf::from(site_dir.to_string());
-        let path = path.join(pkg_dir.to_string()).join(wasm_split_manifest);
+        let path = options.site_pkg_path().join(wasm_split_manifest);
         let file = std::fs::read_to_string(path).ok()?;
 
         let manifest = WasmSplitManifest(ArcStoredValue::new((

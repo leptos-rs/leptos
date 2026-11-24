@@ -64,9 +64,7 @@ use leptos_integration_utils::{
     accept_header_includes_html, build_request_url,
 };
 #[cfg(feature = "default")]
-use leptos_integration_utils::{
-    FileId, StaticHeadersCache, resolve_site_pkg_dir,
-};
+use leptos_integration_utils::{FileId, StaticHeadersCache};
 use leptos_meta::ServerMetaContext;
 #[cfg(feature = "default")]
 use leptos_router::static_routes::{ResolvedStaticPath, StaticResponse};
@@ -2151,7 +2149,7 @@ where
 
     /// Mounts a [`ServeDir`] service for the generated JS, WASM, and CSS files.
     ///
-    /// The service uses [`LeptosOptions::site_pkg_dir_route_base`] as its URL.
+    /// The service uses [`LeptosOptions::site_pkg_route_base`] as its URL.
     /// A pkg URL of `/` mounts the files at `/{*path}`.
     ///
     /// The shell will be used to generate the error fallback page for the resources that are not found;
@@ -2222,7 +2220,7 @@ where
     ///         let leptos_options = leptos_options.clone();
     ///         move || shell(leptos_options.clone())
     ///     });
-    /// let base = leptos_options.site_pkg_dir_route_base();
+    /// let base = leptos_options.site_pkg_route_base();
     /// let service = leptos_axum::serve_site_pkg_service(&leptos_options);
     /// let app = if base == "/" {
     ///     app.route_service("/{*path}", service)
@@ -2407,7 +2405,7 @@ where
     /// );
     /// # #[cfg(feature = "default")]
     /// let app: Router = {
-    ///     let base = leptos_options.site_pkg_dir_route_base();
+    ///     let base = leptos_options.site_pkg_route_base();
     ///     let service = ServiceBuilder::new()
     ///         .layer(LeptosContextLayer::new_with_context(extra_cx))
     ///         .service(
@@ -2766,7 +2764,7 @@ where
         // Note that this does not currently address the use case required by #4377(#4394) as
         // `extend_response()` won't be called with the service as provided.
         let options = LeptosOptions::from_ref(options);
-        config::StaticRoute::Mount(&options.site_pkg_dir_route_base()).mount(
+        config::StaticRoute::Mount(&options.site_pkg_route_base()).mount(
             self,
             serve_site_pkg_service(&options),
             Some(ErrorHandler::new(shell, options)),
@@ -2980,9 +2978,7 @@ async fn get_static_file(
 ) -> Result<Response<Body>, (StatusCode, String)> {
     use axum::http::header::ACCEPT_ENCODING;
 
-    // Resolve the directory to serve from and the path within it. This honors
-    // an absolute `LEPTOS_SITE_PKG_DIR` (whose assets live outside `site_root`)
-    // and rejects path traversal.
+    // Resolve the mount and reject paths that traverse outside it.
     let Some((dir, path)) =
         leptos_integration_utils::resolve_static_dir(options, uri.path())
     else {
@@ -3037,10 +3033,10 @@ pub fn serve_site_root_service(options: &LeptosOptions) -> ServeDir {
 }
 
 /// Creates a [`ServeDir`] service for the pkg directory with gzip and Brotli
-/// support. Mount it at [`LeptosOptions::site_pkg_dir_route_base`].
+/// support. Mount it at [`LeptosOptions::site_pkg_route_base`].
 #[cfg(feature = "default")]
 pub fn serve_site_pkg_service(options: &LeptosOptions) -> ServeDir {
-    ServeDir::new(resolve_site_pkg_dir(options).as_ref())
+    ServeDir::new(options.site_pkg_path())
         .precompressed_gzip()
         .precompressed_br()
 }
@@ -3059,18 +3055,16 @@ pub fn site_pkg_dir_service(options: &LeptosOptions) -> ServeDir {
 #[deprecated(
     since = "0.9.0",
     note = "use `LeptosRoutes::leptos_route_site_pkg_dir` or mount \
-            `serve_site_pkg_service` at \
-            `LeptosOptions::site_pkg_dir_route_base()`"
+            `serve_site_pkg_service` at `LeptosOptions::site_pkg_route_base()`"
 )]
+#[allow(deprecated)]
 pub fn serve_site_root_service_route_path(options: &LeptosOptions) -> String {
-    // The path of the route being built will be constained to serve only the
-    // contents of `site_pkg_dir` to avoid conflicts with the root routes.
+    let pkg_dir = options.site_pkg_dir.as_deref().unwrap_or("pkg");
     let mut path = String::new();
-    // While it shouldn't start with a '/', but check anyway.
-    if !options.site_pkg_dir.starts_with('/') {
+    if !pkg_dir.starts_with('/') {
         path.push('/');
     }
-    path.push_str(&options.site_pkg_dir);
+    path.push_str(pkg_dir);
     if !path.ends_with('/') {
         path.push('/');
     }
@@ -3083,8 +3077,7 @@ pub fn serve_site_root_service_route_path(options: &LeptosOptions) -> String {
 #[deprecated(
     since = "0.9.0",
     note = "use `LeptosRoutes::leptos_route_site_pkg_dir` or mount \
-            `serve_site_pkg_service` at \
-            `LeptosOptions::site_pkg_dir_route_base()`"
+            `serve_site_pkg_service` at `LeptosOptions::site_pkg_route_base()`"
 )]
 pub fn site_pkg_dir_service_route_path(options: &LeptosOptions) -> String {
     serve_site_root_service_route_path(options)

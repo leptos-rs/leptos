@@ -42,6 +42,7 @@ async fn get_configuration_from_file_ok() {
             ("LEPTOS_OUTPUT_NAME", None::<&str>),
             ("LEPTOS_SITE_ROOT", None::<&str>),
             ("LEPTOS_SITE_PKG_DIR", None::<&str>),
+            ("LEPTOS_SITE_PKG_ROOT", None::<&str>),
             ("LEPTOS_SITE_ADDR", None::<&str>),
             ("LEPTOS_RELOAD_PORT", None::<&str>),
             ("LEPTOS_RELOAD_EXTERNAL_PORT", None::<&str>),
@@ -52,7 +53,7 @@ async fn get_configuration_from_file_ok() {
 
     assert_eq!(config.output_name.as_ref(), "app-test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
-    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
+    assert_eq!(config.site_pkg_path(), Path::new("my_target/site/my_pkg"));
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -98,6 +99,7 @@ async fn get_config_from_file_ok() {
             ("LEPTOS_OUTPUT_NAME", None::<&str>),
             ("LEPTOS_SITE_ROOT", None::<&str>),
             ("LEPTOS_SITE_PKG_DIR", None::<&str>),
+            ("LEPTOS_SITE_PKG_ROOT", None::<&str>),
             ("LEPTOS_SITE_ADDR", None::<&str>),
             ("LEPTOS_RELOAD_PORT", None::<&str>),
             ("LEPTOS_RELOAD_EXTERNAL_PORT", None::<&str>),
@@ -108,7 +110,7 @@ async fn get_config_from_file_ok() {
 
     assert_eq!(config.output_name.as_ref(), "app-test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
-    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
+    assert_eq!(config.site_pkg_path(), Path::new("my_target/site/my_pkg"));
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -144,6 +146,7 @@ fn get_config_from_str_content() {
             "LEPTOS_OUTPUT_NAME",
             "LEPTOS_SITE_ROOT",
             "LEPTOS_SITE_PKG_DIR",
+            "LEPTOS_SITE_PKG_ROOT",
             "LEPTOS_SITE_ADDR",
             "LEPTOS_RELOAD_PORT",
             "LEPTOS_RELOAD_EXTERNAL_PORT",
@@ -153,13 +156,38 @@ fn get_config_from_str_content() {
 
     assert_eq!(config.output_name.as_ref(), "app-test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
-    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
+    assert_eq!(config.site_pkg_path(), Path::new("my_target/site/my_pkg"));
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
     );
     assert_eq!(config.reload_port, 8080);
     assert_eq!(config.reload_external_port, Some(8080));
+}
+
+#[test]
+fn loads_independent_pkg_mount_from_cargo_toml() {
+    let options = temp_env::with_vars_unset(
+        [
+            "LEPTOS_SITE_ROOT",
+            "LEPTOS_SITE_PKG_ROOT",
+            "LEPTOS_SITE_PKG_URL",
+        ],
+        || {
+            get_config_from_str(
+                r#"
+[package.metadata.leptos]
+output-name = "app-test"
+site-root = "site"
+site-pkg-root = "build/pkg"
+site-pkg-url = "/assets"
+"#,
+            )
+            .unwrap()
+        },
+    );
+    assert_eq!(options.site_pkg_path(), Path::new("build/pkg"));
+    assert_eq!(options.site_pkg_route_base(), "/assets/");
 }
 
 #[tokio::test]
@@ -170,6 +198,7 @@ async fn get_configuration_from_env() {
             ("LEPTOS_OUTPUT_NAME", Some("app-test")),
             ("LEPTOS_SITE_ROOT", Some("my_target/site")),
             ("LEPTOS_SITE_PKG_DIR", Some("my_pkg")),
+            ("LEPTOS_SITE_PKG_ROOT", Some("custom/pkg")),
             ("LEPTOS_SITE_PKG_URL", Some("my_pkg_url")),
             ("LEPTOS_SITE_ADDR", Some("0.0.0.0:80")),
             ("LEPTOS_RELOAD_PORT", Some("8080")),
@@ -181,7 +210,7 @@ async fn get_configuration_from_env() {
 
     assert_eq!(config.output_name.as_ref(), "app-test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
-    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
+    assert_eq!(config.site_pkg_path(), Path::new("custom/pkg"));
     assert_eq!(config.site_pkg_url.as_deref(), Some("my_pkg_url"));
     assert_eq!(
         config.site_addr,
@@ -196,6 +225,7 @@ async fn get_configuration_from_env() {
             ("LEPTOS_OUTPUT_NAME", None::<&str>),
             ("LEPTOS_SITE_ROOT", None::<&str>),
             ("LEPTOS_SITE_PKG_DIR", None::<&str>),
+            ("LEPTOS_SITE_PKG_ROOT", None::<&str>),
             ("LEPTOS_SITE_PKG_URL", None::<&str>),
             ("LEPTOS_SITE_ADDR", None::<&str>),
             ("LEPTOS_RELOAD_PORT", None::<&str>),
@@ -206,7 +236,8 @@ async fn get_configuration_from_env() {
     .await;
 
     assert_eq!(config.site_root.as_ref(), "target/site");
-    assert_eq!(config.site_pkg_dir.as_ref(), "pkg");
+    assert_eq!(config.site_pkg_root, None);
+    assert_eq!(config.site_pkg_path(), Path::new("target/site/pkg"));
     assert_eq!(config.site_pkg_url, None);
     assert_eq!(
         config.site_addr,
@@ -221,7 +252,7 @@ fn leptos_options_builder_default() {
     let conf = LeptosOptions::builder().output_name("app-test").build();
     assert_eq!(conf.output_name.as_ref(), "app-test");
     assert!(matches!(conf.env, Env::DEV));
-    assert_eq!(conf.site_pkg_dir.as_ref(), "pkg");
+    assert_eq!(conf.site_pkg_path(), Path::new("./pkg"));
     assert_eq!(conf.site_root.as_ref(), ".");
     assert_eq!(
         conf.site_addr,
@@ -239,6 +270,7 @@ fn environment_variable_override() {
             "LEPTOS_OUTPUT_NAME",
             "LEPTOS_SITE_ROOT",
             "LEPTOS_SITE_PKG_DIR",
+            "LEPTOS_SITE_PKG_ROOT",
             "LEPTOS_SITE_ADDR",
             "LEPTOS_RELOAD_PORT",
             "LEPTOS_RELOAD_EXTERNAL_PORT",
@@ -248,7 +280,7 @@ fn environment_variable_override() {
 
     assert_eq!(config.output_name.as_ref(), "app-test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
-    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
+    assert_eq!(config.site_pkg_path(), Path::new("my_target/site/my_pkg"));
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -262,6 +294,7 @@ fn environment_variable_override() {
             ("LEPTOS_OUTPUT_NAME", Some("app-test2")),
             ("LEPTOS_SITE_ROOT", Some("my_target/site2")),
             ("LEPTOS_SITE_PKG_DIR", Some("my_pkg2")),
+            ("LEPTOS_SITE_PKG_ROOT", None),
             ("LEPTOS_SITE_ADDR", Some("0.0.0.0:82")),
             ("LEPTOS_RELOAD_PORT", Some("8082")),
             ("LEPTOS_RELOAD_EXTERNAL_PORT", Some("8082")),
@@ -271,7 +304,7 @@ fn environment_variable_override() {
 
     assert_eq!(config.output_name.as_ref(), "app-test2");
     assert_eq!(config.site_root.as_ref(), "my_target/site2");
-    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg2");
+    assert_eq!(config.site_pkg_path(), Path::new("my_target/site2/my_pkg2"));
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:82").unwrap()

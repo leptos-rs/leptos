@@ -78,7 +78,7 @@ pub fn HashedStylesheet(
         }
     }
     css_file_name.push_str(".css");
-    let pkg_route_base = options.site_pkg_dir_route_base();
+    let pkg_route_base = options.site_pkg_route_base();
     let root = root.unwrap_or_default();
     let root = root.trim_end_matches('/');
 

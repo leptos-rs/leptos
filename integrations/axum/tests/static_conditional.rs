@@ -112,7 +112,6 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("static-conditional")
             .site_root(site_root.to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
             .build();
 
         let (routes, _generator) = generate_route_list_with_ssg(App);
@@ -194,7 +193,6 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("static-gone")
             .site_root(site_root.to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
             .build();
         let (routes, _generator) = generate_route_list_with_ssg(App);
         let app: Router = Router::new()

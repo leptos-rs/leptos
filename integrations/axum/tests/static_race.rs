@@ -76,7 +76,6 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("static-race-repro")
             .site_root(site_root.to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
             .build();
 
         // Deliberately do NOT run the StaticRouteGenerator: the `.html` must

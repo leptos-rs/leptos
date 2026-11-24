@@ -60,7 +60,6 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("app")
             .site_root(site_root.path().to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
             .build();
 
         let (status, body) = get(app(options.clone()), "/pkg/app.js").await;
@@ -71,13 +70,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn serves_site_pkg_dir_under_site_pkg_url() {
+    async fn serves_pkg_from_a_custom_location_inside_the_site_root() {
         let site_root = TempDir::new().unwrap();
-        pkg_dir_with_app_js(&site_root.path().join("pkg"));
+        let pkg = site_root.path().join("custom/pkg");
+        pkg_dir_with_app_js(&pkg);
         let options = LeptosOptions::builder()
             .output_name("app")
             .site_root(site_root.path().to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
+            .site_pkg_root(pkg.to_string_lossy().to_string())
             .site_pkg_url("assets")
             .build();
 
@@ -93,14 +93,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn serves_absolute_site_pkg_dir_under_site_pkg_url() {
+    async fn serves_independent_site_pkg_root_under_site_pkg_url() {
         let site_root = TempDir::new().unwrap();
         let pkg_dir = TempDir::new().unwrap();
         pkg_dir_with_app_js(pkg_dir.path());
         let options = LeptosOptions::builder()
             .output_name("app")
             .site_root(site_root.path().to_string_lossy().to_string())
-            .site_pkg_dir(pkg_dir.path().to_string_lossy().to_string())
+            .site_pkg_root(pkg_dir.path().to_string_lossy().to_string())
             .site_pkg_url("static/app")
             .build();
 
@@ -317,17 +317,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn configuration_serves_relative_pkg_under_site_pkg_url() {
+    async fn configuration_serves_user_files_in_the_default_pkg_dir() {
         let site_root = TempDir::new().unwrap();
-        pkg_dir_with_app_js(&site_root.path().join("pkg"));
+        let pkg = site_root.path().join("pkg");
+        pkg_dir_with_app_js(&pkg);
+        std::fs::write(pkg.join("readme.txt"), "user file").unwrap();
         let options = LeptosOptions::builder()
             .output_name("app")
             .site_root(site_root.path().to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
             .site_pkg_url("assets")
             .build();
         let app = Router::new().leptos_route_configure(
-            leptos_axum::RouterConfiguration::new()
+            leptos_axum::RouterConfiguration::new_with_assets()
                 .app(App)
                 .shell(conf_shell)
                 .state(options),
@@ -338,30 +339,37 @@ mod tests {
         let (status, body) = get(app.clone(), "/assets/missing.js").await;
         assert_eq!(status, StatusCode::NOT_FOUND);
         assert!(body.contains("configuration fallback"));
-        let (status, _) = get(app, "/pkg/app.js").await;
-        assert_eq!(status, StatusCode::NOT_FOUND);
+        let (status, body) = get(app, "/pkg/readme.txt").await;
+        assert_eq!((status, body.as_str()), (StatusCode::OK, "user file"));
     }
 
     #[tokio::test]
-    async fn configuration_serves_absolute_pkg_under_site_pkg_url() {
+    async fn configuration_serves_pkg_outside_the_site_root() {
         let site_root = TempDir::new().unwrap();
         let pkg_dir = TempDir::new().unwrap();
         pkg_dir_with_app_js(pkg_dir.path());
+        std::fs::write(site_root.path().join("robots.txt"), "robots").unwrap();
         let options = LeptosOptions::builder()
             .output_name("app")
             .site_root(site_root.path().to_string_lossy().to_string())
-            .site_pkg_dir(pkg_dir.path().to_string_lossy().to_string())
-            .site_pkg_url("static/app")
+            .site_pkg_root(pkg_dir.path().to_string_lossy().to_string())
+            .site_pkg_url("asset")
             .build();
         let app = Router::new().leptos_route_configure(
-            leptos_axum::RouterConfiguration::new()
+            leptos_axum::RouterConfiguration::new_with_assets()
                 .app(App)
                 .shell(conf_shell)
                 .state(options),
         );
 
-        let (status, body) = get(app, "/static/app/app.js").await;
+        let (status, body) = get(app.clone(), "/asset/app.js").await;
         assert_eq!((status, body.as_str()), (StatusCode::OK, "app js"));
+        assert_eq!(
+            get(app.clone(), "/pkg/app.js").await.0,
+            StatusCode::NOT_FOUND
+        );
+        let (status, body) = get(app, "/robots.txt").await;
+        assert_eq!((status, body.as_str()), (StatusCode::OK, "robots"));
     }
 
     #[cfg(feature = "embed")]
@@ -377,7 +385,6 @@ mod tests {
 
         let options = LeptosOptions::builder()
             .output_name("app")
-            .site_pkg_dir("pkg")
             .site_pkg_url("assets")
             .build();
         let app = Router::new().leptos_route_configure(
