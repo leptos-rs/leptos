@@ -27,6 +27,8 @@ jobs:
           sudo apt-get install -y libglib2.0-dev
       - name: Install cargo-all-features
         run: cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+        env:
+          CARGO_BUILD_WARNINGS: warn
       - name: Install jq
         run: sudo apt-get install jq
       - name: Format the workspace
