@@ -361,7 +361,11 @@ macro_rules! prop_type_str {
 
             fn rebuild(self, state: &mut Self::State, key: &str) {
                 let (el, prev) = state;
-                let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
+                let value = match self {
+                    Some(n) => JsValue::from_str(&n),
+                    None if key == "value" => JsValue::from_str(""),
+                    None => JsValue::UNDEFINED,
+                };
                 Rndr::set_property_or_value(el, key, &value);
                 *prev = value;
             }
@@ -457,7 +461,11 @@ impl IntoProperty for Option<Arc<str>> {
 
     fn rebuild(self, state: &mut Self::State, key: &str) {
         let (el, prev) = state;
-        let value = JsValue::from(self.map(|n| JsValue::from_str(&n)));
+        let value = match self {
+            Some(n) => JsValue::from_str(&n),
+            None if key == "value" => JsValue::from_str(""),
+            None => JsValue::UNDEFINED,
+        };
         Rndr::set_property_or_value(el, key, &value);
         *prev = value;
     }

@@ -381,11 +381,21 @@ impl Attribute for Vec<AnyAttribute> {
                         Rndr::set_inner_html(&old.el, "");
                     }
                     NamedAttributeKey::Property(prop_name) => {
-                        Rndr::set_property(
-                            &old.el,
-                            &prop_name,
-                            &wasm_bindgen::JsValue::UNDEFINED,
-                        );
+                        if prop_name == "value" {
+                            // WebIDL DOMString `.value` coerces `undefined` to `"undefined"`;
+                            // clear both synchronously and in the value queue so pending writes cannot linger.
+                            let empty = wasm_bindgen::JsValue::from_str("");
+                            Rndr::set_property(&old.el, &prop_name, &empty);
+                            Rndr::set_property_or_value(
+                                &old.el, &prop_name, &empty,
+                            );
+                        } else {
+                            Rndr::set_property(
+                                &old.el,
+                                &prop_name,
+                                &wasm_bindgen::JsValue::UNDEFINED,
+                            );
+                        }
                     }
                     NamedAttributeKey::Attribute(key) => {
                         Rndr::remove_attribute(&old.el, &key);
