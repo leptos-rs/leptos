@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions-rust-lang/setup-rust-toolchain@v2
-        with: {toolchain: "nightly-2026-07-20", components: "rustfmt, clippy", target: "wasm32-unknown-unknown", rustflags: ""}
+        with: {toolchain: "nightly-2026-11-26", components: "rustfmt, clippy", target: "wasm32-unknown-unknown", rustflags: ""}
       - name: Install Glib
         run: |
           sudo apt-get update

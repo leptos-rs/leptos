@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        toolchain: [stable, nightly-2026-07-20]
+        toolchain: [stable, nightly-2026-11-26]
         erased_mode: [true, false]
     steps:
       - name: Free Disk Space
