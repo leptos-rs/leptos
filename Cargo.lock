@@ -2042,6 +2042,7 @@ dependencies = [
  "futures",
  "getrandom 0.4.3",
  "hydration_context",
+ "js-sys",
  "leptos-spin-macro",
  "leptos_config",
  "leptos_dom",
@@ -2072,6 +2073,7 @@ dependencies = [
  "typed-builder-macro",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+ "wasm-bindgen-test",
  "wasm_split_helpers",
  "web-sys",
 ]
@@ -2241,6 +2243,7 @@ dependencies = [
  "send_wrapper",
  "tracing",
  "wasm-bindgen",
+ "wasm-bindgen-test",
  "web-sys",
 ]
 

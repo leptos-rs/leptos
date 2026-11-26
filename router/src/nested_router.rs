@@ -73,7 +73,7 @@ where
     outlets: Vec<RouteContext>,
     // TODO loading fallback
     #[allow(clippy::type_complexity)]
-    view: Rc<RefCell<EitherOf3State<(), Fal, AnyView>>>,
+    view: Rc<RefCell<EitherOf3State<(), OwnedView<Fal>, AnyView>>>,
     // held to keep the Owner alive until the router is dropped
     #[allow(unused)]
     outer_owner: Owner,
@@ -109,10 +109,12 @@ where
         let new_match = routes.match_route(url.path());
 
         // start with an empty view because we'll be loading routes async
-        let view = EitherOf3::A(()).build();
+        let view = outer_owner.with(|| EitherOf3::A(()).build());
         let view = Rc::new(RefCell::new(view));
         let matched_view = match new_match {
-            None => EitherOf3::B(fallback()),
+            None => EitherOf3::B(
+                outer_owner.child().with(|| OwnedView::new(fallback())),
+            ),
             Some(route) => {
                 route.build_nested_route(
                     &url,
@@ -133,16 +135,19 @@ where
             let view = Rc::clone(&view);
             let loaders = mem::take(&mut loaders);
             let abort_navigation = abort_navigation.clone();
-            ScopedFuture::new(async move {
-                let triggers =
-                    Abortable::new(join_all(loaders), abort_registration).await;
-                if let Ok(triggers) = triggers {
-                    _ = abort_navigation.write_value().take();
-                    for trigger in triggers {
-                        trigger.notify();
+            outer_owner.with(|| {
+                ScopedFuture::new(async move {
+                    let triggers =
+                        Abortable::new(join_all(loaders), abort_registration)
+                            .await;
+                    if let Ok(triggers) = triggers {
+                        _ = abort_navigation.write_value().take();
+                        for trigger in triggers {
+                            trigger.notify();
+                        }
+                        matched_view.rebuild(&mut *view.borrow_mut());
                     }
-                    matched_view.rebuild(&mut *view.borrow_mut());
-                }
+                })
             })
         });
 
@@ -178,8 +183,12 @@ where
 
         match new_match {
             None => {
-                EitherOf3::<(), Fal, AnyView>::B((self.fallback)())
-                    .rebuild(&mut state.view.borrow_mut());
+                EitherOf3::<(), OwnedView<Fal>, AnyView>::B(
+                    self.outer_owner
+                        .child()
+                        .with(|| OwnedView::new((self.fallback)())),
+                )
+                .rebuild(&mut state.view.borrow_mut());
                 state.outlets.clear();
                 if let Some(loc) = self.location {
                     loc.ready_to_complete();
@@ -257,10 +266,9 @@ where
                 // if the top-level outlet is not rendered yet (fallback, or
                 // the initial load was still pending), show the view instead
                 if !matches!(state.view.borrow().state, EitherOf3::C(_)) {
-                    EitherOf3::<(), Fal, AnyView>::C(top_level_outlet(
-                        &state.outlets,
-                        &self.outer_owner,
-                    ))
+                    EitherOf3::<(), OwnedView<Fal>, AnyView>::C(
+                        top_level_outlet(&state.outlets, &self.outer_owner),
+                    )
                     .rebuild(&mut *state.view.borrow_mut());
                 }
             }
@@ -479,7 +487,9 @@ where
         // start with an empty view because we'll be loading routes async
         let view = Rc::new(RefCell::new(
             match new_match {
-                None => EitherOf3::B(fallback()),
+                None => EitherOf3::B(
+                    outer_owner.child().with(|| OwnedView::new(fallback())),
+                ),
                 Some(route) => {
                     route.build_nested_route(
                         &url,
@@ -535,7 +545,9 @@ where
         // start with an empty view because we'll be loading routes async
         let view = Rc::new(RefCell::new(
             match new_match {
-                None => EitherOf3::B(fallback()),
+                None => EitherOf3::B(
+                    outer_owner.child().with(|| OwnedView::new(fallback())),
+                ),
                 Some(route) => {
                     route.build_nested_route(
                         &url,
@@ -1099,10 +1111,11 @@ fn top_level_outlet(outlets: &[RouteContext], outer_owner: &Owner) -> AnyView {
     let child = outlet.child.clone();
     let view_fn = outlet.view_fn.clone();
     let trigger = outlet.trigger.clone();
-    outer_owner.clone().with(|| {
+    let outlet_owner = outer_owner.child();
+    outlet_owner.with(|| {
         provide_context(child.clone());
         let outer_owner = outer_owner.clone();
-        (move || {
+        OwnedView::new(move || {
             trigger.track();
             let mut view_fn = view_fn.lock().or_poisoned();
             view_fn(outer_owner.child())

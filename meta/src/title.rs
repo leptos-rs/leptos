@@ -5,7 +5,10 @@ use leptos::{
     component,
     oco::Oco,
     prelude::{ArcTrigger, Notify, Track},
-    reactive::{effect::RenderEffect, owner::use_context},
+    reactive::{
+        effect::RenderEffect,
+        owner::{Owner, use_context},
+    },
     tachys::{
         dom::document,
         hydration::Cursor,
@@ -23,14 +26,28 @@ use std::sync::{
 };
 
 /// Contains the current state of the document's `<title>`.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct TitleContext {
     id: Arc<AtomicU32>,
     formatter_stack: Arc<RwLock<Vec<(TitleId, Formatter)>>>,
     text_stack: Arc<RwLock<Vec<(TitleId, TextProp)>>>,
     revalidate: ArcTrigger,
+    owner: Option<Owner>,
     #[allow(clippy::type_complexity)]
     effect: Arc<Mutex<Option<RenderEffect<Option<Oco<'static, str>>>>>>,
+}
+
+impl Default for TitleContext {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            formatter_stack: Default::default(),
+            text_stack: Default::default(),
+            revalidate: Default::default(),
+            owner: Owner::current(),
+            effect: Default::default(),
+        }
+    }
 }
 
 impl core::fmt::Debug for TitleContext {
@@ -56,14 +73,18 @@ impl TitleContext {
 
         let mut effect_lock = self.effect.lock().or_poisoned();
         if effect_lock.is_none() {
-            *effect_lock = Some(RenderEffect::new({
-                move |_| {
+            let make_effect = move || {
+                RenderEffect::new(move |_| {
                     revalidate.track();
                     let text = this.as_string();
                     document().set_title(text.as_deref().unwrap_or_default());
                     text
-                }
-            }));
+                })
+            };
+            *effect_lock = Some(match &self.owner {
+                Some(owner) => owner.with(make_effect),
+                None => make_effect(),
+            });
         }
     }
 

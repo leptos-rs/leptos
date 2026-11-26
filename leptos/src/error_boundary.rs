@@ -2,21 +2,15 @@ use crate::{IntoView, children::TypedChildren};
 use futures::{channel::oneshot, future::join_all};
 use hydration_context::{SerializedDataId, SharedContext};
 use leptos_macro::component;
-use or_poisoned::OrPoisoned;
 use reactive_graph::{
     computed::ArcMemo,
     effect::RenderEffect,
     owner::{ArcStoredValue, Owner, provide_context},
     signal::ArcRwSignal,
-    traits::{Get, Update, With, WithUntracked, WriteValue},
+    traits::{Get, GetUntracked, Update, With, WithUntracked, WriteValue},
 };
 use rustc_hash::FxHashMap;
-use std::{
-    collections::VecDeque,
-    fmt::Debug,
-    mem,
-    sync::{Arc, Mutex},
-};
+use std::{collections::VecDeque, fmt::Debug, mem, sync::Arc};
 #[cfg(erase_components)]
 use tachys::view::any_view::{AnyView, IntoMaybeErased};
 use tachys::{
@@ -29,7 +23,7 @@ use tachys::{
         add_attr::AddAnyAttr,
     },
 };
-use throw_error::{Error, ErrorHook, ErrorId};
+use throw_error::{Error, ErrorHook, ErrorHookFuture, ErrorId};
 
 #[cfg(all(test, any(feature = "csr", feature = "hydrate")))]
 mod tests;
@@ -484,10 +478,23 @@ where
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        let mut children = Some(self.children);
         let hook = Arc::clone(&self.hook);
-        let cursor = cursor.to_owned();
-        let position = position.to_owned();
+        let initial_state = {
+            let _hook = throw_error::set_error_hook(Arc::clone(&hook));
+            let (children, fallback) = if self.errors_empty.get_untracked() {
+                (self.children.hydrate::<FROM_SERVER>(cursor, position), None)
+            } else {
+                (
+                    self.children.build(),
+                    Some(
+                        (self.fallback)(self.errors.clone())
+                            .hydrate::<FROM_SERVER>(cursor, position),
+                    ),
+                )
+            };
+            ErrorBoundaryViewState { children, fallback }
+        };
+        let mut initial = Some(initial_state);
         RenderEffect::new(
             move |prev: Option<
                 ErrorBoundaryViewState<Chil::State, Fal::State>,
@@ -518,23 +525,14 @@ where
                     }
                     state
                 } else {
-                    let children = children.take().unwrap();
-                    let (children, fallback) = if self.errors_empty.get() {
-                        (
-                            children.hydrate::<FROM_SERVER>(&cursor, &position),
-                            None,
-                        )
-                    } else {
-                        (
-                            children.build(),
-                            Some(
-                                (self.fallback)(self.errors.clone())
-                                    .hydrate::<FROM_SERVER>(&cursor, &position),
-                            ),
-                        )
-                    };
-
-                    ErrorBoundaryViewState { children, fallback }
+                    let mut state = initial.take().unwrap();
+                    if !self.errors_empty.get() && state.fallback.is_none() {
+                        state.fallback =
+                            Some((self.fallback)(self.errors.clone()).build());
+                        state.children.insert_before_this(&mut state.fallback);
+                        state.children.unmount();
+                    }
+                    state
                 }
             },
         )
@@ -542,38 +540,32 @@ where
     }
 
     async fn hydrate_async(
-        self,
+        mut self,
         cursor: &Cursor,
         position: &PositionState,
     ) -> Self::State {
-        let mut children = Some(self.children);
         let hook = Arc::clone(&self.hook);
-        let cursor = cursor.to_owned();
-        let position = position.to_owned();
-
-        let fallback_fn = Arc::new(Mutex::new(self.fallback));
-        let initial = {
-            let errors_empty = self.errors_empty.clone();
-            let errors = self.errors.clone();
-            let fallback_fn = Arc::clone(&fallback_fn);
-            async move {
-                let children = children.take().unwrap();
-                let (children, fallback) = if errors_empty.get() {
-                    (children.hydrate_async(&cursor, &position).await, None)
+        let hydrate_initial = {
+            let _hook = throw_error::set_error_hook(Arc::clone(&hook));
+            let errors_empty = self.errors_empty.get_untracked();
+            let fallback =
+                (!errors_empty).then(|| (self.fallback)(self.errors.clone()));
+            let children = self.children;
+            ErrorHookFuture::new(async move {
+                let (children, fallback) = if errors_empty {
+                    (children.hydrate_async(cursor, position).await, None)
                 } else {
                     let children = children.build();
                     let fallback =
-                        (fallback_fn.lock().or_poisoned())(errors.clone());
-                    let fallback =
-                        fallback.hydrate_async(&cursor, &position).await;
+                        fallback.unwrap().hydrate_async(cursor, position).await;
                     (children, Some(fallback))
                 };
-
                 ErrorBoundaryViewState { children, fallback }
-            }
+            })
         };
+        let mut initial = Some(hydrate_initial.await);
 
-        RenderEffect::new_with_async_value(
+        RenderEffect::new(
             move |prev: Option<
                 ErrorBoundaryViewState<Chil::State, Fal::State>,
             >| {
@@ -589,10 +581,7 @@ where
                         // yes errors, and was showing children
                         (false, None) => {
                             state.fallback = Some(
-                                (fallback_fn.lock().or_poisoned())(
-                                    self.errors.clone(),
-                                )
-                                .build(),
+                                (self.fallback)(self.errors.clone()).build(),
                             );
                             state
                                 .children
@@ -606,12 +595,17 @@ where
                     }
                     state
                 } else {
-                    unreachable!()
+                    let mut state = initial.take().unwrap();
+                    if !self.errors_empty.get() && state.fallback.is_none() {
+                        state.fallback =
+                            Some((self.fallback)(self.errors.clone()).build());
+                        state.children.insert_before_this(&mut state.fallback);
+                        state.children.unmount();
+                    }
+                    state
                 }
             },
-            initial,
         )
-        .await
         .into()
     }
 

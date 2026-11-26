@@ -22,6 +22,10 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
     }
 }
 
+fn mark_hydrated(el: leptos::tachys::renderer::types::Element) {
+    let _ = el.set_attribute("data-hydrated", "true");
+}
+
 #[component]
 pub fn App() -> impl IntoView {
     let count = RwSignal::new(0);
@@ -58,6 +62,7 @@ pub fn App() -> impl IntoView {
                 </Routes>
             </ErrorBoundary>
         </Router>
+        <span id="hydrated" hidden use:mark_hydrated/>
     }
 }
 

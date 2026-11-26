@@ -123,7 +123,12 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: fallback().into_any().build(),
+                view: owner.with(|| {
+                    provide_context(params_memo);
+                    provide_context(url.clone());
+                    provide_context(Matched(ArcMemo::from(matched.clone())));
+                    fallback().into_any().build()
+                }),
                 id,
                 owner,
                 params,
@@ -676,9 +681,14 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: fallback()
-                    .into_any()
-                    .hydrate::<FROM_SERVER>(cursor, position),
+                view: owner.with(|| {
+                    provide_context(params_memo);
+                    provide_context(url.clone());
+                    provide_context(Matched(ArcMemo::from(matched.clone())));
+                    fallback()
+                        .into_any()
+                        .hydrate::<FROM_SERVER>(cursor, position)
+                }),
                 id,
                 owner,
                 params,
@@ -771,9 +781,19 @@ where
 
         match new_match {
             None => Rc::new(RefCell::new(FlatRoutesViewState {
-                view: fallback()
-                    .into_any()
-                    .hydrate_async(cursor, position)
+                view: owner
+                    .with(|| {
+                        provide_context(params_memo);
+                        provide_context(url.clone());
+                        provide_context(Matched(ArcMemo::from(
+                            matched.clone(),
+                        )));
+                        ScopedFuture::new(
+                            fallback()
+                                .into_any()
+                                .hydrate_async(cursor, position),
+                        )
+                    })
                     .await,
                 id,
                 owner,
