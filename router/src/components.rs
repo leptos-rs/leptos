@@ -413,8 +413,8 @@ macro_rules! define_protected_route {
             Segments: PossibleRouteMatch + Clone + Send + 'static,
             ViewFn: Fn() -> View + Send + Clone + 'static,
             View: IntoView + 'static,
-            C: Fn() -> Option<bool> + Send + Clone + 'static,
-            PathFn: Fn() -> P + Send + Clone + 'static,
+            C: SignalOrFn<Output = Option<bool>> + Send + Clone + 'static,
+            PathFn: SignalOrFn<Output = P> + Send + Clone + 'static,
             P: Display + 'static,
         {
             let fallback = move || fallback.run();
@@ -426,7 +426,7 @@ macro_rules! define_protected_route {
                 (view! {
                     <Transition fallback=fallback.clone()>
                         {move || {
-                            let condition = condition();
+                            let condition = condition.run();
                             let view = view.clone();
                             let redirect_path = redirect_path.clone();
                             let fallback = fallback.clone();
@@ -434,7 +434,7 @@ macro_rules! define_protected_route {
                                 Some(true) => EitherOf3::A(view()),
                                 #[allow(clippy::unit_arg)]
                                 Some(false) => {
-                                    EitherOf3::B(view! { <Redirect path=redirect_path()/> }.into_inner())
+                                    EitherOf3::B(view! { <Redirect path=redirect_path.run()/> }.into_inner())
                                 }
                                 None => EitherOf3::C(fallback()),
                             })
@@ -495,8 +495,8 @@ macro_rules! define_protected_parent_route {
             Children: MatchNestedRoutes + Send + Clone + 'static,
             ViewFn: Fn() -> View + Send + Clone + 'static,
             View: IntoView + 'static,
-            C: Fn() -> Option<bool> + Send + Clone + 'static,
-            PathFn: Fn() -> P + Send + Clone + 'static,
+            C: SignalOrFn<Output = Option<bool>> + Send + Clone + 'static,
+            PathFn: SignalOrFn<Output = P> + Send + Clone + 'static,
             P: Display + 'static,
         {
             let fallback = move || fallback.run();
@@ -510,7 +510,7 @@ macro_rules! define_protected_parent_route {
                 let view = {
                     let fallback = fallback.clone();
                     move || {
-                        let condition = condition();
+                        let condition = condition.run();
                         let view = view.clone();
                         let redirect_path = redirect_path.clone();
                         let fallback = fallback.clone();
@@ -525,7 +525,7 @@ macro_rules! define_protected_parent_route {
                             Some(true) => EitherOf3::A(owner.with(|| view())),
                             #[allow(clippy::unit_arg)]
                             Some(false) => EitherOf3::B(
-                                view! { <Redirect path=redirect_path()/> }
+                                view! { <Redirect path=redirect_path.run()/> }
                                     .into_inner(),
                             ),
                             None => EitherOf3::C(fallback()),

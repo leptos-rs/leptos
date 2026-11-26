@@ -324,7 +324,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_with_options<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
         #[allow(unused)] // this is used with `feature = "ssr"`
         blocking: bool,
@@ -346,7 +346,12 @@ where
         let refetch = ArcRwSignal::new(0);
         let source = ArcMemo::new({
             let refetch = refetch.clone();
-            move |_| (refetch.get(), run_in_resource_source_signal(&source))
+            move |_| {
+                (
+                    refetch.get(),
+                    run_in_resource_source_signal(|| source.run()),
+                )
+            }
         });
         let suppression = suppression_scope();
         let fun = {
@@ -544,7 +549,7 @@ where
     /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -570,7 +575,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -600,7 +605,7 @@ where
     /// a `Future` whose value will be serialized from the server to the client. If you are on
     /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_str<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -625,7 +630,7 @@ where
     /// This is useful if you need their data to set HTML document metadata or information that
     /// needs to appear in HTTP headers.
     pub fn new_str_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -657,7 +662,7 @@ where
     /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_serde_wb<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -683,7 +688,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_serde_wb_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -716,7 +721,7 @@ where
     /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_miniserde<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -742,7 +747,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_miniserde_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -774,7 +779,7 @@ where
     /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_serde_lite<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -800,7 +805,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_serde_lite_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -835,7 +840,7 @@ where
     /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_rkyv<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -861,7 +866,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_rkyv_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1056,7 +1061,7 @@ where
     /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new_str<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1082,7 +1087,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_str_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1116,7 +1121,7 @@ where
     /// the client, the initial value will be deserialized without re-running that async task.
     #[track_caller]
     pub fn new<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1142,7 +1147,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1175,7 +1180,7 @@ where
     /// a `Future` whose value will be serialized from the server to the client. If you are on
     /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_serde_wb<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1200,7 +1205,7 @@ where
     /// This is useful if you need their data to set HTML document metadata or information that
     /// needs to appear in HTTP headers.
     pub fn new_serde_wb_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1235,7 +1240,7 @@ where
     /// a `Future` whose value will be serialized from the server to the client. If you are on
     /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_miniserde<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1260,7 +1265,7 @@ where
     /// This is useful if you need their data to set HTML document metadata or information that
     /// needs to appear in HTTP headers.
     pub fn new_miniserde_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1294,7 +1299,7 @@ where
     /// a `Future` whose value will be serialized from the server to the client. If you are on
     /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_serde_lite<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1319,7 +1324,7 @@ where
     /// This is useful if you need their data to set HTML document metadata or information that
     /// needs to appear in HTTP headers.
     pub fn new_serde_lite_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1354,7 +1359,7 @@ where
     /// a `Future` whose value will be serialized from the server to the client. If you are on
     /// the client, the initial value will be deserialized without re-running that async task.
     pub fn new_rkyv<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1379,7 +1384,7 @@ where
     /// This is useful if you need their data to set HTML document metadata or information that
     /// needs to appear in HTTP headers.
     pub fn new_rkyv_blocking<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
     ) -> Self
     where
@@ -1418,7 +1423,7 @@ where
     /// needs to appear in HTTP headers.
     #[track_caller]
     pub fn new_with_options<S, Fut>(
-        source: impl Fn() -> S + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = S> + Send + Sync + 'static,
         fetcher: impl Fn(S) -> Fut + Send + Sync + 'static,
         blocking: bool,
     ) -> Resource<T, Ser>

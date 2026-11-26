@@ -1,7 +1,7 @@
 use crate::{
     effect::RenderEffect,
     signal::ArcRwSignal,
-    traits::{Track, Update},
+    traits::{SignalOrFn, Track, Update},
 };
 use or_poisoned::OrPoisoned;
 use rustc_hash::FxHashMap;
@@ -77,14 +77,16 @@ where
     T: PartialEq + Send + Sync + Eq + Clone + Hash + 'static,
 {
     /// Creates a new selector that compares values using [`PartialEq`].
-    pub fn new(source: impl Fn() -> T + Send + Sync + Clone + 'static) -> Self {
+    pub fn new(
+        source: impl SignalOrFn<Output = T> + Send + Sync + Clone + 'static,
+    ) -> Self {
         Self::new_with_fn(source, PartialEq::eq)
     }
 
     /// Creates a new selector that compares values by returning `true` from a comparator function
     /// if the values are the same.
     pub fn new_with_fn(
-        source: impl Fn() -> T + Clone + Send + Sync + 'static,
+        source: impl SignalOrFn<Output = T> + Clone + Send + Sync + 'static,
         f: impl Fn(&T, &T) -> bool + Send + Sync + Clone + 'static,
     ) -> Self {
         let subs: Arc<RwLock<FxHashMap<T, ArcRwSignal<bool>>>> =
@@ -97,7 +99,7 @@ where
             let f = Arc::clone(&f);
             let v = Arc::clone(&v);
             move |prev: Option<T>| {
-                let next_value = source();
+                let next_value = source.run();
                 *v.write().or_poisoned() = Some(next_value.clone());
                 if prev.as_ref() != Some(&next_value) {
                     for (key, signal) in &*subs.read().or_poisoned() {
