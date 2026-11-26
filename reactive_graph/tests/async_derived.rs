@@ -227,3 +227,409 @@ async fn ownerless_derived_publishes_reload_in_own_arena() {
     assert_eq!(first, Some(0));
     assert_eq!(published, Ok(()));
 }
+
+#[cfg(feature = "effects")]
+mod dependency_checks {
+    use super::*;
+    use reactive_graph::{
+        computed::Memo, effect::Effect, traits::GetUntracked,
+    };
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
+
+    fn shared_source() -> (Owner, RwSignal<u32>, Memo<u32>, ArcAsyncDerived<u32>)
+    {
+        let owner = Owner::new();
+        owner.set();
+        let s = RwSignal::new(0);
+        let m = Memo::new(move |_| s.get());
+        // Wake the subscriber through M before waking B's own task.
+        assert_eq!(m.get_untracked(), 0);
+        let b = ArcAsyncDerived::new(move || {
+            let value = s.get();
+            async move { value * 10 }
+        });
+        (owner, s, m, b)
+    }
+
+    async fn settle() {
+        for _ in 0..64 {
+            tokio::task::yield_now().await;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        for _ in 0..64 {
+            tokio::task::yield_now().await;
+        }
+    }
+
+    /// An idle async subscriber must preserve its source's pending reload.
+    #[tokio::test]
+    async fn idle_async_subscriber_preserves_pending_reload() {
+        _ = Executor::init_tokio();
+        let (_owner, s, m, b) = shared_source();
+        let a = ArcAsyncDerived::new({
+            let b = b.clone();
+            move || {
+                let value = (b.get(), m.get());
+                async move { value }
+            }
+        });
+        settle().await;
+        assert_eq!(a.get_untracked(), Some((Some(0), 0)));
+        s.set(1);
+        settle().await;
+        assert_eq!(b.get_untracked(), Some(10));
+        assert_eq!(a.get_untracked(), Some((Some(10), 1)));
+    }
+
+    /// An effect's dependency check must preserve its source's pending reload.
+    #[tokio::test]
+    async fn effect_subscriber_preserves_pending_reload() {
+        _ = Executor::init_tokio();
+        tokio::task::LocalSet::new()
+            .run_until(async {
+                let (_owner, s, m, b) = shared_source();
+                let value = Arc::new(Mutex::new(None));
+                let _effect = Effect::new({
+                    let (b, value) = (b.clone(), Arc::clone(&value));
+                    move || *value.lock().unwrap() = Some((b.get(), m.get()))
+                });
+                settle().await;
+                assert_eq!(*value.lock().unwrap(), Some((Some(0), 0)));
+                s.set(1);
+                settle().await;
+                assert_eq!(b.get_untracked(), Some(10));
+                assert_eq!(*value.lock().unwrap(), Some((Some(10), 1)));
+            })
+            .await;
+    }
+
+    /// A memo's dependency check must preserve its source's pending reload.
+    #[tokio::test]
+    async fn memo_subscriber_preserves_pending_reload() {
+        _ = Executor::init_tokio();
+        let (_owner, s, m, b) = shared_source();
+        let subscriber = Memo::new({
+            let b = b.clone();
+            move |_| (b.get(), m.get())
+        });
+        assert_eq!(subscriber.get_untracked(), (Some(0), 0));
+        settle().await;
+        s.set(1);
+        // Check B before its task gets a chance to reload.
+        _ = subscriber.get_untracked();
+        settle().await;
+        assert_eq!(b.get_untracked(), Some(10));
+        assert_eq!(subscriber.get_untracked(), (Some(10), 1));
+    }
+}
+
+#[cfg(feature = "effects")]
+mod stale_dependencies {
+    use super::*;
+    use reactive_graph::traits::GetUntracked;
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering::SeqCst},
+        },
+        time::Duration,
+    };
+
+    async fn settle() {
+        for _ in 0..64 {
+            tokio::task::yield_now().await;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        for _ in 0..64 {
+            tokio::task::yield_now().await;
+        }
+    }
+
+    /// A signal stops invalidating a derived once a later run stops reading it.
+    #[tokio::test]
+    async fn stops_tracking_unused_signal() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let mode = RwSignal::new(0);
+        let ticker = RwSignal::new(0);
+        let runs = Arc::new(AtomicUsize::new(0));
+        let derived = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                let value = if mode.get() == 0 { ticker.get() } else { 42 };
+                async move { value }
+            }
+        });
+        settle().await;
+        mode.set(1);
+        settle().await;
+        assert_eq!(runs.load(SeqCst), 2);
+        for value in 1..=2 {
+            ticker.set(value);
+            settle().await;
+        }
+        assert_eq!(derived.get_untracked(), Some(42));
+        assert_eq!(runs.load(SeqCst), 2);
+    }
+
+    /// Dependencies first read after an await in a later run remain tracked.
+    #[tokio::test]
+    async fn tracks_dependency_first_read_after_await() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let mode = RwSignal::new(false);
+        let late = RwSignal::new(0);
+        let runs = Arc::new(AtomicUsize::new(0));
+        let derived = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                let read_late = mode.get();
+                async move {
+                    tokio::task::yield_now().await;
+                    if read_late { late.get() } else { 0 }
+                }
+            }
+        });
+        settle().await;
+        mode.set(true);
+        settle().await;
+        assert_eq!(runs.load(SeqCst), 2);
+        late.set(7);
+        settle().await;
+        assert_eq!(derived.get_untracked(), Some(7));
+        assert_eq!(runs.load(SeqCst), 3);
+    }
+}
+
+#[cfg(feature = "effects")]
+mod awaited_derived {
+    use super::*;
+    use futures::FutureExt;
+    use reactive_graph::{
+        graph::{
+            AnySource, AnySubscriber, ReactiveNode, Subscriber, WithObserver,
+        },
+        traits::{GetUntracked, Write},
+    };
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering::SeqCst},
+        },
+        time::Duration,
+    };
+
+    async fn settle() {
+        for _ in 0..64 {
+            tokio::task::yield_now().await;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        for _ in 0..64 {
+            tokio::task::yield_now().await;
+        }
+    }
+
+    /// Awaiting a newly created pending child publishes once without a rerun loop.
+    #[tokio::test]
+    async fn newly_created_child_does_not_invalidate_parent() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let runs = Arc::new(AtomicUsize::new(0));
+        let parent = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                async {
+                    let child = ArcAsyncDerived::new(|| async {
+                        tokio::task::yield_now().await;
+                        42
+                    });
+                    child.await
+                }
+            }
+        });
+        settle().await;
+        assert_eq!(parent.get_untracked(), Some(42));
+        assert_eq!(runs.load(SeqCst), 1);
+    }
+
+    /// Awaiting an existing pending child by reference does not rerun its parent.
+    #[tokio::test]
+    async fn pending_child_by_ref_does_not_invalidate_parent() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let child = ArcAsyncDerived::new(|| async {
+            tokio::task::yield_now().await;
+            42
+        });
+        let runs = Arc::new(AtomicUsize::new(0));
+        let parent = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                let child = child.clone();
+                async move { *child.by_ref().await }
+            }
+        });
+        settle().await;
+        assert_eq!(parent.get_untracked(), Some(42));
+        assert_eq!(runs.load(SeqCst), 1);
+    }
+
+    /// Readiness awaits track later child loads without invalidating the first wait.
+    #[tokio::test]
+    async fn readiness_tracks_subsequent_child_loads() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let source = RwSignal::new(0);
+        let child = ArcAsyncDerived::new(move || {
+            let value = source.get();
+            async move {
+                tokio::task::yield_now().await;
+                value * 10
+            }
+        });
+        let runs = Arc::new(AtomicUsize::new(0));
+        let parent = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                let child = child.clone();
+                async move {
+                    child.ready().await;
+                    child.get_untracked()
+                }
+            }
+        });
+        settle().await;
+        assert_eq!(parent.get_untracked(), Some(Some(0)));
+        assert_eq!(runs.load(SeqCst), 1);
+        source.set(1);
+        settle().await;
+        assert_eq!(parent.get_untracked(), Some(Some(10)));
+        assert_eq!(runs.load(SeqCst), 2);
+    }
+
+    /// Awaiting a pending child still tracks the child's later loads.
+    #[tokio::test]
+    async fn await_tracks_subsequent_child_loads() {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let source = RwSignal::new(0);
+        let child = ArcAsyncDerived::new(move || {
+            let value = source.get();
+            async move {
+                tokio::task::yield_now().await;
+                value * 10
+            }
+        });
+        let runs = Arc::new(AtomicUsize::new(0));
+        let parent = ArcAsyncDerived::new({
+            let runs = Arc::clone(&runs);
+            move || {
+                runs.fetch_add(1, SeqCst);
+                let child = child.clone();
+                async move { child.await }
+            }
+        });
+        settle().await;
+        assert_eq!(parent.get_untracked(), Some(0));
+        assert_eq!(runs.load(SeqCst), 1);
+        source.set(1);
+        settle().await;
+        assert_eq!(parent.get_untracked(), Some(10));
+        assert_eq!(runs.load(SeqCst), 2);
+    }
+
+    async fn writer_locked_child_completes(by_ref: bool) {
+        _ = Executor::init_tokio();
+        let owner = Owner::new();
+        owner.set();
+        let child = ArcAsyncDerived::new(|| async { 42 });
+        let guard = child.write();
+        let parent = ArcAsyncDerived::new({
+            let child = child.clone();
+            move || {
+                let child = child.clone();
+                async move {
+                    if by_ref {
+                        *child.by_ref().await
+                    } else {
+                        child.await
+                    }
+                }
+            }
+        });
+        settle().await;
+        drop(guard);
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(1), parent).await,
+            Ok(42)
+        );
+    }
+
+    /// A notifying writer wakes a reactive awaiter waiting to clone its value.
+    #[tokio::test]
+    async fn writer_locked_value_wakes_awaiter() {
+        writer_locked_child_completes(false).await;
+    }
+
+    /// A notifying writer wakes a reactive awaiter waiting to borrow its value.
+    #[tokio::test]
+    async fn writer_locked_value_wakes_by_ref_awaiter() {
+        writer_locked_child_completes(true).await;
+    }
+
+    /// Tracking permits a writer to acquire the source's locks without deadlocking.
+    #[test]
+    fn tracking_releases_value_and_waker_locks() {
+        struct WritingObserver(ArcAsyncDerived<i32>);
+        impl ReactiveNode for WritingObserver {
+            fn mark_dirty(&self) {}
+            fn mark_check(&self) {}
+            fn mark_subscribers_check(&self) {}
+            fn update_if_necessary(&self) -> bool {
+                false
+            }
+        }
+        impl Subscriber for WritingObserver {
+            fn add_source(&self, _: AnySource) {
+                drop(self.0.write());
+            }
+            fn clear_sources(&self, _: &AnySubscriber) {}
+        }
+
+        // The watchdog must run outside the thread whose poll can block.
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _worker = std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            runtime.block_on(async {
+                _ = Executor::init_tokio();
+                let owner = Owner::new();
+                owner.set();
+                let child = ArcAsyncDerived::new(|| async { 42 });
+                let subscriber: Arc<dyn Subscriber + Send + Sync> =
+                    Arc::new(WritingObserver(child.clone()));
+                let observer = AnySubscriber(0, Arc::downgrade(&subscriber));
+                let value = observer
+                    .with_observer(|| async { child.await }.now_or_never());
+                _ = tx.send(value);
+            });
+        });
+        assert_eq!(rx.recv_timeout(Duration::from_secs(2)), Ok(Some(42)));
+    }
+}

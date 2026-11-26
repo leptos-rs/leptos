@@ -367,12 +367,14 @@ macro_rules! spawn_derived {
                     }
 
                     while rx.next().await.is_some() {
+                        let needs_rerun = || inner.upgrade()
+                            .is_some_and(|inner| ArcAsyncDerivedInner::needs_rerun(&inner));
                         let update_if_necessary = !owner.paused() && if $should_track {
                             any_subscriber
-                                .with_observer(|| any_subscriber.update_if_necessary())
+                                .with_observer(needs_rerun)
                         } else {
                             any_subscriber
-                                .with_observer_untracked(|| any_subscriber.update_if_necessary())
+                                .with_observer_untracked(needs_rerun)
                         };
                         if update_if_necessary || first_run.is_some() {
                             match (value.upgrade(), inner.upgrade(), wakers.upgrade(), loading.upgrade()) {
@@ -381,6 +383,7 @@ macro_rules! spawn_derived {
                                     let owner = inner.read().or_poisoned().owner.clone();
                                     let fut = initial_fut.take().unwrap_or_else(|| {
                                         let fut = if $should_track {
+                                            any_subscriber.clear_sources(&any_subscriber);
                                             owner.with_cleanup(|| {
                                                 any_subscriber
                                                     .with_observer(|| ScopedFuture::new($fun()))
