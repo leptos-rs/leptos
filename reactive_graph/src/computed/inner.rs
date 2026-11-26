@@ -1,7 +1,7 @@
 use crate::{
     graph::{
-        AnySource, AnySubscriber, Observer, ReactiveNode, ReactiveNodeState,
-        Source, SourceSet, Subscriber, SubscriberSet, WithObserver,
+        AnySource, AnySubscriber, Observer, ReactiveNode, Source, SourceSet,
+        Subscriber, SubscriberSet, WithObserver,
     },
     owner::{Owner, Storage, StorageAccess},
 };
@@ -23,8 +23,40 @@ where
     pub(crate) reactivity: RwLock<MemoInnerReactivity>,
 }
 
+/// The current state of a memo.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum MemoState {
+    /// The value is up to date.
+    Clean,
+    /// A source may have changed; check sources before using the value.
+    Check,
+    /// A source has definitely changed; recompute before using the value.
+    Dirty,
+    /// Checking whether any source has changed. The value is present.
+    Checking,
+    /// Recomputing the value. The value has been taken to pass to the memo function.
+    Running,
+    /// Recomputing the value, and has been marked "check" since it began recomputing.
+    /// After running, the memo will be marked `Check`.
+    RunningCheck,
+    /// Recomputing the value, and has been marked "dirty" since it began recomputing.
+    /// After running, the memo will be marked `Dirty`.
+    RunningDirty,
+}
+
+impl MemoState {
+    fn is_running(self) -> bool {
+        matches!(
+            self,
+            MemoState::Running
+                | MemoState::RunningCheck
+                | MemoState::RunningDirty
+        )
+    }
+}
+
 pub(crate) struct MemoInnerReactivity {
-    pub(crate) state: ReactiveNodeState,
+    pub(crate) state: MemoState,
     pub(crate) sources: SourceSet,
     pub(crate) subscribers: SubscriberSet,
     pub(crate) any_subscriber: AnySubscriber,
@@ -53,7 +85,7 @@ where
             fun,
             owner: Owner::new(),
             reactivity: RwLock::new(MemoInnerReactivity {
-                state: ReactiveNodeState::Dirty,
+                state: MemoState::Dirty,
                 sources: Default::default(),
                 subscribers: SubscriberSet::new(),
                 any_subscriber,
@@ -69,7 +101,11 @@ where
     fn mark_dirty(&self) {
         let subs = {
             let mut lock = self.reactivity.write().or_poisoned();
-            lock.state = ReactiveNodeState::Dirty;
+            lock.state = if lock.state.is_running() {
+                MemoState::RunningDirty
+            } else {
+                MemoState::Dirty
+            };
             lock.subscribers.clone()
         };
 
@@ -83,9 +119,16 @@ where
         fn inner(reactivity: &RwLock<MemoInnerReactivity>) {
             let subs = {
                 let mut lock = reactivity.write().or_poisoned();
-                if lock.state != ReactiveNodeState::Dirty {
-                    lock.state = ReactiveNodeState::Check;
-                }
+                lock.state = match lock.state {
+                    MemoState::Running | MemoState::RunningCheck => {
+                        MemoState::RunningCheck
+                    }
+                    MemoState::RunningDirty => MemoState::RunningDirty,
+                    MemoState::Dirty => MemoState::Dirty,
+                    MemoState::Clean
+                    | MemoState::Check
+                    | MemoState::Checking => MemoState::Check,
+                };
                 lock.subscribers.clone()
             };
 
@@ -106,21 +149,35 @@ where
     fn update_if_necessary(&self) -> bool {
         /// codegen optimisation:
         fn needs_update(reactivity: &RwLock<MemoInnerReactivity>) -> bool {
-            let (state, sources) = {
-                let inner = reactivity.read().or_poisoned();
-                (inner.state, inner.sources.clone())
+            let sources = {
+                let mut inner = reactivity.write().or_poisoned();
+                match inner.state {
+                    MemoState::Clean => return false,
+                    // While another thread is running, the value is absent,
+                    // so this thread has to run too.
+                    MemoState::Dirty
+                    | MemoState::Running
+                    | MemoState::RunningCheck
+                    | MemoState::RunningDirty => return true,
+                    MemoState::Check | MemoState::Checking => {
+                        inner.state = MemoState::Checking;
+                        inner.sources.clone()
+                    }
+                }
             };
-            match state {
-                ReactiveNodeState::Clean => false,
-                ReactiveNodeState::Dirty => true,
-                ReactiveNodeState::Check => {
-                    (&sources).into_iter().any(|source| {
-                        source.update_if_necessary()
-                            || reactivity.read().or_poisoned().state
-                                == ReactiveNodeState::Dirty
-                    })
+            let changed = (&sources).into_iter().any(|source| {
+                source.update_if_necessary()
+                    || reactivity.read().or_poisoned().state == MemoState::Dirty
+            });
+            if !changed {
+                // No source changed. Only mark clean if no mark arrived
+                // during the check; otherwise leave it for the next read.
+                let mut inner = reactivity.write().or_poisoned();
+                if inner.state == MemoState::Checking {
+                    inner.state = MemoState::Clean;
                 }
             }
+            changed
         }
 
         if needs_update(&self.reactivity) {
@@ -131,8 +188,14 @@ where
             fn inner_1(
                 reactivity: &RwLock<MemoInnerReactivity>,
             ) -> AnySubscriber {
-                let any_subscriber =
-                    reactivity.read().or_poisoned().any_subscriber.clone();
+                let any_subscriber = {
+                    let mut lock = reactivity.write().or_poisoned();
+
+                    if !lock.state.is_running() {
+                        lock.state = MemoState::Running;
+                    }
+                    lock.any_subscriber.clone()
+                };
                 any_subscriber.clear_sources(&any_subscriber);
                 any_subscriber
             }
@@ -157,7 +220,12 @@ where
                 changed: bool,
                 mut reactivity_lock: RwLockWriteGuard<'_, MemoInnerReactivity>,
             ) {
-                reactivity_lock.state = ReactiveNodeState::Clean;
+                reactivity_lock.state = match reactivity_lock.state {
+                    MemoState::Running => MemoState::Clean,
+                    MemoState::RunningCheck => MemoState::Check,
+                    MemoState::RunningDirty => MemoState::Dirty,
+                    other => other,
+                };
 
                 if changed {
                     let subs = reactivity_lock.subscribers.clone();
@@ -178,13 +246,7 @@ where
 
             changed
         } else {
-            /// codegen optimisation:
-            fn inner(reactivity: &RwLock<MemoInnerReactivity>) -> bool {
-                let mut lock = reactivity.write().or_poisoned();
-                lock.state = ReactiveNodeState::Clean;
-                false
-            }
-            inner(&self.reactivity)
+            false
         }
     }
 }
