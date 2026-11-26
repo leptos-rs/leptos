@@ -17,3 +17,6 @@ convert_case = { workspace = true, default-features = true }
 proc-macro2 = { workspace = true, default-features = true }
 quote = { workspace = true, default-features = true }
 syn = { features = ["full"], workspace = true, default-features = true }
+
+[lints]
+workspace = true

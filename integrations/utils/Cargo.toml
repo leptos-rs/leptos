@@ -35,3 +35,6 @@ fs = ["dep:tokio", "tokio/fs", "tokio/sync", "dep:lru", "dep:or_poisoned"]
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--generate-link-to-definition"]
+
+[lints]
+workspace = true
