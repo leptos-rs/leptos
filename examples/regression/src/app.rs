@@ -3,8 +3,9 @@ use crate::{
     issue_4285::Routes4285, issue_4296::Routes4296, issue_4324::Routes4324,
     issue_4492::Routes4492, issue_4881::Routes4881, issue_4897::Routes4897,
     issue_4908::Routes4908, issue_4968::Routes4968, issue_4971::Routes4971,
-    issue_4980::Routes4980, issue_4985::Routes4985, issue_4992::Routes4992,
-    issue_5000::Routes5000, pr_4015::Routes4015, pr_4091::Routes4091,
+    issue_4980::Routes4980, issue_4985::Routes4985, issue_4991::Routes4991,
+    issue_4992::Routes4992, issue_5000::Routes5000, pr_4015::Routes4015,
+    pr_4091::Routes4091,
 };
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, *};
@@ -59,6 +60,7 @@ pub fn App() -> impl IntoView {
                     <Routes4971/>
                     <Routes4980/>
                     <Routes4985/>
+                    <Routes4991/>
                     <Routes4992/>
                     <Routes5000/>
                 </Routes>
@@ -97,6 +99,7 @@ fn HomePage() -> impl IntoView {
                 <li><a href="/4971">"4971"</a></li>
                 <li><a href="/4980">"4980"</a></li>
                 <li><a href="/4985/suspense">"4985"</a></li>
+                <li><a href="/4991/x%2541/tags/a%252Bb">"4991"</a></li>
                 <li><a href="/4992">"4992"</a></li>
                 <li><a href="/5000">"5000"</a></li>
             </ul>

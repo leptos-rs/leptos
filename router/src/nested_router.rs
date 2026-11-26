@@ -26,7 +26,9 @@ use reactive_graph::{
     computed::{ArcMemo, ScopedFuture},
     owner::{Owner, provide_context, use_context},
     signal::{ArcRwSignal, ArcTrigger},
-    traits::{Get, GetUntracked, Notify, ReadUntracked, Set, Track, Write},
+    traits::{
+        Get, GetUntracked, Notify, ReadUntracked, Set, Track, With, Write,
+    },
     transition::AsyncTransition,
     wrappers::write::SignalSetter,
 };
@@ -673,18 +675,8 @@ where
             .iter()
             .map(|route| (route.params.clone(), route.matched.clone()))
             .unzip();
-        let params_including_parents = {
-            let params = params.clone();
-            ArcMemo::new({
-                move |_| {
-                    parent_params
-                        .iter()
-                        .flat_map(|params| params.get().into_iter())
-                        .chain(params.get())
-                        .collect::<ParamsMap>()
-                }
-            })
-        };
+        let params_including_parents =
+            merge_with_parent_params(parent_params, params.clone());
         let matched_including_parents = {
             let matched = matched.clone();
             ArcMemo::new({
@@ -903,18 +895,10 @@ where
                             }
                         })
                     };
-                    let params_including_parents = {
-                        let params = current.params.clone();
-                        ArcMemo::new({
-                            move |_| {
-                                parent_params
-                                    .iter()
-                                    .flat_map(|params| params.get().into_iter())
-                                    .chain(params.get())
-                                    .collect::<ParamsMap>()
-                            }
-                        })
-                    };
+                    let params_including_parents = merge_with_parent_params(
+                        parent_params,
+                        current.params.clone(),
+                    );
 
                     let (full_tx, full_rx) = oneshot::channel();
                     let full_tx = Mutex::new(Some(full_tx));
@@ -1127,5 +1111,18 @@ where
             let mut view_fn = child.view_fn.lock().or_poisoned();
             view_fn(outer_owner.child())
         }
+    })
+}
+
+fn merge_with_parent_params(
+    parent_params: Vec<ArcRwSignal<ParamsMap>>,
+    params: ArcRwSignal<ParamsMap>,
+) -> ArcMemo<ParamsMap> {
+    ArcMemo::new(move |_| {
+        let mut merged = ParamsMap::new();
+        for params in parent_params.iter().chain(iter::once(&params)) {
+            params.with(|params| merged.extend_decoded(params));
+        }
+        merged
     })
 }
