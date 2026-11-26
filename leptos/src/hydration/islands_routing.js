@@ -56,7 +56,7 @@ async function navigateToPage(
 				diffPages(htmlString);
 				for(const island of document.querySelectorAll("leptos-island")) {
 					if(!island.$$hydrated) {
-						__hydrateIsland(island, island.dataset.component);
+						__hydrateIsland(island, island.dataset.component).catch(console.error);
 						island.$$hydrated = true;
 					}
 				}
