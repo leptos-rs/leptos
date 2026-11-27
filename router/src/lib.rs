@@ -151,6 +151,10 @@ pub use matching::*;
 pub use method::*;
 pub use navigate::*;
 pub use ssr_mode::*;
+#[doc(hidden)]
+pub mod dependencies {
+    pub use futures;
+}
 
 pub(crate) mod view_transition {
     use js_sys::{Function, Promise, Reflect};

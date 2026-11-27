@@ -6,7 +6,7 @@
 
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::Span;
-use quote::{ToTokens, format_ident, quote};
+use quote::{ToTokens, format_ident, quote, quote_spanned};
 use syn::{
     FnArg, Ident, ImplItem, ItemImpl, Path, Type, TypePath, parse_quote,
     spanned::Spanned,
@@ -263,6 +263,9 @@ impl ToTokens for Segments {
 /// `<Routes/>` in an `<ErrorBoundary>` to render a fallback; without one, a failed chunk
 /// renders nothing.
 ///
+/// If you override [`preload()`], it will not actually replace the default preload
+/// function, but rather run it concurrently with your [`preload()`] implementation.
+///
 /// ```rust
 /// use leptos::prelude::*;
 /// use leptos_router::{lazy_route, LazyRoute};
@@ -296,6 +299,7 @@ impl ToTokens for Segments {
 ///
 /// [`impl LazyRoute`]: https://docs.rs/leptos_router/latest/leptos_router/trait.LazyRoute.html
 /// [`lazy`]: https://docs.rs/leptos_macro/latest/leptos_macro/attr.lazy.html
+/// [`preload()`]: https://docs.rs/leptos_router/latest/leptos_router/trait.LazyRoute.html#method.preload
 #[proc_macro_attribute]
 pub fn lazy_route(
     args: proc_macro::TokenStream,
@@ -349,27 +353,102 @@ fn lazy_route_impl(
         Ident::new(&format!("__{ty_name_to_snake}_View"), im.self_ty.span());
     let preload_ident = format_ident!("__preload_{lazy_view_ident}");
 
-    im.items.push(
-        syn::parse::<ImplItem>(
-            quote! {
-                async fn preload() {
-                    // TODO for 0.9 this is not precise
-                    // we don't split routes for wasm32 ssr
-                    // but we don't require a `hydrate`/`csr` feature on leptos_router
-                    //
-                    // Best-effort prefetch: discard a load error here (it is not
-                    // cached) so a failed chunk does not panic; `view()` surfaces
-                    // the error on the retry, where an `<ErrorBoundary>` can catch it.
-                    #[cfg(target_arch = "wasm32")]
-                    let _ = #preload_ident().await;
-                }
+    let preload_fn = im.items.iter_mut().find_map(|item| match item {
+        ImplItem::Fn(inner) => {
+            if inner.sig.ident.to_string().as_str() == "preload" {
+                Some(inner)
+            } else {
+                None
             }
-            .into(),
-        )
-        .map_err(|e| {
-            syn::Error::new(e.span(), "could not parse preload item impl")
-        })?,
-    );
+        }
+        _ => None,
+    });
+
+    // TODO for 0.9 this is not precise
+    // we don't split routes for wasm32 ssr
+    // but we don't require a `hydrate`/`csr` feature on leptos_router
+    //
+    // Best-effort prefetch: discard a load error here (it is not
+    // cached) so a failed chunk does not panic; `view()` surfaces
+    // the error on the retry, where an `<ErrorBoundary>` can catch it.
+    match preload_fn {
+        None => im.items.push(
+            syn::parse::<ImplItem>(
+                quote! {
+                    async fn preload() {
+                        #[cfg(target_arch = "wasm32")]
+                        let _ = #preload_ident().await;
+                    }
+                }
+                .into(),
+            )
+            .map_err(|e| {
+                syn::Error::new(e.span(), "could not parse preload item impl")
+            })?,
+        ),
+        Some(fun) => {
+            let is_async = fun.sig.asyncness.is_some();
+            let fun_block = fun.block.clone();
+            let future = syn::parse::<syn::Path>(
+                quote! {
+                    ::leptos_router::dependencies::futures::future
+                }
+                .into(),
+            )
+            .map_err(|e| {
+                syn::Error::new(e.span(), "could not parse dependency path")
+            })?;
+            fun.block = syn::parse(
+                // user_block_ret is returned from `preload()` below to not taint error messages
+                // about the return type
+                if is_async {
+                    quote_spanned! { fun_block.span() =>
+                        {
+                            let user_block = async move {
+                                #fun_block
+                            };
+                            #[allow(rust_analyzer::inactive_code)]
+                            {
+                                #[cfg(target_arch = "wasm32")]
+                                {
+                                    let (_, user_block_ret) =
+                                        #future::join(#preload_ident(), user_block).await;
+                                    user_block_ret
+                                }
+                                #[cfg(not(target_arch = "wasm32"))]
+                                user_block.await
+                            }
+                        }
+                    }
+                } else {
+                    quote_spanned! { fun_block.span() =>
+                        {
+                            let user_block = #fun_block;
+                            #[allow(rust_analyzer::inactive_code)]
+                            {
+                                #[cfg(target_arch = "wasm32")]
+                                {
+                                    #future::FutureExt::map(
+                                        #future::join(#preload_ident(), user_block),
+                                        |(_, user_block_ret)| user_block_ret
+                                    )
+                                }
+                                #[cfg(not(target_arch = "wasm32"))]
+                                user_block
+                            }
+                        }
+                    }
+                }
+                .into(),
+            )
+            .map_err(|e| {
+                syn::Error::new(
+                    e.span(),
+                    "could not parse merged preload item impl",
+                )
+            })?;
+        }
+    }
 
     let item = im.items.iter_mut().find_map(|item| match item {
         ImplItem::Fn(inner) => {
