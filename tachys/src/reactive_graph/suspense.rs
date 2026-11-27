@@ -451,7 +451,7 @@ where
         // this prevents trying to access signals or other resources inside the Suspend, after the
         // await, if they have already been cleaned up
         let (abort_handle, abort_registration) = AbortHandle::new_pair();
-        let mut fut = Box::pin(Abortable::new(inner, abort_registration));
+        let mut fut = std::pin::pin!(Abortable::new(inner, abort_registration));
         on_cleanup(move || abort_handle.abort());
 
         // poll the future once immediately

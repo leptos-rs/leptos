@@ -47,7 +47,7 @@ async fn main() -> std::io::Result<()> {
             }})
         //.wrap(middleware::Compress::default())
     })
-    .bind(&addr)?
+    .bind(addr)?
     .run()
     .await
 }

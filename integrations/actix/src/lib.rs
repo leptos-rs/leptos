@@ -493,7 +493,7 @@ pub fn handle_server_fns_with_context(
 ///                 leptos_actix::render_app_to_stream(MyApp, Method::Get),
 ///             )
 ///     })
-///     .bind(&addr)?
+///     .bind(addr)?
 ///     .run()
 ///     .await
 /// }
@@ -556,7 +556,7 @@ where
 ///                 ),
 ///             )
 ///     })
-///     .bind(&addr)?
+///     .bind(addr)?
 ///     .run()
 ///     .await
 /// }
@@ -615,7 +615,7 @@ where
 ///                 leptos_actix::render_app_async(MyApp, Method::Get),
 ///             )
 ///     })
-///     .bind(&addr)?
+///     .bind(addr)?
 ///     .run()
 ///     .await
 /// }

@@ -14,3 +14,6 @@ pin-project-lite = { workspace = true, default-features = true }
 
 [dev-dependencies]
 anyhow.workspace = true
+
+[lints]
+workspace = true

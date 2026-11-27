@@ -23,3 +23,6 @@ axum = ["server_fn_macro/axum"]
 [package.metadata.cargo-all-features]
 max_combination_size = 2
 skip_feature_sets = [["nightly"]]
+
+[lints]
+workspace = true

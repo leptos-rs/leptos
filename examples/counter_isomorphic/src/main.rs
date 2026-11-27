@@ -65,7 +65,7 @@ async fn main() -> std::io::Result<()> {
             }})
             .service(Files::new("/", site_root.as_ref()))
     })
-    .bind(&addr)?
+    .bind(addr)?
     .run()
     .await
 }

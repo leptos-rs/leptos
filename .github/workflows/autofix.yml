@@ -20,13 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: actions-rust-lang/setup-rust-toolchain@v2
-        with: {toolchain: "nightly-2026-07-20", components: "rustfmt, clippy", target: "wasm32-unknown-unknown", rustflags: ""}
+        with: {toolchain: "nightly-2026-11-26", components: "rustfmt, clippy", target: "wasm32-unknown-unknown", rustflags: ""}
       - name: Install Glib
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-dev
       - name: Install cargo-all-features
         run: cargo install --git https://github.com/sabify/cargo-all-features --branch arbitrary-command-support
+        env:
+          CARGO_BUILD_WARNINGS: warn
       - name: Install jq
         run: sudo apt-get install jq
       - name: Format the workspace

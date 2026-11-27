@@ -696,7 +696,7 @@ where
                     );
                 }
 
-                let mut view = Box::pin(owner.with(|| {
+                let mut view = std::pin::pin!(owner.with(|| {
                     provide_context(params_memo);
                     provide_context(url.clone());
                     provide_context(Matched(ArcMemo::from(matched.clone())));

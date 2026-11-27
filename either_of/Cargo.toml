@@ -16,3 +16,6 @@ paste = { workspace = true, default-features = true }
 [features]
 default = ["no_std"]
 no_std = []
+
+[lints]
+workspace = true
