@@ -1,3 +1,105 @@
+error[E0271]: type mismatch resolving `<EmptyReturn as ServerFn>::Error == _`
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^
+  | |
+  | types differ
+  | type mismatch resolving `<EmptyReturn as ServerFn>::Error == _`
+  |
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<EmptyReturn as ServerFn>::Output == _`
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^
+  | |
+  | types differ
+  | type mismatch resolving `<EmptyReturn as ServerFn>::Output == _`
+  |
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<EmptyReturn as ServerFn>::InputStreamError == _`
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^
+  | |
+  | types differ
+  | type mismatch resolving `<EmptyReturn as ServerFn>::InputStreamError == _`
+  |
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<EmptyReturn as ServerFn>::OutputStreamError == _`
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^
+  | |
+  | types differ
+  | type mismatch resolving `<EmptyReturn as ServerFn>::OutputStreamError == _`
+  |
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0276]: impl has stricter requirements than trait
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^ impl has extra requirement `Vec<Arc<(dyn Layer<<BrowserMockServer as Server<<EmptyReturn as ServerFn>::Error>>::Request, <BrowserMockServer as Server<<EmptyReturn as ServerFn>::Error>>::Response> + 'static)>> well-formed`
+  |
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<EmptyReturn as ServerFn>::Output == _`
+ --> tests/invalid/empty_return.rs:4:32
+  |
+4 | pub async fn empty_return() -> () {
+  |                                ^^ type mismatch resolving `<EmptyReturn as ServerFn>::Output == _`
+  |
+note: types differ
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<EmptyReturn as ServerFn>::Error == _`
+ --> tests/invalid/empty_return.rs:4:32
+  |
+4 | pub async fn empty_return() -> () {
+  |                                ^^ type mismatch resolving `<EmptyReturn as ServerFn>::Error == _`
+  |
+note: types differ
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: expected `impl Future<Output = ()>` to be a future that resolves to `Result<_, _>`, but it resolves to `()`
+ --> tests/invalid/empty_return.rs:4:32
+  |
+4 | pub async fn empty_return() -> () {
+  |                                ^^ expected `Result<_, _>`, found `()`
+  |
+  = note:   expected enum `Result<_, _>`
+          found unit type `()`
+note: required by a bound in `ServerFn::run_body::{anon_assoc#0}`
+ --> src/lib.rs
+  |
+  | pub trait ServerFn: Send + Sized {
+...
+  |     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send;
+  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::run_body::{anon_assoc#0}`
+
+error: the type `Vec<Arc<(dyn Layer<<BrowserMockServer as Server<<EmptyReturn as ServerFn>::Error>>::Request, <BrowserMockServer as Server<<EmptyReturn as ServerFn>::Error>>::Response> + 'static)>>` is not well-formed
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0277]: () is not a `Result` or aliased `Result`. Server functions must return a `Result` or aliased `Result`.
  --> tests/invalid/empty_return.rs:3:1
   |
@@ -13,57 +115,30 @@ help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for 
   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0277]: () is not a `Result` or aliased `Result`. Server functions must return a `Result` or aliased `Result`.
- --> tests/invalid/empty_return.rs:4:32
-  |
-4 | pub async fn empty_return() -> () {
-  |                                ^^ Must return a `Result` or aliased `Result`.
-  |
-  = help: the trait `server_fn::error::ServerFnMustReturnResult` is not implemented for `()`
-  = note: If you are trying to return an alias of `Result`, you must also implement `FromServerFnError` for the error type.
-help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for `Result<T, E>`
- --> src/error.rs
-  |
-  | impl<T, E> ServerFnMustReturnResult for Result<T, E> {
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error[E0271]: expected `impl Future<Output = ()>` to be a future that resolves to `Result<_, _>`, but it resolves to `()`
- --> tests/invalid/empty_return.rs:4:32
-  |
-4 | pub async fn empty_return() -> () {
-  |                                ^^ expected `Result<_, _>`, found `()`
-  |
-  = note:   expected enum `Result<_, _>`
-          found unit type `()`
-note: required by a bound in `ServerFn::run_body::{anon_assoc#0}`
- --> src/lib.rs
-  |
-  |     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send;
-  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::run_body::{anon_assoc#0}`
-
-error[E0277]: () is not a `Result` or aliased `Result`. Server functions must return a `Result` or aliased `Result`.
- --> tests/invalid/empty_return.rs:3:1
-  |
-3 | #[server]
-  | ^^^^^^^^^ Must return a `Result` or aliased `Result`.
-  |
-  = help: the trait `server_fn::error::ServerFnMustReturnResult` is not implemented for `()`
-  = note: If you are trying to return an alias of `Result`, you must also implement `FromServerFnError` for the error type.
-help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for `Result<T, E>`
- --> src/error.rs
-  |
-  | impl<T, E> ServerFnMustReturnResult for Result<T, E> {
-  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 error[E0308]: mismatched types
  --> tests/invalid/empty_return.rs:3:1
   |
 3 | #[server]
-  | ^^^^^^^^^ expected `()`, found `Result<_, _>`
+  | ^^^^^^^^^ expected `()`, found associated type
   |
-  = note: expected unit type `()`
-                  found enum `Result<_, _>`
-help: consider using `Result::expect` to unwrap the `Result<_, _>` value, panicking if the value is a `Result::Err`
+ ::: src/lib.rs
   |
-3 | #[server].expect("REASON")
-  |          +++++++++++++++++
+  |     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
+  |          -------------------------------------------------------------- the found future
+  |
+  = note:    expected unit type `()`
+          found associated type `<impl Future<Output = Result<<EmptyReturn as ServerFn>::Output, <EmptyReturn as ServerFn>::Error>> + Send as Future>::Output`
+  = help: consider constraining the associated type `<impl Future<Output = Result<<EmptyReturn as ServerFn>::Output, <EmptyReturn as ServerFn>::Error>> + Send as Future>::Output` to `()`
+  = note: for more information, visit https://doc.rust-lang.org/book/ch19-03-advanced-traits.html
+
+error[E0271]: type mismatch resolving `<EmptyReturn as ServerFn>::Error == _`
+ --> tests/invalid/empty_return.rs:3:1
+  |
+3 | #[server]
+  | ^^^^^^^^^
+  | |
+  | value returned here
+  | types differ
+  | type mismatch resolving `<EmptyReturn as ServerFn>::Error == _`
+  |
+  = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)

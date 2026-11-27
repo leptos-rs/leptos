@@ -1,3 +1,105 @@
+error[E0271]: type mismatch resolving `<FullAliasResult as ServerFn>::Error == _`
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^
+   | |
+   | types differ
+   | type mismatch resolving `<FullAliasResult as ServerFn>::Error == _`
+   |
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<FullAliasResult as ServerFn>::Output == _`
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^
+   | |
+   | types differ
+   | type mismatch resolving `<FullAliasResult as ServerFn>::Output == _`
+   |
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<FullAliasResult as ServerFn>::InputStreamError == _`
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^
+   | |
+   | types differ
+   | type mismatch resolving `<FullAliasResult as ServerFn>::InputStreamError == _`
+   |
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<FullAliasResult as ServerFn>::OutputStreamError == _`
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^
+   | |
+   | types differ
+   | type mismatch resolving `<FullAliasResult as ServerFn>::OutputStreamError == _`
+   |
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0276]: impl has stricter requirements than trait
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^ impl has extra requirement `Vec<Arc<(dyn Layer<<BrowserMockServer as Server<<FullAliasResult as ServerFn>::Error>>::Request, <BrowserMockServer as Server<<FullAliasResult as ServerFn>::Error>>::Response> + 'static)>> well-formed`
+   |
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<FullAliasResult as ServerFn>::Output == _`
+  --> tests/invalid/not_result.rs:26:37
+   |
+26 | pub async fn full_alias_result() -> CustomError {
+   |                                     ^^^^^^^^^^^ type mismatch resolving `<FullAliasResult as ServerFn>::Output == _`
+   |
+note: types differ
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: type mismatch resolving `<FullAliasResult as ServerFn>::Error == _`
+  --> tests/invalid/not_result.rs:26:37
+   |
+26 | pub async fn full_alias_result() -> CustomError {
+   |                                     ^^^^^^^^^^^ type mismatch resolving `<FullAliasResult as ServerFn>::Error == _`
+   |
+note: types differ
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0271]: expected `impl Future<Output = CustomError>` to be a future that resolves to `Result<_, _>`, but it resolves to `CustomError`
+  --> tests/invalid/not_result.rs:26:37
+   |
+26 | pub async fn full_alias_result() -> CustomError {
+   |                                     ^^^^^^^^^^^ expected `Result<_, _>`, found `CustomError`
+   |
+   = note: expected enum `Result<_, _>`
+              found enum `CustomError`
+note: required by a bound in `ServerFn::run_body::{anon_assoc#0}`
+  --> src/lib.rs
+   |
+   | pub trait ServerFn: Send + Sized {
+...
+   |     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send;
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::run_body::{anon_assoc#0}`
+
+error: the type `Vec<Arc<(dyn Layer<<BrowserMockServer as Server<<FullAliasResult as ServerFn>::Error>>::Request, <BrowserMockServer as Server<<FullAliasResult as ServerFn>::Error>>::Response> + 'static)>>` is not well-formed
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^
+   |
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0277]: CustomError is not a `Result` or aliased `Result`. Server functions must return a `Result` or aliased `Result`.
   --> tests/invalid/not_result.rs:25:1
    |
@@ -17,65 +119,30 @@ help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for 
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0277]: CustomError is not a `Result` or aliased `Result`. Server functions must return a `Result` or aliased `Result`.
-  --> tests/invalid/not_result.rs:26:37
-   |
-26 | pub async fn full_alias_result() -> CustomError {
-   |                                     ^^^^^^^^^^^ Must return a `Result` or aliased `Result`.
-   |
-help: the trait `server_fn::error::ServerFnMustReturnResult` is not implemented for `CustomError`
-  --> tests/invalid/not_result.rs:10:1
-   |
-10 | pub enum CustomError {
-   | ^^^^^^^^^^^^^^^^^^^^
-   = note: If you are trying to return an alias of `Result`, you must also implement `FromServerFnError` for the error type.
-help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for `Result<T, E>`
-  --> src/error.rs
-   |
-   | impl<T, E> ServerFnMustReturnResult for Result<T, E> {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error[E0271]: expected `impl Future<Output = CustomError>` to be a future that resolves to `Result<_, _>`, but it resolves to `CustomError`
-  --> tests/invalid/not_result.rs:26:37
-   |
-26 | pub async fn full_alias_result() -> CustomError {
-   |                                     ^^^^^^^^^^^ expected `Result<_, _>`, found `CustomError`
-   |
-   = note: expected enum `Result<_, _>`
-              found enum `CustomError`
-note: required by a bound in `ServerFn::run_body::{anon_assoc#0}`
-  --> src/lib.rs
-   |
-   |     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send;
-   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::run_body::{anon_assoc#0}`
-
-error[E0277]: CustomError is not a `Result` or aliased `Result`. Server functions must return a `Result` or aliased `Result`.
-  --> tests/invalid/not_result.rs:25:1
-   |
-25 | #[server]
-   | ^^^^^^^^^ Must return a `Result` or aliased `Result`.
-   |
-help: the trait `server_fn::error::ServerFnMustReturnResult` is not implemented for `CustomError`
-  --> tests/invalid/not_result.rs:10:1
-   |
-10 | pub enum CustomError {
-   | ^^^^^^^^^^^^^^^^^^^^
-   = note: If you are trying to return an alias of `Result`, you must also implement `FromServerFnError` for the error type.
-help: the trait `server_fn::error::ServerFnMustReturnResult` is implemented for `Result<T, E>`
-  --> src/error.rs
-   |
-   | impl<T, E> ServerFnMustReturnResult for Result<T, E> {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 error[E0308]: mismatched types
   --> tests/invalid/not_result.rs:25:1
    |
 25 | #[server]
-   | ^^^^^^^^^ expected `CustomError`, found `Result<_, _>`
+   | ^^^^^^^^^ expected `CustomError`, found associated type
    |
-   = note: expected enum `CustomError`
-              found enum `Result<_, _>`
-help: consider using `Result::expect` to unwrap the `Result<_, _>` value, panicking if the value is a `Result::Err`
+  ::: src/lib.rs
    |
-25 | #[server].expect("REASON")
-   |          +++++++++++++++++
+   |     ) -> impl Future<Output = Result<Self::Output, Self::Error>> + Send {
+   |          -------------------------------------------------------------- the found future
+   |
+   = note:         expected enum `CustomError`
+           found associated type `<impl Future<Output = Result<<FullAliasResult as ServerFn>::Output, <FullAliasResult as ServerFn>::Error>> + Send as Future>::Output`
+   = help: consider constraining the associated type `<impl Future<Output = Result<<FullAliasResult as ServerFn>::Output, <FullAliasResult as ServerFn>::Error>> + Send as Future>::Output` to `CustomError`
+   = note: for more information, visit https://doc.rust-lang.org/book/ch19-03-advanced-traits.html
+
+error[E0271]: type mismatch resolving `<FullAliasResult as ServerFn>::Error == _`
+  --> tests/invalid/not_result.rs:25:1
+   |
+25 | #[server]
+   | ^^^^^^^^^
+   | |
+   | value returned here
+   | types differ
+   | type mismatch resolving `<FullAliasResult as ServerFn>::Error == _`
+   |
+   = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)

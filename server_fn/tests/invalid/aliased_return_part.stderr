@@ -20,33 +20,48 @@ help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
 note: required by a bound in `server_fn::ServerFn::Client`
   --> src/lib.rs
    |
+   | pub trait ServerFn: Send + Sized {
+...
    |     type Client: Client<Self::Error, Self::InputStreamError, Self::OutputStreamError>;
    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::Client`
    = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0277]: the trait bound `InvalidError: FromServerFnError` is not satisfied
+error[E0277]: the trait bound `Http<PostUrl, Post<JsonEncoding>>: Protocol<PartAliasResult, String, BrowserClient, BrowserMockServer, InvalidError>` is not satisfied
   --> tests/invalid/aliased_return_part.rs:11:1
    |
 11 | #[server]
    | ^^^^^^^^^ unsatisfied trait bound
    |
-help: the trait `FromServerFnError` is not implemented for `InvalidError`
-  --> tests/invalid/aliased_return_part.rs:4:1
+   = help: the trait `Protocol<PartAliasResult, String, BrowserClient, BrowserMockServer, InvalidError>` is not implemented for `Http<PostUrl, Post<JsonEncoding>>`
+help: the trait `Protocol<Input, Output, Client, Server, E>` is conditionally implemented for `Http<InputProtocol, OutputProtocol>`
+  --> src/lib.rs
    |
- 4 | pub enum InvalidError {
-   | ^^^^^^^^^^^^^^^^^^^^^
-help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
-  --> src/error.rs
-   |
-   | / impl<CustErr> FromServerFnError for ServerFnError<CustErr>
+   | / impl<InputProtocol, OutputProtocol, Input, Output, Client, Server, E>
+   | |     Protocol<Input, Output, Client, Server, E>
+   | |     for Http<InputProtocol, OutputProtocol>
    | | where
-   | |     CustErr: std::fmt::Debug + Display + FromStr + 'static,
-   | |___________________________________________________________^
-   = note: required for `BrowserClient` to implement `Client<InvalidError>`
-   = note: required for `Http<PostUrl, Post<JsonEncoding>>` to implement `Protocol<PartAliasResult, String, BrowserClient, BrowserMockServer, InvalidError>`
+   | |     Input: IntoReq<InputProtocol, Client::Request, E>
+   | |            ------------------------------------------ unsatisfied requirement introduced here: `_: IntoReq<_, <_ as Client<_>>::Request, _>`
+   | |         + FromReq<InputProtocol, Server::Request, E>
+   | |           ------------------------------------------ unsatisfied requirement introduced here: `_: FromReq<_, <_ as Server<_>>::Request, _>`
+   | |         + Send,
+   | |     Output: IntoRes<OutputProtocol, Server::Response, E>
+   | |             -------------------------------------------- unsatisfied requirement introduced here: `_: IntoRes<_, <_ as Server<_>>::Response, _>`
+   | |         + FromRes<OutputProtocol, Client::Response, E>
+   | |           -------------------------------------------- unsatisfied requirement introduced here: `_: FromRes<_, <_ as Client<_>>::Response, _>`
+   | |         + Send,
+   | |     E: FromServerFnError,
+   | |        ----------------- unsatisfied requirement introduced here: `_: FromServerFnError`
+...  |
+   | |     Client: crate::Client<E>,
+   | |             ---------------- unsatisfied requirement introduced here: `_: Client<_>`
+   | |     Server: crate::Server<E>,
+   | |_____________________________^
 note: required by a bound in `server_fn::ServerFn::Protocol`
   --> src/lib.rs
    |
+   |   pub trait ServerFn: Send + Sized {
+...
    |       type Protocol: Protocol<
    |  ____________________^
    | |             Self,
@@ -79,6 +94,8 @@ help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
 note: required by a bound in `server_fn::ServerFn::Error`
   --> src/lib.rs
    |
+   | pub trait ServerFn: Send + Sized {
+...
    |     type Error: FromServerFnError + Send + Sync;
    |                 ^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::Error`
    = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
@@ -104,6 +121,8 @@ help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
 note: required by a bound in `server_fn::ServerFn::InputStreamError`
   --> src/lib.rs
    |
+   | pub trait ServerFn: Send + Sized {
+...
    |     type InputStreamError: FromServerFnError + Send + Sync;
    |                            ^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::InputStreamError`
    = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
@@ -129,6 +148,8 @@ help: the trait `FromServerFnError` is implemented for `ServerFnError<CustErr>`
 note: required by a bound in `server_fn::ServerFn::OutputStreamError`
   --> src/lib.rs
    |
+   | pub trait ServerFn: Send + Sized {
+...
    |     type OutputStreamError: FromServerFnError + Send + Sync;
    |                             ^^^^^^^^^^^^^^^^^ required by this bound in `ServerFn::OutputStreamError`
    = note: this error originates in the attribute macro `server` (in Nightly builds, run with -Z macro-backtrace for more info)
