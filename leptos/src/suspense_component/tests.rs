@@ -159,8 +159,7 @@ fn transition_cancels_queued_children_when_parent_rebuilds() {
 }
 
 fn poll_local_repeatedly() {
-    use std::thread;
-    use std::time::Duration;
+    use std::{thread, time::Duration};
 
     for _ in 0..20 {
         Executor::poll_local();
