@@ -577,10 +577,11 @@ impl Model {
                     Ident::new(&format!("{name}_loader"), name.span());
 
                 quote! {
-                    #[::leptos::prelude::lazy]
+                    #[::leptos::prelude::lazy(fallible)]
                     #[allow(non_snake_case)]
-                    fn #outer_name (el: ::leptos::web_sys::HtmlElement) {
+                    fn #outer_name (el: ::leptos::web_sys::HtmlElement) -> ::core::result::Result<(), ::leptos::LazyViewError> {
                         #hydrate_fn_inner
+                        ::core::result::Result::Ok(())
                     }
 
                     #[::leptos::wasm_bindgen::prelude::wasm_bindgen(
@@ -588,8 +589,8 @@ impl Model {
                         wasm_bindgen_futures = ::leptos::__reexports::wasm_bindgen_futures
                     )]
                     #[allow(non_snake_case)]
-                    pub async fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) {
-                        #outer_name(el).await
+                    pub async fn #hydrate_fn_name(el: ::leptos::web_sys::HtmlElement) -> ::core::result::Result<(), ::leptos::wasm_bindgen::JsError> {
+                        #outer_name(el).await.map_err(|e| ::leptos::wasm_bindgen::JsError::new(&e.to_string()))
                     }
                 }
             } else {

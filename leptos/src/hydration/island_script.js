@@ -16,8 +16,13 @@
 					const children = [];
 					const id = node.dataset.component || null;
 
-					await hydrateIsland(node, id, mod);
-					
+					try {
+						await hydrateIsland(node, id, mod);
+					} catch (e) {
+						if (e instanceof WebAssembly.RuntimeError) throw e;
+						console.error(e);
+					}
+
 					for(const child of node.children) {
 						await traverse(child, children);
 					}
