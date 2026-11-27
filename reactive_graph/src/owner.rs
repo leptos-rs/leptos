@@ -288,6 +288,17 @@ impl Owner {
         self.inner.cleanup();
     }
 
+    /// Runs the cleanup functions registered with [`Owner::on_cleanup`] on this owner, without
+    /// cleaning up its children or dropping its arena-allocated values.
+    pub fn run_cleanups(&self) {
+        #[cfg(feature = "sandboxed-arenas")]
+        let arena = self.inner.read().or_poisoned().arena.clone();
+        #[cfg(feature = "sandboxed-arenas")]
+        let _restore = RestoreArena::try_install(&arena);
+
+        self.inner.run_cleanups();
+    }
+
     /// Registers a function to be run the next time the current owner is cleaned up.
     ///
     /// Because the ownership model is associated with reactive nodes, each "decision point" in an
@@ -619,6 +630,8 @@ impl Drop for OwnerInner {
 
 trait Cleanup {
     fn cleanup(&self);
+
+    fn run_cleanups(&self);
 }
 
 impl Cleanup for RwLock<OwnerInner> {
@@ -628,22 +641,16 @@ impl Cleanup for RwLock<OwnerInner> {
         #[cfg(feature = "sandboxed-arenas")]
         let _restore = RestoreArena::try_install(&arena);
 
-        let (cleanups, nodes, children) = {
+        let (nodes, children) = {
             let mut lock = self.write().or_poisoned();
-            (
-                mem::take(&mut lock.cleanups),
-                mem::take(&mut lock.nodes),
-                mem::take(&mut lock.children),
-            )
+            (mem::take(&mut lock.nodes), mem::take(&mut lock.children))
         };
         for child in children {
             if let Some(child) = child.upgrade() {
                 child.cleanup();
             }
         }
-        for cleanup in cleanups {
-            cleanup();
-        }
+        self.run_cleanups();
 
         if !nodes.is_empty() {
             let mut nodes_to_drop = Vec::with_capacity(nodes.len());
@@ -660,6 +667,13 @@ impl Cleanup for RwLock<OwnerInner> {
                     nodes_to_drop.extend(arena.remove(node));
                 }
             }
+        }
+    }
+
+    fn run_cleanups(&self) {
+        let cleanups = mem::take(&mut self.write().or_poisoned().cleanups);
+        for cleanup in cleanups {
+            cleanup();
         }
     }
 }
@@ -833,5 +847,42 @@ mod tests {
                 |outer| outer.cleanup(),
             );
         }));
+    }
+
+    /// `run_cleanups` does not dispose of the owner's values or clean up its children.
+    #[test]
+    fn run_cleanups_keeps_values_and_children() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let owner = Owner::new();
+        let runs = Arc::new(AtomicUsize::new(0));
+        let child_runs = Arc::new(AtomicUsize::new(0));
+        let value = owner.with(|| {
+            let runs = Arc::clone(&runs);
+            on_cleanup(move || {
+                runs.fetch_add(1, Ordering::SeqCst);
+            });
+            StoredValue::new(1)
+        });
+        let child = owner.child();
+        child.with(|| {
+            let child_runs = Arc::clone(&child_runs);
+            on_cleanup(move || {
+                child_runs.fetch_add(1, Ordering::SeqCst);
+            });
+        });
+
+        owner.run_cleanups();
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
+        assert_eq!(child_runs.load(Ordering::SeqCst), 0);
+        assert_eq!(owner.with(|| value.try_get_value()), Some(1));
+
+        // each cleanup function only runs once
+        owner.run_cleanups();
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
+
+        drop(owner);
+        assert_eq!(child_runs.load(Ordering::SeqCst), 1);
+        assert_eq!(value.try_get_value(), None);
     }
 }

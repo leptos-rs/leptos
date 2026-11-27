@@ -23,7 +23,7 @@ use reactive_graph::{
         AnySource, AnySubscriber, Observer, ReactiveNode, Source, Subscriber,
         ToAnySubscriber, WithObserver,
     },
-    owner::{on_cleanup, provide_context, use_context},
+    owner::{Owner, on_cleanup, provide_context, use_context},
 };
 use std::{
     cell::RefCell,
@@ -141,6 +141,7 @@ where
     T: Render,
 {
     inner: Rc<RefCell<OptionState<T>>>,
+    owner: Rc<RefCell<Option<Owner>>>,
 }
 
 impl<T> Mountable for SuspendState<T>
@@ -220,7 +221,10 @@ where
             subscriber.forward();
         }
 
-        SuspendState { inner }
+        SuspendState {
+            inner,
+            owner: Rc::new(RefCell::new(Owner::current())),
+        }
     }
 
     fn rebuild(self, state: &mut Self::State) {
@@ -239,6 +243,8 @@ where
 
         // spawn the future, and rebuild the state when it resolves
         reactive_graph::spawn_local_scoped({
+            let owner = Owner::current();
+            let state_owner = Rc::clone(&state.owner);
             let state = Rc::clone(&state.inner);
             async move {
                 let _guard = error_hook
@@ -254,6 +260,7 @@ where
                 Executor::tick().await;
                 if let Ok(value) = value {
                     Some(value).rebuild(&mut *state.borrow_mut());
+                    *state_owner.borrow_mut() = owner;
                 }
 
                 subscriber.forward();
@@ -437,7 +444,10 @@ where
             subscriber.forward();
         }
 
-        SuspendState { inner }
+        SuspendState {
+            inner,
+            owner: Rc::new(RefCell::new(Owner::current())),
+        }
     }
 
     async fn hydrate_async(
@@ -470,7 +480,10 @@ where
         let inner =
             Rc::new(RefCell::new(value.hydrate_async(cursor, position).await));
         subscriber.forward();
-        SuspendState { inner }
+        SuspendState {
+            inner,
+            owner: Rc::new(RefCell::new(Owner::current())),
+        }
     }
 
     async fn resolve(self) -> Self::AsyncOutput {
