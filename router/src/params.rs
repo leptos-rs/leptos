@@ -82,6 +82,19 @@ impl ParamsMap {
         }
     }
 
+    /// Appends every value of `other` to this map.
+    ///
+    /// The values in `other` are already decoded and are not decoded again.
+    pub(crate) fn extend_decoded(&mut self, other: &Self) {
+        for (key, values) in &other.0 {
+            if let Some((_, prev)) = self.0.iter_mut().find(|(k, _)| k == key) {
+                prev.extend_from_slice(values);
+            } else {
+                self.0.push((key.clone(), values.clone()));
+            }
+        }
+    }
+
     /// Gets the most-recently-added value of this param from the map.
     pub fn get(&self, key: &str) -> Option<String> {
         self.get_str(key).map(ToOwned::to_owned)
@@ -398,5 +411,31 @@ mod tests {
         map.insert(key, value2);
         let query_string = map.to_query_string();
         assert_eq!(&query_string, "?param=a&param=b")
+    }
+
+    #[test]
+    fn extend_decoded_does_not_decode_values_again() {
+        // `%252B` decodes once to `%2B`, which must not become `+`
+        let mut merged: ParamsMap =
+            [("section", "x%2541")].into_iter().collect();
+        let child: ParamsMap = [("tag", "a%252Bb")].into_iter().collect();
+        assert_eq!(child.get_str("tag"), Some("a%2Bb"));
+
+        merged.extend_decoded(&child);
+        assert_eq!(merged.get_str("section"), Some("x%41"));
+        assert_eq!(merged.get_str("tag"), Some("a%2Bb"));
+    }
+
+    #[test]
+    fn extend_decoded_keeps_every_value_of_a_repeated_key() {
+        let mut merged: ParamsMap = [("id", "1")].into_iter().collect();
+        let child: ParamsMap = [("id", "a%2520b")].into_iter().collect();
+
+        merged.extend_decoded(&child);
+        assert_eq!(
+            merged.get_all("id"),
+            Some(vec!["1".to_string(), "a%20b".to_string()])
+        );
+        assert_eq!(merged.get_str("id"), Some("a%20b"));
     }
 }
