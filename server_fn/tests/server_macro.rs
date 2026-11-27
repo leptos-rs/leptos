@@ -13,6 +13,7 @@
         feature = "msgpack",
         feature = "bitcode",
         feature = "bitcode-serde",
+        feature = "ssr",
     ))
 ))]
 
