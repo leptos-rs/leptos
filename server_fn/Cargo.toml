@@ -11,7 +11,6 @@ edition.workspace = true
 
 [dependencies]
 throw_error = { workspace = true }
-server_fn_macro_default = { workspace = true }
 # used for hashing paths in #[server] macro
 const_format = { workspace = true, default-features = true }
 const-str = { workspace = true, default-features = true }
@@ -26,7 +25,7 @@ send_wrapper = { features = [
 ], optional = true, workspace = true, default-features = true }
 thiserror = { workspace = true, default-features = true }
 typed-builder = { workspace = true, default-features = true }
-or_poisoned = { workspace = true, default-features = true }
+or_poisoned = { optional = true, workspace = true, default-features = true }
 
 # registration system
 inventory = { optional = true, workspace = true, default-features = true }
@@ -62,7 +61,6 @@ ciborium = { optional = true, workspace = true, default-features = true }
 postcard = { features = [
   "alloc",
 ], optional = true, workspace = true, default-features = true }
-hyper = { optional = true, workspace = true, default-features = true }
 bytes = { workspace = true, default-features = true }
 http-body-util = { optional = true, workspace = true, default-features = true }
 rkyv = { optional = true, workspace = true, default-features = true }
@@ -100,6 +98,7 @@ tokio = { features = [
 rustc_version = { workspace = true, default-features = true }
 
 [dev-dependencies]
+server_fn_macro_default = { workspace = true }
 trybuild = { workspace = true, default-features = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
@@ -123,14 +122,20 @@ axum-no-default = [
   "ssr",
   "generic",
   "dep:axum",
-  "dep:hyper",
   "dep:http-body-util",
   "dep:tower",
   "dep:tower-layer",
   "dep:tracing",
+  "dep:or_poisoned",
 ]
 form-redirects = []
-actix-no-default = ["ssr", "dep:actix-web", "dep:actix-ws", "dep:send_wrapper"]
+actix-no-default = [
+  "ssr",
+  "dep:actix-web",
+  "dep:actix-ws",
+  "dep:send_wrapper",
+  "dep:or_poisoned",
+]
 actix = ["actix-web/default", "actix-no-default"]
 axum = ["axum/default", "axum-no-default", "axum/ws", "dep:tokio"]
 browser = [
@@ -174,7 +179,6 @@ denylist = [
   "tower-layer",
   "send_wrapper",
   "ciborium",
-  "hyper",
   "inventory",
   "rkyv",
 ]

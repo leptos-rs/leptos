@@ -3612,7 +3612,6 @@ dependencies = [
  "gloo-net",
  "http 1.5.0",
  "http-body-util",
- "hyper",
  "inventory",
  "js-sys",
  "multer",
