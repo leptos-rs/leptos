@@ -575,3 +575,44 @@ fn memo_updates_even_if_not_read_until_later() {
     println!("read memo 2");
     assert_eq!(second_memo.get(), false);
 }
+
+#[test]
+fn memo_recomputes_if_source_changes_while_it_computes() {
+    use reactive_graph::signal::ArcRwSignal;
+    use std::sync::{Mutex, mpsc};
+
+    let owner = Owner::new();
+    owner.set();
+
+    let source = ArcRwSignal::new(0);
+    // The first run tells the test it has read `source`, then waits to be resumed.
+    let (read_tx, read_rx) = mpsc::channel();
+    let (resume_tx, resume_rx) = mpsc::channel::<()>();
+    let first_run = Arc::new(Mutex::new(Some((read_tx, resume_rx))));
+
+    let memo = ArcMemo::new({
+        let source = source.clone();
+        move |_| {
+            let value = source.get();
+            if let Some((read_tx, resume_rx)) = first_run.lock().unwrap().take()
+            {
+                read_tx.send(()).unwrap();
+                resume_rx.recv().unwrap();
+            }
+            value
+        }
+    });
+
+    let computing = std::thread::spawn({
+        let memo = memo.clone();
+        move || memo.get()
+    });
+
+    // `source` changes after the memo has read it, but before the memo finishes.
+    read_rx.recv().unwrap();
+    source.set(1);
+    resume_tx.send(()).unwrap();
+
+    assert_eq!(computing.join().unwrap(), 0);
+    assert_eq!(memo.get(), 1);
+}
