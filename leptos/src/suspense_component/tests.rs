@@ -145,3 +145,50 @@ fn suspense_cancels_queued_children_when_parent_rebuilds() {
 fn transition_cancels_queued_children_when_parent_rebuilds() {
     assert_queued_child_cancellation::<true>();
 }
+
+/// A read of the boundary's task set while another holder has its write lock.
+/// The read is a non-blocking `try_read`; it must keep the last answer rather
+/// than report the (reference-counted, never-disposed) signal as disposed.
+#[test]
+fn none_pending_survives_a_contended_task_set() {
+    use reactive_graph::{
+        signal::ArcRwSignal,
+        traits::{Notify, UpdateUntracked, Write},
+    };
+    use slotmap::{DefaultKey, SlotMap};
+
+    Owner::new().with(|| {
+        let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
+        let none_pending = none_pending_memo(tasks.clone(), false);
+        assert!(none_pending.get(), "nothing registered yet");
+
+        {
+            // Another task is mid-update: write lock held, memo marked dirty.
+            let _guard = tasks.write_untracked();
+            tasks.notify();
+            assert!(
+                none_pending.get(),
+                "a contended read keeps the previous answer"
+            );
+        }
+
+        // The writer finishes and notifies; the memo sees the real value.
+        tasks.update_untracked(|t| {
+            t.insert(());
+        });
+        tasks.notify();
+        assert!(!none_pending.get(), "a registered task is pending");
+    });
+}
+
+#[test]
+fn has_tasks_assumes_work_while_the_task_set_is_contended() {
+    use reactive_graph::{signal::ArcRwSignal, traits::Write};
+    use slotmap::{DefaultKey, SlotMap};
+
+    let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
+    let has_tasks = has_tasks_fn(tasks.clone());
+    assert!(!has_tasks(), "empty");
+    let _guard = tasks.write_untracked();
+    assert!(has_tasks(), "contended: assume outstanding work");
+}

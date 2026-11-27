@@ -138,19 +138,8 @@ where
         let children = children.into_inner()();
         let tasks = ArcRwSignal::new(SlotMap::<DefaultKey, ()>::new());
         provide_context(SuspenseContext::new(tasks.clone()));
-        let none_pending = ArcMemo::new({
-            let tasks = tasks.clone();
-            move |prev: Option<&bool>| {
-                tasks.track();
-                if prev.is_none() && starts_local {
-                    false
-                } else {
-                    tasks.with(SlotMap::is_empty)
-                }
-            }
-        });
-        let has_tasks =
-            Arc::new(move || !tasks.with_untracked(SlotMap::is_empty));
+        let none_pending = none_pending_memo(tasks.clone(), starts_local);
+        let has_tasks = has_tasks_fn(tasks);
 
         OwnedView::new(SuspenseBoundary::<false, _, _> {
             id,
@@ -747,4 +736,43 @@ where
     fn into_owned(self) -> Self::Owned {
         self
     }
+}
+
+/// The boundary's "nothing pending" memo, shared by [`Suspense`] and
+/// [`Transition`](crate::transition::Transition).
+///
+/// Reading `tasks` is a non-blocking `try_read`: while another holder has the
+/// write lock (a resource registering or dropping its task), it fails, and
+/// `with` would report the signal as "already disposed" even though an
+/// `ArcRwSignal` never is. Keep the previous answer instead (or "pending" on
+/// the first run). That is sound because every writer notifies after it
+/// releases its guard, so this memo runs again and sees the real value.
+/// [`SuspenseContext::poll_empty`] reads the same signal the same way.
+pub(crate) fn none_pending_memo(
+    tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
+    starts_local: bool,
+) -> ArcMemo<bool> {
+    ArcMemo::new(move |prev: Option<&bool>| {
+        tasks.track();
+        if prev.is_none() && starts_local {
+            false
+        } else {
+            tasks
+                .try_with(SlotMap::is_empty)
+                .unwrap_or_else(|| prev.copied().unwrap_or(false))
+        }
+    })
+}
+
+/// Whether the boundary has outstanding tasks right now (untracked). On a
+/// contended read (see [`none_pending_memo`]) it assumes there are, as a
+/// pending boundary does.
+pub(crate) fn has_tasks_fn(
+    tasks: ArcRwSignal<SlotMap<DefaultKey, ()>>,
+) -> Arc<dyn Fn() -> bool + Send + Sync> {
+    Arc::new(move || {
+        tasks
+            .try_with_untracked(|tasks| !tasks.is_empty())
+            .unwrap_or(true)
+    })
 }
