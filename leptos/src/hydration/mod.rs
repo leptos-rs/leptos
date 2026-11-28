@@ -3,10 +3,7 @@
 use crate::{WasmSplitManifest, prelude::*};
 use leptos_config::LeptosOptions;
 use leptos_macro::{component, view};
-use std::{
-    path::PathBuf,
-    sync::{Arc, OnceLock},
-};
+use std::sync::{Arc, OnceLock};
 
 /// Inserts auto-reloading code used in `cargo-leptos`.
 ///
@@ -61,6 +58,7 @@ pub fn AutoReload(
 }
 
 /// Inserts hydration scripts that add interactivity to your server-rendered HTML.
+/// The scripts and preloads use the URL of the site pkg.
 ///
 /// This should be included in the `<head>` of your application shell.
 #[component]
@@ -90,9 +88,12 @@ pub fn HydrationScripts(
     static SPLIT_MANIFEST: OnceLock<Option<WasmSplitManifest>> =
         OnceLock::new();
 
-    if let Some(splits) = SPLIT_MANIFEST.get_or_init(|| {
-        let root = root.clone().unwrap_or_default();
+    let root = root.as_deref().unwrap_or_default().trim_end_matches('/');
+    let pkg_route_base = options.site_pkg_route_base();
+    let pkg_prefix = pkg_route_base.trim_end_matches('/');
+    let pkg_path = pkg_prefix.trim_start_matches('/');
 
+    if let Some(splits) = SPLIT_MANIFEST.get_or_init(|| {
         let (wasm_split_js, wasm_split_manifest) = if options.hash_files {
             let hash_path = std::env::current_exe()
                 .map(|path| {
@@ -133,18 +134,11 @@ pub fn HydrationScripts(
             )
         };
 
-        let site_dir = &options.site_root;
-        let pkg_dir = &options.site_pkg_dir;
-        let path = PathBuf::from(site_dir.to_string());
-        let path = path.join(pkg_dir.to_string()).join(wasm_split_manifest);
+        let path = options.site_pkg_path().join(wasm_split_manifest);
         let file = std::fs::read_to_string(path).ok()?;
 
         let manifest = WasmSplitManifest(ArcStoredValue::new((
-            format!(
-                "{}/{}",
-                root.trim_end_matches('/'),
-                options.pkg_url_path()
-            ),
+            format!("{root}{pkg_prefix}"),
             serde_json::from_str(&file).expect("could not read manifest file"),
             wasm_split_js,
         )));
@@ -203,7 +197,6 @@ pub fn HydrationScripts(
         })
         .clone();
 
-    let pkg_path = options.pkg_url_path();
     let nonce = crate::nonce::use_nonce();
     let script = if islands {
         if let Some(sc) = Owner::current_shared_context() {
@@ -218,9 +211,6 @@ pub fn HydrationScripts(
         .then_some(include_str!("./islands_routing.js"))
         .unwrap_or_default();
 
-    let root = root.unwrap_or_default();
-    // Trim a trailing slash so the base URL joins cleanly with `pkg_path`.
-    let root = root.trim_end_matches('/');
     // `islands` already hydrates on idle, so `defer` would be a no-op there
     let defer = defer && !islands;
     // the resource hints are still useful to warm the cache before the idle
@@ -230,13 +220,13 @@ pub fn HydrationScripts(
     use_context::<IslandsRouterNavigation>().is_none().then(move || view! {
         <link
             rel="modulepreload"
-            href=format!("{root}/{pkg_path}/{js_file_name}.js")
+            href=format!("{root}{pkg_prefix}/{js_file_name}.js")
             crossorigin=nonce.clone()
             fetchpriority=priority
         />
         <link
             rel="preload"
-            href=format!("{root}/{pkg_path}/{wasm_file_name}.wasm")
+            href=format!("{root}{pkg_prefix}/{wasm_file_name}.wasm")
             r#as="fetch"
             r#type="application/wasm"
             crossorigin=nonce
@@ -262,3 +252,31 @@ pub fn HydrationScripts(
 /// included, as they only need to be sent to the client once.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IslandsRouterNavigation;
+
+#[cfg(all(test, feature = "ssr"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hydration_links_at_the_pkg_url_root() {
+        for islands in [false, true] {
+            let options = LeptosOptions::builder()
+                .output_name("app")
+                .site_pkg_url("/")
+                .build();
+            let html =
+                view! { <HydrationScripts options islands=islands/> }.to_html();
+
+            assert!(html.contains(r#"href="/app.js""#), "{html}");
+            let wasm = if option_env!("LEPTOS_OUTPUT_NAME").is_none() {
+                "app_bg"
+            } else {
+                "app"
+            };
+            assert!(
+                html.contains(&format!(r#"href="/{wasm}.wasm""#)),
+                "{html}"
+            );
+        }
+    }
+}

@@ -74,7 +74,6 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("owner-leak")
             .site_root(site_root.path().to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
             .build();
 
         let routes = generate_route_list(App);

@@ -2,7 +2,11 @@ use crate::{
     Env, LeptosOptions, ReloadWSProtocol, env_from_str, env_w_default,
     env_wo_default, ws_from_str,
 };
-use std::{net::SocketAddr, path::Ancestors, str::FromStr};
+use std::{
+    net::SocketAddr,
+    path::{Ancestors, Path},
+    str::FromStr,
+};
 
 #[test]
 fn env_from_str_test() {
@@ -81,6 +85,7 @@ fn try_from_env_test() {
             ("LEPTOS_OUTPUT_NAME", Some("app_test")),
             ("LEPTOS_SITE_ROOT", Some("my_target/site")),
             ("LEPTOS_SITE_PKG_DIR", Some("my_pkg")),
+            ("LEPTOS_SITE_PKG_ROOT", None),
             ("LEPTOS_SITE_ADDR", Some("0.0.0.0:80")),
             ("LEPTOS_RELOAD_PORT", Some("8080")),
             ("LEPTOS_RELOAD_EXTERNAL_PORT", Some("8080")),
@@ -92,7 +97,7 @@ fn try_from_env_test() {
 
     assert_eq!(config.output_name.as_ref(), "app_test");
     assert_eq!(config.site_root.as_ref(), "my_target/site");
-    assert_eq!(config.site_pkg_dir.as_ref(), "my_pkg");
+    assert_eq!(config.site_pkg_path(), Path::new("my_target/site/my_pkg"));
     assert_eq!(
         config.site_addr,
         SocketAddr::from_str("0.0.0.0:80").unwrap()
@@ -104,6 +109,7 @@ fn try_from_env_test() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn leptos_options_css_file_path() {
     fn next_file_name<'a>(a: &'a mut Ancestors) -> Option<&'a str> {
         a.next()
@@ -140,6 +146,7 @@ fn leptos_options_css_file_path() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn leptos_options_css_path() {
     let options = LeptosOptions::builder().output_name("test").build();
     assert_eq!(options.css_path(), "/pkg/test.css");
@@ -164,12 +171,17 @@ fn leptos_options_css_path() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn leptos_options_pkg_url_path() {
     let options = LeptosOptions::builder()
         .output_name("test")
         .site_pkg_dir("my/pkg")
         .build();
     assert_eq!(options.pkg_url_path(), "my/pkg");
+    assert_eq!(
+        options.site_pkg_dir_route_base(),
+        options.site_pkg_route_base()
+    );
 
     let options = LeptosOptions::builder()
         .output_name("test")
@@ -178,4 +190,53 @@ fn leptos_options_pkg_url_path() {
         .build();
     assert_eq!(options.pkg_url_path(), "assets");
     assert_eq!(options.css_path(), "/assets/test.css");
+}
+
+#[test]
+fn site_pkg_root_is_relative_to_the_working_directory() {
+    let options = LeptosOptions::builder()
+        .output_name("test")
+        .site_root("site")
+        .site_pkg_root("build/assets")
+        .build();
+
+    assert_eq!(options.site_pkg_path(), Path::new("build/assets"));
+    assert_eq!(options.css_file_path(), Path::new("build/assets/test.css"));
+    assert_eq!(options.site_pkg_route_base(), "/pkg/");
+}
+
+#[test]
+#[allow(deprecated)]
+fn pkg_dir_warning_is_only_for_nondefault_legacy_values() {
+    let mut options = LeptosOptions::builder().output_name("test").build();
+    options.warn_on_site_pkg_dir(|warning| panic!("{warning}"));
+
+    options.site_pkg_dir = Some("pkg".into());
+    options.warn_on_site_pkg_dir(|warning| panic!("{warning}"));
+
+    options.site_pkg_dir = Some("custom".into());
+    let mut warnings = Vec::new();
+    options.warn_on_site_pkg_dir(|warning| warnings.push(warning.to_owned()));
+    assert_eq!(warnings.len(), 1);
+    for key in ["LEPTOS_SITE_PKG_DIR", "site-pkg-root", "site-pkg-url"] {
+        assert!(warnings[0].contains(key));
+    }
+}
+
+#[test]
+#[allow(deprecated)]
+fn site_pkg_url_defaults_to_the_current_site_root_url_and_pkg_name() {
+    let mut options = LeptosOptions::builder().output_name("test").build();
+    assert_eq!(options.site_root_route_base(), "/");
+
+    options.site_root_url = "/static///".into();
+    assert_eq!(options.site_root_route_base(), "/static/");
+    assert_eq!(options.site_pkg_route_base(), "/static/pkg/");
+    assert_eq!(options.css_path(), "/static/pkg/test.css");
+
+    options.site_pkg_dir = Some("/legacy/pkg/".into());
+    assert_eq!(options.site_pkg_route_base(), "/static/legacy/pkg/");
+
+    options.site_pkg_url = Some("/".into());
+    assert_eq!(options.site_pkg_route_base(), "/");
 }

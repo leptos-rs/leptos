@@ -64,7 +64,6 @@ mod tests {
         let options = LeptosOptions::builder()
             .output_name("streaming-redirect")
             .site_root(std::env::temp_dir().to_string_lossy().to_string())
-            .site_pkg_dir("pkg")
             .build();
         let routes = generate_route_list(RedirectApp);
         Router::new()

@@ -91,7 +91,6 @@ async fn static_regeneration_has_one_loop_per_cached_path() {
     let options = LeptosOptions::builder()
         .output_name("static-regeneration-loops")
         .site_root(site_root.to_string_lossy().to_string())
-        .site_pkg_dir("pkg")
         .build();
     // Leave the file missing so the first requests exercise on-demand builds.
     let (routes, _generator) = generate_route_list_with_ssg(App);

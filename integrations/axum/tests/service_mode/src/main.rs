@@ -57,17 +57,26 @@ mod router {
     struct SiteRoot;
 
     #[derive(Clone, Copy, Embed)]
-    #[folder = "$LEPTOS_SITE_ROOT/$LEPTOS_SITE_PKG_DIR"]
-    // `RustEmbed` does not currently interpolate other values, only on `folder`.
-    // FIXME When `RustEmbed` does support this, or this is supported through `leptos_macro`.
-    // #[prefix = "/$LEPTOS_SITE_PKG_DIR/"]
-    #[prefix = "/pkg/"]
+    #[folder = "$LEPTOS_SITE_ROOT/pkg"]
+    #[prefix = "/"]
     struct SitePkg;
 
     impl From<Cli> for Router {
         fn from(cli: Cli) -> Self {
             let conf = get_configuration(None).unwrap();
-            let leptos_options = conf.leptos_options;
+            let mut leptos_options = conf.leptos_options;
+            match cli.mode {
+                Mode::ConfNewFsSiteRootAssets
+                | Mode::ConfEmbedWithSiteRootAssets => {
+                    leptos_options.site_root_url = "/assets".into();
+                }
+                Mode::ConfEmbedWithSiteRootAtRoot
+                | Mode::ConfDefaultEmbedLeptosSiteRoot
+                | Mode::ConfDefaultEmbedMixedFs => {
+                    leptos_options.site_root_url = "/".into();
+                }
+                _ => {}
+            }
             let routes = generate_route_list(App);
 
             match cli.mode {
@@ -134,22 +143,29 @@ mod router {
                             )),
                     )
                     .with_state(leptos_options),
-                Mode::RouteSitePkgNoFallback => Router::new()
-                    .leptos_routes(&leptos_options, routes, {
-                        let leptos_options = leptos_options.clone();
-                        move || shell(leptos_options.clone())
-                    })
-                    .route_service(
-                        &leptos_axum::serve_site_root_service_route_path(
-                            &leptos_options,
-                        ),
-                        leptos_axum::serve_site_root_service(&leptos_options),
-                    )
-                    .fallback_service(ErrorHandler::new(
-                        shell,
-                        leptos_options.clone(),
-                    ))
-                    .with_state(leptos_options),
+                Mode::RouteSitePkgNoFallback => {
+                    let app = Router::new()
+                        .leptos_routes(&leptos_options, routes, {
+                            let leptos_options = leptos_options.clone();
+                            move || shell(leptos_options.clone())
+                        })
+                        .fallback_service(ErrorHandler::new(
+                            shell,
+                            leptos_options.clone(),
+                        ));
+                    let base = leptos_options.site_pkg_route_base();
+                    let service =
+                        leptos_axum::serve_site_pkg_service(&leptos_options);
+                    let app = if base == "/" {
+                        app.route_service("/{*path}", service)
+                    } else {
+                        app.nest(
+                            base.trim_end_matches('/'),
+                            Router::new().route_service("/{*path}", service),
+                        )
+                    };
+                    app.with_state(leptos_options)
+                }
                 Mode::RouteSitePkgDirMethod => Router::new()
                     .leptos_routes(&leptos_options, routes, {
                         let leptos_options = leptos_options.clone();
@@ -259,7 +275,7 @@ mod router {
                         leptos_axum::RouterConfiguration::new()
                             .app(App)
                             .shell(shell)
-                            .enable_fs_leptos_site_root("/assets")
+                            .enable_fs_leptos_site_root()
                             .state(leptos_options.clone()),
                     ),
                 Mode::ConfNewWithAssetsWithContext => Router::new()
@@ -304,14 +320,14 @@ mod router {
                     leptos_axum::RouterConfiguration::embed(SiteRoot)
                         .app(App)
                         .shell(shell)
-                        .set_embed_leptos_site_root_path("/")
+                        .enable_embed_leptos_site_root(SiteRoot)
                         .state(leptos_options.clone()),
                 ),
                 Mode::ConfEmbedWithSiteRootAssets => Router::new().leptos_route_configure(
                     leptos_axum::RouterConfiguration::embed(SiteRoot)
                         .app(App)
                         .shell(shell)
-                        .set_embed_leptos_site_root_path("/assets")
+                        .enable_embed_leptos_site_root(SiteRoot)
                         .state(leptos_options.clone()),
                 ),
                 Mode::ConfDefaultEmbedSitePkg => Router::new()
@@ -320,7 +336,7 @@ mod router {
                             .app(App)
                             .shell(shell)
                             .state(leptos_options.clone())
-                            .enable_embed_site_pkg(SiteRoot),
+                            .enable_embed_site_pkg(SitePkg),
                     ),
                 Mode::ConfDefaultEmbedLeptosSiteRoot => Router::new()
                     .leptos_route_configure(
@@ -328,7 +344,7 @@ mod router {
                             .app(App)
                             .shell(shell)
                             .state(leptos_options.clone())
-                            .enable_embed_leptos_site_root("/", SiteRoot),
+                            .enable_embed_leptos_site_root(SiteRoot),
                     ),
                 Mode::ConfDefaultEmbedMixedFs => Router::new()
                     .leptos_route_configure(
@@ -337,7 +353,7 @@ mod router {
                             .shell(shell)
                             .state(leptos_options.clone())
                             .enable_embed_site_pkg(SitePkg)
-                            .enable_fs_leptos_site_root("/"),
+                            .enable_fs_leptos_site_root(),
                     ),
 
                 Mode::LeptosOptionsCssBase => Router::new().nest(

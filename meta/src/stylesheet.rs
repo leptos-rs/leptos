@@ -43,6 +43,7 @@ pub fn Stylesheet(
 /// This should only be used in the application’s server-side `shell` function, as
 /// [`LeptosOptions`] is not available in the browser. Unlike other `leptos_meta` components, it
 /// will render the `<link>` it creates exactly where it is called.
+/// The stylesheet URL uses the site pkg mount.
 #[component]
 pub fn HashedStylesheet(
     /// Leptos options
@@ -77,12 +78,12 @@ pub fn HashedStylesheet(
         }
     }
     css_file_name.push_str(".css");
-    let pkg_path = options.pkg_url_path();
+    let pkg_route_base = options.site_pkg_route_base();
     let root = root.unwrap_or_default();
     let root = root.trim_end_matches('/');
 
     link()
         .id(id)
         .rel("stylesheet")
-        .href(format!("{root}/{pkg_path}/{css_file_name}"))
+        .href(format!("{root}{pkg_route_base}{css_file_name}"))
 }
